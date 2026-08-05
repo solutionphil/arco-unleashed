@@ -93,6 +93,14 @@ if [ -d "$KAOS_DIR" ] && [ -f "$PCFG" ]; then
   echo "---------------------------"
   if ! grep -qE '^[[:space:]]*\[include kaos-trust-wiring\.cfg\]' "$PCFG"; then
     echo "  n/a      trust wiring is not included (KAOS off) — no post-home hook expected"
+  elif grep -qF 'unleashed-x-kaos: homing_override replaced with KAOS' "$PCFG"; then
+    # There are two ways a home can reach KAOS, and only one of them is the hook. When the bridge
+    # has installed KAOS's own homing_override, that section grants trust itself -- per axis, at the
+    # moment each is earned -- and the hook is deliberately absent, because it would grant full XYZ
+    # after a home of X alone. Reporting that as MISSING is a false alarm, and a false alarm here
+    # teaches people to stop reading this output.
+    echo "  ok       KAOS's own [homing_override] is installed — it grants trust per axis"
+    echo "           (trust does NOT survive a klipper restart: home again after every one)"
   elif grep -qE '^[[:space:]]*_ARCO_POST_HOME_HOOK[[:space:]]*$' "$PCFG"; then
     echo "  ok       post-home hook is in [homing_override] — a home can grant trust"
     echo "           (trust does NOT survive a klipper restart: home again after every one)"
