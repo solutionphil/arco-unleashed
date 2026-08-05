@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#132a4c"/>
+      <stop offset="55%" stop-color="#0d1a38"/>
+      <stop offset="100%" stop-color="#08121f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="80%" cy="12%" r="75%">
+      <stop offset="0%" stop-color="#2e74f2" stop-opacity="0.40"/>
+      <stop offset="40%" stop-color="#1b3f86" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#0d1a38" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="8%" cy="96%" r="60%">
+      <stop offset="0%" stop-color="#1b49a8" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#0d1a38" stop-opacity="0"/>
+    </radialGradient>
+    <!-- comic halftone dots, denser/brighter toward the top-right glow -->
+    <radialGradient id="dotFade" cx="80%" cy="12%" r="78%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="halftone" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="6" r="2.4" fill="#4d8bff"/>
+    </pattern>
+    <mask id="dotMask"><rect width="1920" height="1080" fill="url(#dotFade)"/></mask>
+  </defs>
+
+  <!-- base -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- halftone burst (masked so it fades out of the work area) -->
+  <g opacity="0.5" mask="url(#dotMask)">
+    <rect width="1920" height="1080" fill="url(#halftone)"/>
+  </g>
+
+  <!-- soft brand glows -->
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <rect width="1920" height="1080" fill="url(#glow2)"/>
+
+  <!-- subtle comic speed streaks toward the corner -->
+  <g stroke="#5b97ff" stroke-opacity="0.06" stroke-width="2" stroke-linecap="round">
+    <line x1="1280" y1="-40" x2="1980" y2="360"/>
+    <line x1="1420" y1="-60" x2="2040" y2="240"/>
+    <line x1="1140" y1="-30" x2="1900" y2="470"/>
+    <line x1="1560" y1="-50" x2="2080" y2="150"/>
+  </g>
+
+  <!-- faint vignette to keep panels readable -->
+  <radialGradient id="vig" cx="50%" cy="50%" r="75%">
+    <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#000000" stop-opacity="0.45"/>
+  </radialGradient>
+  <rect width="1920" height="1080" fill="url(#vig)"/>
+</svg>

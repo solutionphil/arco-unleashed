@@ -1,0 +1,5 @@
+# Linux scripts — force LF (also the extensionless initramfs flasher)
+*.sh              text eol=lf
+*.hook            text eol=lf
+arco-emmc-flash   text eol=lf
+*.md              text eol=lf

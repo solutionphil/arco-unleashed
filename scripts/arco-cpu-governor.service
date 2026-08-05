@@ -1,0 +1,17 @@
+[Unit]
+Description=Arco Unleashed - pin CPU governor to performance (Klipper 40k-accel headroom, no DVFS ramp-lag)
+# armbian-mkspi defaults to 'ondemand'/schedutil, which only ramp the clock up AFTER a load burst begins.
+# At max_accel=40000 the Klipper host must feed the F407 step queue within a sub-millisecond window right
+# at a move start; the DVFS ramp-lag in that first window starves the queue -> MCU "Timer too close".
+# 'performance' pins all 4 cores to max (1296 MHz) so there is zero ramp delay at a burst start.
+# Verified thermally safe: the RK3328 idles ~51 C under this, far below the 70/85/95 C trip points (no
+# throttling). This is the single most important lever for a clean Auto-Cal / high-accel print at 40k.
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "$g"; done'
+
+[Install]
+WantedBy=multi-user.target

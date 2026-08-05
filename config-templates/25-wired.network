@@ -1,0 +1,42 @@
+# Arco Unleashed: any wired / USB-Ethernet interface gets DHCP.
+#
+# THE CANONICAL COPY. Installed from here by scripts/optimize-boot.sh (already-flashed printers)
+# and by the image build. It used to be a heredoc in three separate scripts, which is the exact
+# drift this project keeps paying for.
+#
+# Why it exists at all: systemd-networkd only configures interfaces it has a .network for, and for a
+# long time the image shipped just 20-wlan.network (Name=wlan0), while NetworkManager -- which used
+# to bring up a wired NIC by itself -- is deliberately disabled so wlan0 has a single owner. A USB
+# Ethernet adapter therefore enumerated, got an interface, and never got an address. Reported as
+# "the dongle is no longer recognised"; it was recognised the whole time, nothing was going to
+# address it.
+#
+# Broad match on purpose: a USB NIC's name depends on udev's naming policy and on the adapter's own
+# MAC, so it can be end0, eth0 or enx<mac>. Pinning one name fixes exactly one dongle.
+
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[Link]
+# The Arco board has NO wired port -- but the RK3328 SoC has a GMAC and the klipad50 device tree
+# enables it, so a phantom `end1` exists on every machine with a driver, a MAC and no PHY. Claiming
+# it (which the Match above does, correctly, because a real dongle must also be claimed) makes it a
+# managed link, and a managed link is Required-For-Online by default. networkd-wait-online then
+# blocks on a link that can never gain carrier.
+#
+# Today that is harmless because wait-online ships disabled -- verified on hardware 2026-07-27:
+# `systemctl is-enabled systemd-networkd-wait-online` = disabled, boot 20.9 s. But crowsnest and
+# nginx are both ordered after network-online.target, so anything that ever enables that unit would
+# delay the webcam and the web UI by the full timeout on every boot without a cable, which is most
+# boots. Not a defect worth leaving armed for a line of config.
+#
+# Correct for a real dongle too: whether the machine is online should be decided by an interface
+# that actually has connectivity, not by a port that may or may not have a cable in it.
+RequiredForOnline=no
+
+[DHCPv4]
+# Below wlan0's default (1024) so a cable wins over WiFi when both are up.
+RouteMetric=100

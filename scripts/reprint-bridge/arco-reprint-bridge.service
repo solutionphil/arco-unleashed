@@ -1,0 +1,21 @@
+[Unit]
+# Arco Unleashed - TFT History reprint bridge.
+# voronFDM's history-reprint branch validates the file and homes, but never sends
+# printer.print.start, so the printer homes and stops. voronFDM does not put the
+# chosen filename on the moonraker websocket, but it prints it to its own stdout
+# ("check_file:<path>"), which KlipperScreen-start.sh redirects to the capture log.
+# This service tails that log and injects the print.start voronFDM omitted.
+Description=Arco Unleashed - TFT reprint bridge (inject print.start from voronFDM stdout)
+After=moonraker.service
+Wants=moonraker.service
+
+[Service]
+Type=simple
+User=mks
+Environment=ARCO_VFDM_LOG=/home/mks/vfdm-capture.log
+ExecStart=/home/mks/moonraker-env/bin/python -u /home/mks/wsrelay/arco-reprint-bridge.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

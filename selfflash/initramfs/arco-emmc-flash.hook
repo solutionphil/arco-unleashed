@@ -1,0 +1,72 @@
+#!/bin/sh
+# initramfs-tools HOOK — runs at `update-initramfs` time. Embeds the flash params + guarantees the
+# tools/modules the flasher needs are inside the initramfs.
+PREREQ=""
+prereqs(){ echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0;; esac
+. /usr/share/initramfs-tools/hook-functions
+
+# The stock Arco initramfs is klibc-based (no busybox): it HAS sh/mount/sync/reboot/gzip/blkid/dd but
+# LACKS sha256sum, and its klibc dd may not parse 'bs=4M'. Copy the full coreutils/util-linux versions
+# so the flasher's sha256 verify + dd bs=4M + gzip -dc all work regardless of what the initramfs ships.
+# head is LOAD-BEARING, not convenience: the post-write verify bounds the gzip pipe with `head -c`,
+# because klibc dd does not implement iflag=fullblock and a pipe short-reads without it. Without head
+# the flasher cannot verify at all and says so on the display.
+# + stty for the TFT progress screen. cut/tr let the diagnostic log lines render (klibc lacks them);
+# the flasher's *critical* paths use pure-shell fallbacks, so these are convenience, not load-bearing.
+# wc: the backup logs the finished file's size with `wc -c`, and klibc has no wc -- so the first real
+# run logged "arco-emmc-backup.img.gz =  bytes", losing the one number that says how big the backup
+# actually came out. Cosmetic, but that log line is what gets pasted back when something goes wrong.
+# rm: klibc has NO rm -- it ships 'nuke'. Every `rm -f` in the premount script was therefore a silent
+# no-op on hardware while passing every offline test, and three cleanups quietly never happened: the
+# write-probe was left on the stick, the one-shot arming marker was never consumed, and the partial file
+# from a FAILED backup was never deleted. The script also has a del() wrapper that falls back to nuke,
+# but copying the real thing is what makes the ordinary path work.
+# dd needs a SECOND name, and this is not belt-and-braces -- it is the only way it arrives at all.
+# klibc installs its own dd at /usr/bin/dd, the very path copy_exec would write coreutils' to, so the
+# copy has always been a no-op and the initramfs has only ever had klibc's. Proven by extracting it from
+# a built initramfs: 66720 bytes, klibc-utils symbols, and it answers `bad conversion 'sparse'`.
+# That is why the sparse restore reported "no dd here accepts conv=sparse" on a printer whose system dd
+# accepts it perfectly well -- the two are different binaries at the same path.
+copy_exec /usr/bin/dd /usr/bin/dd.coreutils >/dev/null 2>&1 || true
+# Same trap, same reason, found on a stock Arco after reverting one: klibc owns /usr/bin/gzip and its
+# build cannot compress at all ("this version does not support compression"). copy_exec gzip therefore
+# changed nothing, and --backup had no compressor -- on the very system the manual tells people to
+# image before migrating. Copied under its own name so the flasher can pick the one that works.
+for _g in /bin/gzip /usr/bin/gzip; do
+  [ -x "$_g" ] && copy_exec "$_g" /usr/bin/gzip.real >/dev/null 2>&1 && break
+done
+
+for t in dd sha256sum blkid gzip stty cut tr head wc rm tail; do
+  b="$(command -v "$t" 2>/dev/null)"; [ -n "$b" ] && copy_exec "$b" >/dev/null 2>&1 || true
+done
+# printf is a SHELL BUILTIN in this hook's shell, so `command -v printf` returns the word "printf"
+# (not a path) and copy_exec silently fails -> printf was missing from the initramfs and the TFT screen
+# never drew. Copy the real binary explicitly so the "DO NOT POWER OFF" progress screen works.
+[ -x /usr/bin/printf ] && copy_exec /usr/bin/printf >/dev/null 2>&1 || true
+
+# storage + USB so the eMMC target and the USB source both enumerate in the initramfs
+force_load mmc_block   2>/dev/null || true
+force_load mmc_core    2>/dev/null || true
+manual_add_modules 8250_dw 2>/dev/null || true   # rockchip UART (ttyS1 display) if modular; no-op if built-in
+# cpufreq, so the premount script can clock the CPU up before gzip/sha256 chew through gigabytes.
+# Built-in on most rockchip64 builds, in which case these are no-ops; when it is modular this is what
+# makes the difference between a fast backup and a very slow one. The script copes either way and says
+# in its log which case it got.
+manual_add_modules cpufreq_dt cpufreq-dt rockchip_cpufreq 2>/dev/null || true
+force_load usb_storage 2>/dev/null || true
+manual_add_modules sd_mod 2>/dev/null || true
+manual_add_modules vfat   2>/dev/null || true   # FAT32 USB stick
+manual_add_modules nls_cp437 nls_iso8859-1 2>/dev/null || true
+
+# embed the armed flash parameters (so the flasher reads them from RAM, never from the eMMC being wiped)
+if [ -f /etc/arco-selfflash/flash.conf ]; then
+  mkdir -p "$DESTDIR/conf"
+  cp /etc/arco-selfflash/flash.conf "$DESTDIR/conf/arco-flash.conf"
+fi
+# ...and the backup params, which are a SEPARATE file on purpose: the premount script decides what to do
+# by which file exists, so a backup can never be misread as a flash (see the comment at its top).
+if [ -f /etc/arco-selfflash/backup.conf ]; then
+  mkdir -p "$DESTDIR/conf"
+  cp /etc/arco-selfflash/backup.conf "$DESTDIR/conf/arco-backup.conf"
+fi

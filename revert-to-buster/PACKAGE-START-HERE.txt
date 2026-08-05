@@ -1,0 +1,152 @@
+======================================================================
+ Arco — Revert to Buster (from a running Unleashed printer)
+======================================================================
+
+This package turns a running Arco Unleashed (Bookworm / Klipper v0.13) back
+into stock-style Buster (Klipper v0.11): it reflashes both MCUs to v0.11 and
+writes YOUR Buster image onto the eMMC.
+
+Everything here is self-contained. Nothing proprietary is included — you supply
+your own Buster image.
+
+
+!!! YOUR RISK, AND PROBABLY YOUR WARRANTY !!!
+  Reflashing the MCUs and overwriting the eMMC is done ENTIRELY AT YOUR OWN RISK.
+  There is no guarantee of any kind, and nobody here is liable for a printer that
+  ends up damaged or unbootable.
+  Replacing the factory OS/firmware — which you already did to get to Unleashed —
+  very likely VOIDED your Phrozen warranty, and going back this way does not undo
+  that. This writes YOUR OWN image, so the result is stock-STYLE Buster, not a
+  factory state.
+
+  Arco Unleashed is an independent, community-made project. It is NOT developed,
+  supported, endorsed by, or affiliated with Phrozen Tech Co., Ltd. This is not an
+  official Phrozen procedure, and Phrozen cannot be asked to support it. "Phrozen"
+  and "Arco" are trademarks of their owners, used here only to say which machine
+  this fits.
+
+
+WHAT YOU NEED
+  - YOUR OWN buster.img : a 1:1 full-disk dump of a WORKING Buster eMMC of the
+    SAME size (e.g. dd if=/dev/mmcblk1 of=buster.img bs=4M). It must be <= your
+    printer's eMMC. A same-size full dump needs no resize.
+  - A Windows PC (to package the image).
+  - A FAT32 USB stick, >= 8 GB.
+  - SSH access to your running Unleashed printer (user mks).
+
+WHAT'S IN THIS PACKAGE
+  revert-to-buster\         MCU firmware (F407+F103 v0.11) + the MCU flasher
+  selfflash\                the eMMC image writer (install-unleashed.sh + initramfs)
+  START-HERE.txt / .pdf     this guide
+
+
+!!! BACK UP FIRST !!!
+  Once the image write (dd) starts, the old system on the eMMC is gone. Make a
+  backup of anything you want to keep (printer_data/config, etc.) BEFORE you start.
+
+
+----------------------------------------------------------------------
+ PHASE A  —  package your image (on Windows, in PowerShell)
+----------------------------------------------------------------------
+  Open PowerShell and run these commands (edit the two paths first). No extra
+  tools needed. IMPORTANT: the .sha256 must be a lowercase hash with a LF line
+  ending -- that's why WriteAllText/ASCII is used. Do NOT use Out-File or
+  Set-Content for it; they write CRLF and break the check on the printer.
+
+    # --- edit these two paths ---
+    $src = "D:\path\to\buster.img"
+    $gz  = "D:\stick\arco-buster.img.gz"
+
+    # 1) gzip-compress (streamed; shows no progress, ~15-40 min for a 7 GB image)
+    $in=[IO.File]::OpenRead($src); $out=[IO.File]::Create($gz)
+    $g=New-Object IO.Compression.GZipStream($out,[IO.Compression.CompressionLevel]::Optimal)
+    $in.CopyTo($g,16MB); $g.Dispose(); $out.Dispose(); $in.Dispose()
+
+    # 2) rawsize sidecar (uncompressed byte count)
+    [IO.File]::WriteAllText("$gz.rawsize","$((Get-Item $src).Length)",[Text.Encoding]::ASCII)
+
+    # 3) sha256 sidecar (lowercase hash + LF -- NOT Out-File/Set-Content)
+    $h=(Get-FileHash $gz -Algorithm SHA256).Hash.ToLower()
+    [IO.File]::WriteAllText("$gz.sha256","$h  $(Split-Path $gz -Leaf)`n",[Text.Encoding]::ASCII)
+
+  Result, three files next to each other:
+      arco-buster.img.gz
+      arco-buster.img.gz.sha256
+      arco-buster.img.gz.rawsize
+
+
+----------------------------------------------------------------------
+ PREP THE STICK
+----------------------------------------------------------------------
+  Copy onto the FAT32 stick's ROOT:
+    - the CONTENTS of this package (revert-to-buster\, selfflash\)
+    - the three files from Phase A (arco-buster.img.gz + .sha256 + .rawsize)
+
+  Plug the stick into the RUNNING Unleashed printer. SSH in as mks. On Unleashed the
+  stick auto-mounts at the fixed path used in every command below -- confirm your
+  files are there:
+      ls /home/mks/printer_data/gcodes/USB
+      # must show: arco-buster.img.gz  revert-to-buster/  selfflash/
+  (If that directory is empty, the stick did not mount there -- run 'lsblk' and use
+   the vfat mountpoint it shows instead.)
+
+
+----------------------------------------------------------------------
+ PHASE B  —  on the running Unleashed printer (SSH)
+----------------------------------------------------------------------
+
+ STEP 1 — reflash both MCUs to v0.11 (button-free):
+      bash /home/mks/printer_data/gcodes/USB/revert-to-buster/flash-buster-mcus.sh all
+   - Flashes F103 (Katapult) and F407 (USB-DFU). POWER-CYCLE when it says so.
+   - Klipper will NOT reconnect on Unleashed afterwards (v0.13 host + v0.11 MCUs)
+     = EXPECTED. Ignore it and continue.
+
+ STEP 1b — VERIFY both MCUs are really v0.11 BEFORE writing the image:
+      curl -s http://localhost:7125/printer/info | grep -o "Current version[^\"]*"
+   - You want BOTH the mainboard (mcu / stm32f407) AND the toolhead (MKS_THR /
+     stm32f103) to show v0.11. If the F407 still shows v0.13, re-run:
+         bash /home/mks/printer_data/gcodes/USB/revert-to-buster/flash-buster-mcus.sh f407
+     and power-cycle, until BOTH are v0.11. (Skipping this check is the #1 way to
+     end up on Buster with a mismatched F407.)
+
+ STEP 2 — write your Buster image onto the eMMC:
+      sudo bash /home/mks/printer_data/gcodes/USB/selfflash/install-unleashed.sh --arm \
+           --image /home/mks/printer_data/gcodes/USB/arco-buster.img.gz
+   - It verifies the image (sha256), detects the internal eMMC, arms, reboots, and
+     the initramfs writes it (gzip -dc | dd, whole-disk).
+   - KEEP THE STICK PLUGGED IN until the write is fully done.
+   - WiFi / consent prompts: just confirm them; they are for an Unleashed first boot
+     and are irrelevant to Buster.
+
+ EMERGENCY EXIT (only until dd actually starts writing):
+   pull the stick + power off/on -> the flasher steps back and the old Unleashed
+   boots unchanged. Once dd is writing, there is no going back.
+
+
+----------------------------------------------------------------------
+ PHASE C  —  first boot on Buster
+----------------------------------------------------------------------
+  Buster boots with your v0.11 MCUs. Check it prints/homes normally.
+
+  IF you see an MCU error like  "mcu 'mcu': Multi-byte msgtag not supported"
+  -> the F407 is still on v0.13 (Step 1 didn't take on the mainboard). Fix it right
+     here on Buster (button-free; Buster has flash_usb.py + dfu-util). The stick mounts
+     at the same path on Buster, so run it directly:
+        bash /home/mks/printer_data/gcodes/USB/revert-to-buster/flash-buster-mcus.sh f407
+     (it stops Klipper first so the port is free), then POWER-CYCLE.
+     After that: host v0.11 + F407 v0.11 + F103 v0.11 -> Klipper connects.
+
+
+----------------------------------------------------------------------
+ GOING BACK TO UNLEASHED (reversible)
+----------------------------------------------------------------------
+  Re-install the Unleashed image with selfflash (its own image + install-unleashed.sh),
+  then on the booted Unleashed run:  bash ~/arco-unleashed/scripts/flash_mcus.sh
+  (MCUs -> v0.13), and restore your backup.
+
+
+NOTES
+  - F103 uses serial baud 250000 (the stock Buster default). If the toolhead does not
+    connect on Buster, check the [mcu ...] baud in your Buster printer.cfg.
+  - The MCU firmware is Klipper (GPL-3.0), built from Phrozen's Klipper fork
+    (github.com/phrozen3d/klipper, v0.11.0-122). No proprietary software is included.

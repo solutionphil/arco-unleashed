@@ -1,0 +1,366 @@
+#!/bin/bash
+# optimize-boot.sh — run as root (called via sudo from the System-prep step).
+#
+# KIAUH installs klipper.service + moonraker.service tied to network-online.target
+# (klipper: After=; moonraker: Requires= AND After=). Neither needs the network to run:
+# Klipper only talks to the local MCUs, and Moonraker + voronFDM/KlipperScreen talk over
+# localhost (127.0.0.1:7125). On this board network-online (WiFi DHCP) isn't reached until
+# ~13s into boot, so the After= held both services back (~1s, as much boot time as is safely
+# recoverable — the rest is the inherent MCU connect).
+#
+# We comment out EVERY network-online dependency line (After/Requires/Wants):
+#   - After=    -> the ~1s boot win (no waiting for WiFi)
+#   - Requires= -> robustness: without it, Moonraker survives a network-less boot instead of
+#                  being stopped if network-online ever fails (e.g. WiFi down) — the display
+#                  keeps working over localhost.
+#
+# NOTE: a systemd drop-in with an empty "After=" does NOT reset the list on this systemd
+# version — the line has to be edited in the unit file itself. A Klipper/Moonraker reinstall
+# via KIAUH would re-add it; just re-run this (or the whole System-prep) afterwards. Idempotent.
+set -uo pipefail
+SD=/etc/systemd/system
+changed=0
+for unit in klipper.service moonraker.service; do
+  f="$SD/$unit"
+  [ -f "$f" ] || { echo "  $unit: not found (skipped)"; continue; }
+  n=$(grep -cE '^(After|Requires|Wants)=network-online\.target[[:space:]]*$' "$f" 2>/dev/null || true)
+  if [ "${n:-0}" -gt 0 ]; then
+    sed -i -E 's@^(After|Requires|Wants)=network-online\.target[[:space:]]*$@#&  # arco: local MCUs / localhost, no WiFi wait@' "$f"
+    echo "  $unit: commented $n network-online dependency line(s)"
+    changed=1
+  elif grep -qE '^#(After|Requires|Wants)=network-online' "$f"; then
+    echo "  $unit: already done"
+  else
+    echo "  $unit: no network-online dependency (nothing to do)"
+  fi
+done
+[ "$changed" = 1 ] && { systemctl daemon-reload; echo "  daemon-reload"; }
+
+# klippy scheduling priority: Nice=-19 so the host scheduler favours Klipper under a sudden load burst
+# (helps avoid "MCU: Timer too close"). A drop-in survives a KIAUH reinstall of the unit body. Idempotent.
+if [ -f "$SD/klipper.service" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/arco-nice.conf" <<'EOF'
+[Service]
+Nice=-19
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: Nice=-19 drop-in installed"
+fi
+
+# phrozen_dev survival guard: keeps a copy of the module outside the Klipper tree and restores it if a
+# Klipper update deleted it. Moonraker's "hard recover" is `git reset --hard` + `git clean`, which wipes
+# every untracked file in klippy/ — phrozen_dev with it — and printer.cfg declares [phrozen_dev], so the
+# printer halts with no display and no AMS. Numbered 13 so it runs BEFORE every other guard: the module
+# has to be back on disk before the core-restore and the API patches can do anything with it.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/13-arco-phrozen-restore.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 60 $SELFDIR/apply-phrozen-restore.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: phrozen_dev survival guard (ExecStartPre) installed"
+fi
+
+# Klipper-core clobber guard: voronFDM copies v0.11 mcu.py/serialhdl.py/virtual_sdcard.py over this v0.13
+# core on its first start and halts Klipper ("SerialReader ... 'warn_prefix'"). fetch-phrozen-fw.sh
+# neutralizes the source when Phrozen is installed via OUR menu, but a recipient who runs Phrozen's own
+# installer gets clobbered unprotected (a tester hit this 2026-07-17). This heals it before EVERY start.
+# MUST come before 15-arco-mcu-timing: it restores mcu.py to pristine v0.13, then the timing patch goes on
+# top. Check-first (one grep for 'warn_prefix'); a no-op in ms unless actually clobbered.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/14-arco-core-restore.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-core-restore.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: v0.13 core-restore guard (ExecStartPre) installed"
+fi
+
+# MCU host timing: RETIRED as a file patch. It used to sed three values into klippy/mcu.py before every
+# klipper start, which worked -- but mcu.py is TRACKED by Klipper, so the repo was permanently dirty and
+# Moonraker refuses to update a dirty repo ("Update aborted, repo has been modified"). The printer could
+# therefore never take a Klipper update at all. The same values now come from the untracked extra
+# klippy/extras/arco_mcu_timing.py (installed by apply-arco-extras.sh, enabled via [arco_mcu_timing]),
+# which leaves Klipper's tree pristine.
+#
+# Migration for printers built before this: drop the old ExecStartPre and put mcu.py back the way Klipper
+# shipped it -- otherwise the guard keeps re-dirtying the repo on every start and nothing is gained.
+# Only touched when the file really is our patched version, so a Klipper that legitimately changed those
+# lines is never clobbered.
+# The nice drop-in used to be called 10-arco-nice.conf. Both names set the same thing, so a printer that
+# has seen both just carries a harmless duplicate — but "harmless duplicate" is how a config becomes
+# unreadable. Drop the old name once the current one exists.
+[ -f "$SD/klipper.service.d/arco-nice.conf" ] && rm -f "$SD/klipper.service.d/10-arco-nice.conf"
+
+if [ -f "$SD/klipper.service.d/15-arco-mcu-timing.conf" ]; then
+  rm -f "$SD/klipper.service.d/15-arco-mcu-timing.conf"
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: removed the old mcu.py timing ExecStartPre (superseded by [arco_mcu_timing])"
+fi
+_MCU="$HOME/klipper/klippy/mcu.py"
+if [ -f "$_MCU" ] && grep -q '^    TIMEOUT_TIME = 10.0$' "$_MCU" 2>/dev/null; then
+  if git -C "$HOME/klipper" checkout HEAD -- klippy/mcu.py 2>/dev/null; then
+    echo "  klipper: mcu.py restored to pristine — repo is clean again, updates are possible"
+  else
+    echo "  klipper: WARN could not restore mcu.py; repo stays dirty and Klipper updates stay blocked"
+  fi
+fi
+
+# Arco first-party Klipper extras (arco_tool_gate.py etc.): install-if-missing before EVERY klipper
+# start. These are NEW untracked modules -> a normal Klipper update (git pull / reset --hard) leaves
+# them alone, so this is only a self-heal for a full re-clone / fresh install / git clean. It also
+# guarantees the module is on disk BEFORE klippy parses its [arco_tool_gate] config section (which
+# would otherwise error "unable to load module"). '-' = non-fatal; runs once per start then exits.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/16-arco-extras.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-arco-extras.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: arco extras install-if-missing (ExecStartPre) installed"
+fi
+
+# printer_gcode_macro.cfg config-patch self-heal: re-assert the SHAPER_END/BED_PROBE_END cal handshakes
+# + the v0.13 g_accel_to_decel fix before EVERY klipper start. That file is Phrozen's, so a Phrozen
+# firmware update / OTA reverts our edits (like a Klipper update reverts mcu.py) -> this heals them
+# automatically on the next start (klippy then reads the re-patched config). No-op (grep-gated) when
+# already current, or when phrozen_dev isn't installed yet. '-' = non-fatal; runs once per start.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/17-arco-config-patches.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-config-patches.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: printer_gcode_macro.cfg config-patch guard (ExecStartPre) installed"
+fi
+
+# phrozen_dev v0.13 API-patch self-heal: re-assert the 3 base.py/cmds.py fixes before EVERY klipper start.
+# A Phrozen firmware update clobbers phrozen_dev (restoring its v0.11-era API), which would halt klippy on
+# load; this re-patches it FIRST (ExecStartPre runs before ExecStart) so it self-heals. Idempotent +
+# check-first (backs up only on real drift, no per-boot .bak spam), no-op when already patched or
+# phrozen_dev absent. '-' = non-fatal; runs once per start then exits.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/18-arco-phrozen-patches.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-phrozen-patches.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: phrozen_dev v0.13 API-patch guard (ExecStartPre) installed"
+fi
+
+# ImageId self-heal: ensure /etc/ImageId.json = {"ImageId":16} before EVERY klipper start (missing/wrong
+# -> phrozen work mode stuck UNKNOW). The file lives under /etc, so this ExecStartPre uses the '+' prefix
+# to run as root. Idempotent (grep-gated), '-' non-fatal.
+if [ -f "$SD/klipper.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/19-arco-imageid.conf" <<EOF
+[Service]
+ExecStartPre=+/usr/bin/timeout 10 $SELFDIR/ensure-imageid.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: /etc/ImageId.json guard (ExecStartPre, root) installed"
+fi
+
+# Moonraker update-manager entry. The FIRST guard on moonraker.service rather than klipper -- it edits
+# moonraker.conf, which only Moonraker reads, and an ExecStartPre there lands the change before it is
+# read. That also makes it self-healing against anything that replaces the config (a Phrozen update
+# does exactly that to printer.cfg): the entry is back on the next Moonraker start, including the one
+# Moonraker performs after updating itself. The script decides for itself whether the entry belongs
+# there at all -- see its header; it is a no-op while the kit is the image's flat copy.
+if [ -f "$SD/moonraker.service" ]; then
+  SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+  install -Dm644 /dev/stdin "$SD/moonraker.service.d/22-arco-update-manager.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-update-manager.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  moonraker: update-manager entry guard (ExecStartPre) installed"
+fi
+
+# ── Real-time isolation for the Klipper step generator (40k-accel headroom) ──
+# klippy is single-threaded on its critical path; the goal is ONE fast, uninterrupted core, not more.
+# Pin klippy -> CPU3 (alone), klipper-mcu -> CPU2 (with the F407 USB IRQ), background -> CPU0-1.
+# Drop-ins survive a KIAUH unit-body reinstall; re-run this if KIAUH ever rewrites a unit. Idempotent.
+aff() {  # $1 = unit, $2 = CPUAffinity value
+  [ -f "$SD/$1" ] || return 0
+  install -d "$SD/$1.d"
+  printf '[Service]\nCPUAffinity=%s\n' "$2" > "$SD/$1.d/20-arco-affinity.conf"
+}
+aff klipper.service        "3"
+aff klipper-mcu.service    "2"
+aff moonraker.service      "0 1"
+aff crowsnest.service      "0 1"
+aff KlipperScreen.service  "0 1"
+echo "  affinity drop-ins installed (klippy->CPU3, klipper-mcu->CPU2, background->CPU0-1)"
+
+# ...and the other half of the three lines above: pinning klippy TO CPU3 and klipper-mcu TO CPU2 never kept
+# anyone else OFF those cores. With no manager default every unit may roam all four, so nginx, chronyd,
+# cron, journald and sshd — and, once Phrozen's parts are installed from USB, PhrozenGo, ota_control and
+# voronFDM, none of which we ship a drop-in for — land wherever. Measured on hardware: phrozen-go-relay at
+# ~4% ON CPU3, MCU perfectly healthy (retransmit 9, mcu_task_avg 4µs), Klipper dead with "Timer too close"
+# at homing. "background -> CPU0-1" was the stated design for weeks; nothing enforced it. This does.
+#
+# The value must match that design EXACTLY: 0 1, not 0 1 2. Fencing to "0 1 2" looks harmless but hands
+# every service klipper-mcu's core — measured: PhrozenGo, Spoolman's uvicorn, four nginx workers, voronFDM
+# and journald all sharing CPU2 with the F407 comms, and homing died again the moment one more service
+# (Spoolman) joined. Delaying the MCU link starves the step queue exactly like delaying klippy does.
+# Each of the four cores has one job: 0+1 everything, 2 the F407 link, 3 the step generator.
+#
+# klipper's and klipper-mcu's own CPUAffinity= drop-ins override this default, which is what puts them on
+# their reserved cores. Covers anything Phrozen adds later with no new drop-in to remember.
+# TWO TRAPS: read ONLY when PID 1 starts — daemon-reexec does nothing, it needs a REBOOT; and systemd 252
+# does not expose it, `systemctl show --property=CPUAffinity` prints nothing even when active. The only
+# honest check is `taskset -cp 1` (must be 0-1). Kernel threads ignore it — that is arco-wq-cpumask's job.
+install -Dm644 /dev/stdin /etc/systemd/system.conf.d/arco-affinity.conf <<'EOF'
+[Manager]
+CPUAffinity=0 1
+EOF
+echo "  manager-wide CPUAffinity=0 1 installed (leaves CPU2 to klipper-mcu, CPU3 to klippy; needs a reboot)"
+
+# numpy/OpenBLAS -> single thread. The input-shaper FFT is post-motion (printer idle) and would otherwise
+# spawn one worker per core, stealing the cores klippy + comms need. Bundled scipy-OpenBLAS (cortexa53
+# kernel) honours OPENBLAS_NUM_THREADS; the rest are harmless no-ops on aarch64 (no MKL/VECLIB/BLIS).
+if [ -f "$SD/klipper.service" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/20-arco-numpy.conf" <<'EOF'
+[Service]
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+Environment=MKL_NUM_THREADS=1
+Environment=NUMEXPR_NUM_THREADS=1
+Environment=VECLIB_MAXIMUM_THREADS=1
+Environment=BLIS_NUM_THREADS=1
+EOF
+  echo "  numpy single-thread drop-in installed"
+fi
+
+# IRQ affinity: keep the F407 USB-comms IRQ (dwc2) on CPU2 (clean, with klipper-mcu) and shove the
+# hottest background IRQs (dw-mci = WiFi-SDIO ~2400/s, ehci = webcam) onto CPU0-1, off the real-time
+# cores. Matched by IRQ NAME (numbers can differ between units). oneshot, re-applies every boot.
+install -Dm755 /dev/stdin /usr/local/bin/arco-irq-affinity.sh <<'EOF'
+#!/bin/bash
+# F407 USB comms -> CPU2 (clean, away from the WiFi-SDIO IRQ that otherwise shares CPU0)
+for i in $(awk -F: '/dwc2_hsotg|ff580000\.usb/{gsub(/ /,"",$1);print $1}' /proc/interrupts); do
+  echo 2 > /proc/irq/$i/smp_affinity_list 2>/dev/null
+done
+# hottest background IRQs (WiFi-SDIO / eMMC + webcam EHCI) -> CPU0-1, off the real-time cores
+for i in $(awk -F: '/dw-mci|ehci_hcd|ohci_hcd/{gsub(/ /,"",$1);print $1}' /proc/interrupts); do
+  echo 0-1 > /proc/irq/$i/smp_affinity_list 2>/dev/null
+done
+logger "arco: IRQ affinity set (F407->CPU2, dw-mci/ehci->CPU0-1)"
+EOF
+install -Dm644 /dev/stdin "$SD/arco-irq-affinity.service" <<'EOF'
+[Unit]
+Description=Arco Unleashed - optimal IRQ affinity (F407 USB->CPU2, hot background IRQs->CPU0-1)
+After=multi-user.target klipper.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/arco-irq-affinity.sh
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable arco-irq-affinity.service 2>/dev/null || true
+echo "  IRQ-affinity service installed + enabled"
+
+# Unbound kernel workqueues (esp. the WiFi worker brcmf_wq) IGNORE IRQ smp_affinity and land on ANY core
+# by default -- including CPU3, the core klippy reserves for real-time step generation. Under WiFi load
+# brcmf_wq on CPU3 preempts klippy -> the F407 sees a step scheduled "too close" -> MCU shutdown during
+# homing/printing (MCU + klippy otherwise healthy; the smoking gun is a kworker on CPU3). Restrict the
+# global unbound-workqueue cpumask to CPU0-1 -> off klippy (CPU3) AND klipper-mcu/F407 comms (CPU2).
+# oneshot, re-applies every boot. This is a SEPARATE lever from arco-irq-affinity (IRQs vs workqueues).
+install -Dm755 /dev/stdin /usr/local/bin/arco-wq-cpumask.sh <<'EOF'
+#!/bin/bash
+# Keep unbound workqueues (e.g. WiFi brcmf_wq) off the real-time cores. cpumask 3 = CPU0 + CPU1.
+echo 3 > /sys/devices/virtual/workqueue/cpumask           2>/dev/null || true
+echo 3 > /sys/devices/virtual/workqueue/writeback/cpumask 2>/dev/null || true
+logger "arco: unbound workqueue cpumask -> CPU0-1 (off real-time cores)"
+EOF
+install -Dm644 /dev/stdin "$SD/arco-wq-cpumask.service" <<'EOF'
+[Unit]
+Description=Arco Unleashed - unbound workqueue cpumask off real-time cores (CPU0-1)
+After=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/arco-wq-cpumask.sh
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable arco-wq-cpumask.service 2>/dev/null || true
+echo "  workqueue-cpumask service installed + enabled (brcmf_wq off CPU2/3)"
+
+# SSH host keys: the image ships WITHOUT them on purpose (build-*-image.sh strips /etc/ssh/ssh_host_*, or
+# every printer in the field would share one identity and no host-key warning would mean anything). Distros
+# that strip them ship a regeneration unit to match -- this base image does NOT (nothing in any unit or init
+# script calls ssh-keygen), so without this, the ONLY thing creating them is arco-firstrun's stage 0a. That
+# runs After=network.target, i.e. alongside/after sshd's own first start attempt: sshd finds no keys, its
+# ExecStartPre=sshd -t fails, Restart=on-failure burns through the start limit in under a second, and the
+# unit is refused until reset-failed -- so a later "systemctl restart ssh" cannot revive it. SSH is then
+# silently dead for that whole boot. Generate the keys BEFORE sshd is ever started instead, so none of that
+# race exists. ConditionPathExists=! makes it a no-op once keys are present (a skipped condition still
+# satisfies the Before= ordering, so sshd is never held up).
+install -Dm644 /dev/stdin "$SD/arco-ssh-hostkeys.service" <<'EOF'
+[Unit]
+Description=Arco Unleashed - generate SSH host keys before sshd (image ships without them)
+Before=ssh.service sshd.service
+After=local-fs.target
+ConditionPathExists=!/etc/ssh/ssh_host_ed25519_key
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/ssh-keygen -A
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable arco-ssh-hostkeys.service 2>/dev/null || true
+echo "  ssh-hostkey service installed + enabled (generates keys before sshd's first start)"
+
+# F407 USB MCU: never autosuspend (prevents "Got EOF when reading from device" / MCU shutdown at idle).
+# Host-side udev rule keyed to the standard Klipper USB-serial VID:PID, so it survives any F407 reflash
+# (the rule re-applies on every USB connect). Idempotent.
+install -Dm644 /dev/stdin /etc/udev/rules.d/99-arco-f407-no-suspend.rules <<'EOF'
+# Arco Unleashed: F407 Klipper MCU (1d50:614e) must never USB-autosuspend.
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1d50", ATTR{idProduct}=="614e", ATTR{power/control}="on"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+echo "  F407 USB no-suspend udev rule installed"
+
+# /etc/ImageId.json gates the phrozen_dev image-specific code. Missing -> work mode stuck
+# UNKNOW(0) -> AMS/mode handling breaks right after the input-shaper step. ImageId 16 = ARCO300-MKS-RK3328.
+# Create only if absent, so a phrozen FW install that ships its own copy is not clobbered. Idempotent.
+if [ ! -f /etc/ImageId.json ]; then
+  printf '%s\n' '{"ImageId":16,"HwId":0,"FwId":0,"NC0":0,"NC1":0,"NC2":0,"NC3":0,"NC4":0}' > /etc/ImageId.json
+  echo "  /etc/ImageId.json created (ImageId=16)"
+fi
+
+# Wired / USB-Ethernet: give it an address.
+# systemd-networkd only touches interfaces it has a .network for, and the image ships exactly one:
+# 20-wlan.network, Name=wlan0. NetworkManager -- which brought up a wired NIC by itself on stock --
+# is disabled here on purpose (one owner for wlan0, no contention). The result was that a USB
+# Ethernet adapter enumerated fine, got an interface, and then sat there with no DHCP, no address
+# and no route. From the outside that reads as "the adapter stopped being recognised after the
+# migration", which sent a tester looking at the dongle and the hub. It was neither: the USB stick
+# on the SAME hub mounted normally, which is what proves the hub and the USB path were fine.
+# The match is deliberately broad. A USB NIC's name depends on udev's naming policy and on the
+# adapter's own MAC, so it can be end0, eth0 or enx<mac>; pinning one name would fix exactly one
+# dongle and leave the next tester in the same place. DHCP only -- no static addressing, ever.
+_WN="$(cd "$(dirname "$0")" && pwd)/../config-templates/25-wired.network"
+if [ ! -f "$_WN" ]; then
+  echo "  wired/USB-Ethernet: SKIPPED — $_WN is missing from the kit"
+elif cmp -s "$_WN" /etc/systemd/network/25-wired.network; then
+  :                                  # already current — say nothing on the happy path
+else
+  install -Dm644 "$_WN" /etc/systemd/network/25-wired.network
+  # Reload rather than restart: restarting systemd-networkd on a printer that is reachable only
+  # over WiFi would drop the very connection the operator is using to run this.
+  networkctl reload 2>/dev/null || true
+  echo "  wired/USB-Ethernet DHCP installed (25-wired.network) — a dongle now gets an address"
+fi
+
+systemctl daemon-reload 2>/dev/null || true
+echo "  done (takes effect on next boot)."

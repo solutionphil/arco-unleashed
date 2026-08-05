@@ -1,0 +1,11 @@
+[Unit]
+Description=Arco Unleashed USB automount (%i) at Moonraker gcodes/USB
+Requires=dev-%i.device
+After=dev-%i.device
+BindsTo=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/arco-usb-mount add %i
+ExecStop=/usr/local/bin/arco-usb-mount remove %i

@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Arco Unleashed — README</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    /* Arco Unleashed — branded theme for pandoc-generated docs (README.html / MANUAL.html).
+       Mirrors the hand-built QUICKSTART.html look (gradient banner, card, styled headings, callouts).
+       Applied via: pandoc … --include-in-header image-toolbox/pandoc-dark-header.html
+       Uses !important to override pandoc's default light template. */
+    :root{
+      --blue:#2E74F2; --blue-hi:#5B97FF; --navy:#0E2247; --ink:#070E1F;
+      --page:#10254a; --outer:#081832; --muted:#9db0cc; --line:#24406e;
+    }
+    html{ background:var(--outer) !important; }
+    body{
+      max-width:880px !important; margin:26px auto !important; padding:34px 40px 42px !important;
+      background:var(--page) !important; color:#dfe8f5 !important;
+      border-radius:12px !important; box-shadow:0 2px 22px rgba(0,0,0,.45) !important;
+      font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif !important;
+    }
+    /* Title banner — pandoc's title block, pulled full-bleed via negative margins (like QUICKSTART <header>) */
+    #title-block-header{
+      margin:-34px -40px 26px !important; padding:30px 40px !important;
+      background:linear-gradient(135deg,var(--ink),var(--navy)) !important;
+      border-radius:12px 12px 0 0 !important;
+    }
+    #title-block-header .title{ margin:0 !important; color:#fff !important; font-size:27px !important;
+      font-weight:700 !important; letter-spacing:.3px; border:0 !important; padding:0 !important; }
+    #title-block-header .subtitle{ color:#cdd9f2 !important; font-size:15px !important; font-weight:400 !important; }
+    h1,h2,h3,h4,h5,h6{ color:#fff !important; line-height:1.25 !important; }
+    h1{ font-size:23px !important; margin:1.5em 0 .5em !important; }
+    h2{ font-size:19px !important; margin:1.7em 0 .5em !important; padding-bottom:6px !important;
+        border-bottom:2px solid var(--line) !important; }
+    h3{ font-size:16px !important; color:#cfe0ff !important; margin:1.3em 0 .4em !important; }
+    a{ color:var(--blue-hi) !important; text-decoration:none !important; }
+    a:hover{ text-decoration:underline !important; }
+    p,li,td,dd,dt,figcaption{ color:#dfe8f5 !important; }
+    strong,b{ color:#fff !important; }
+    em,i{ color:#cdd9ef !important; }
+    code{ background:#0b1a33 !important; color:#cfe0ff !important; padding:1.5px 5px !important;
+          border-radius:4px !important; font:13px/1.4 Consolas,Menlo,monospace !important; }
+    pre{ background:var(--ink) !important; color:#e8f0ff !important; padding:13px 16px !important;
+         border-radius:8px !important; border-left:3px solid var(--blue) !important; overflow:auto !important; }
+    pre code{ background:none !important; color:inherit !important; padding:0 !important; }
+    blockquote{ margin:14px 0 !important; padding:11px 16px !important;
+         background:rgba(46,116,242,.09) !important; color:#c7d4ec !important;
+         border:0 !important; border-left:4px solid var(--blue) !important; border-radius:0 8px 8px 0 !important; }
+    blockquote p{ margin:.3em 0 !important; color:#c7d4ec !important; }
+    table{ border-collapse:collapse !important; margin:14px 0 !important; }
+    th,td{ border:1px solid var(--line) !important; padding:6px 11px !important; }
+    th{ background:#12294d !important; color:#fff !important; }
+    tr:nth-child(even) td{ background:rgba(255,255,255,.03) !important; }
+    hr{ border:0 !important; border-top:1px solid var(--line) !important; margin:24px 0 !important; }
+    img{ max-width:100% !important; height:auto !important; border-radius:8px !important; }
+    ul,ol{ padding-left:24px !important; }
+    li{ margin:4px 0 !important; }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Arco Unleashed — README</h1>
+</header>
+<p align="center">
+<img src="assets/logo.png" alt="Arco Unleashed — Bookworm Edition" width="680">
+</p>
+<h1 id="arco-unleashed-bookworm-edition">Arco Unleashed — Bookworm
+Edition</h1>
+<p>Take the <strong>Phrozen Arco</strong> off the stock <strong>Debian
+Buster / Klipper v0.11</strong> stack — frozen at the factory version,
+with Buster now end-of-life — and onto a modern, fully self-hosted
+setup: <strong>armbian-mkspi (Debian Bookworm, kernel 6.18) · Klipper
+v0.13</strong>. All your factory hardware and features carry over — the
+serial touch display, both MCUs, chamber light, input shaper, the
+optional AMS and the PhrozenGo app — now running on a current,
+maintained and fully open system.</p>
+<h3 id="why-move-off-buster-klipper-v0.11">Why move off Buster + Klipper
+v0.11?</h3>
+<ul>
+<li><strong>Security &amp; longevity</strong> — Debian Buster is
+<strong>end-of-life</strong> (no more security updates). Bookworm is the
+current, supported Debian with modern Python and packages.</li>
+<li><strong>Klipper v0.13</strong> — years of fixes and features over
+the frozen factory v0.11 (improved input shaper,
+<code>exclude_object</code>, <code>danger_options</code>, faster) — and,
+crucially, <strong>you can keep updating it</strong> instead of being
+locked to the version Phrozen shipped.</li>
+<li><strong>Modern add-on ecosystem</strong> — current Klipper /
+Moonraker / Python means today’s tools just work:
+<strong>Spoolman</strong> (filament tracking), <strong>Obico</strong>
+(remote monitoring) — neither of which runs on the frozen factory stack.
+Adaptive bed meshing you already have: it is built into this Klipper
+(<code>BED_MESH_CALIBRATE ADAPTIVE=1</code>), so no add-on is needed for
+it.</li>
+<li><strong>Both web interfaces, like the stock printer</strong> —
+<strong>Mainsail</strong> on <code>http://&lt;printer-ip&gt;/</code>
+(and <code>:81</code>) and <strong>Fluidd</strong> on
+<code>:8808</code>, the ports your Arco came with. Both current, both
+themed.</li>
+<li><strong>It’s your printer</strong> — full SSH / root access,
+Obico-ready, no cloud lock-in.</li>
+</ul>
+<h3
+id="what-the-addon-layer-adds-all-toggleable-from-the-setup-menu">What
+the AddOn layer adds — all toggleable from the setup menu</h3>
+<ul>
+<li><strong>AMS auto-mode</strong> — slice single- or multicolor in
+OrcaSlicer and the printer auto-selects the right AMS mode at print
+start (no manual gcode).</li>
+<li><strong>The mesh fix</strong> — <code>G30</code> reliably loads your
+saved bed mesh (the factory behaviour that never stuck).</li>
+<li><strong>Bed-leveling helpers</strong> — Z-tilt dual-Z alignment,
+custom bed mesh, manual screw-tilt.</li>
+<li><strong>Quality-of-life</strong> — chamber-light toggle, PID
+board-fan, M600 filament change, piezo chime,
+<code>exclude_object</code> + <code>[respond]</code>, and a branded
+<strong>Mainsail theme</strong> (light / dark).</li>
+<li><strong>Filament sensor, finally visible</strong> — the stock
+firmware watches the toolhead runout sensor but reports nothing about
+it. <code>FILA_STATUS</code> shows presence, raw ADC and whether runout
+protection is actually armed, and a print running without it gets called
+out (see <em>Pause &amp; filament change</em>).</li>
+<li><strong>Privacy</strong> — one switch turns <strong>PhrozenGo / the
+cloud tunnel off</strong> (run Obico instead).</li>
+<li><strong>Beacon as new probing device for meshing</strong> 🧪 —
+optional, experimental, reversible: swap the piezo probe for a Beacon
+(virtual Z endstop, scanned mesh). Read the warnings in <a
+href="#beacon-as-new-probing-device-for-meshing--experimental">its
+section</a> first — with a Beacon fitted, the display must not be used
+for Z calibration.</li>
+</ul>
+<p>Install the <strong>easy way</strong>: flash the pre-built image, set
+Wi-Fi, flash your MCUs — running in minutes.</p>
+<blockquote>
+<p><strong>Disclaimer.</strong> Arco Unleashed is an independent,
+community-made project. It is <strong>not</strong> developed, supported,
+sponsored, endorsed by, or affiliated with Phrozen Tech Co., Ltd. or
+ThroughTek Co., Ltd. <strong>No proprietary Phrozen/ThroughTek software
+is bundled, hosted or mirrored</strong> by this project. Phrozen’s parts
+reach the printer either from the owner’s own
+<code>Arco_FW_V*.zip</code>, obtained from official Phrozen sources and
+provided on a USB stick, or — only after the owner confirms — by
+downloading the <code>phrozen_dev</code> module from <strong>Phrozen’s
+own public repository</strong> (<a
+href="https://github.com/phrozen3d/klipper">phrozen3d/klipper</a>,
+GPL-3.0), pinned to a fixed commit and checksum-verified.
+<em>Phrozen</em>, <em>Arco</em> and <em>PhrozenGo</em> are trademarks of
+their respective owners, used here only for identification (nominative
+fair use).</p>
+<p>⚠️ <strong>Hardware-specific:</strong> Phrozen Arco with MKS board
+(RK3328, STM32F407 + MKS_THR STM32F103), AP6212 WiFi. Not a generic
+Klipper kit.</p>
+<p>⚠️ <strong>Warranty:</strong> replacing the factory OS/firmware and
+opening the printer will very likely <strong>void your Phrozen
+warranty</strong>. You do this to your own machine at your own risk.
+Keep a backup of the original eMMC (or the stock image) so you can
+restore it if you ever need to return the printer to stock.</p>
+</blockquote>
+<hr />
+<h1 id="flash-run-the-pre-built-image">🟢 Flash &amp; Run — the
+pre-built image</h1>
+<blockquote>
+<p>📖 <strong>Two guides, same install — pick your style:</strong> -
+<strong><a href="QUICKSTART.md">QUICKSTART</a></strong> <em>(also <a
+href="QUICKSTART.html">printable HTML</a>)</em> — the condensed
+checklist, both paths, no pictures. - <strong><a
+href="MANUAL.md">Illustrated MANUAL</a></strong> — every screen and
+screwdriver step pictured, both paths end to end. - <strong><a
+href="INSTALL-FLOWCHARTS.md">INSTALL-FLOWCHARTS</a></strong> — the same
+paths as diagrams: every branch, every option, including the base-image
+and revert routes.</p>
+<p>The sections below are the same procedure in reference form.</p>
+</blockquote>
+<p>You get a finished image (a <code>.img.gz</code>, or a pre-flashed
+spare eMMC module). The whole software stack is already on it — you only
+need to flash it, set WiFi, and flash your printer’s MCUs.</p>
+<blockquote>
+<p><strong>⚠️ Do this FIRST — rescue the AMS server (needed for BOTH
+paths below).</strong> This is <strong>not</strong> a backup of the
+printer: it saves two files and nothing else. Everything else —
+calibration, uploaded G-code, Phrozen’s system — is erased by the flash.
+For a way back, image the whole eMMC onto your stick first (MANUAL, Step
+0b); it needs no teardown. The AMS server
+(<strong><code>phrozen_master</code> + <code>~/hdlDat</code></strong>)
+lives only in the original base OS — it is <strong>not</strong> in
+Phrozen’s <code>Arco_FW_V*.zip</code>, so the flash wipes it, and
+without it AMS detection hangs and the display won’t return home after
+calibration. To save it, <strong>on the still-running original
+Arco</strong>:</p>
+<ol type="1">
+<li>Copy <strong><code>collect_data_arco.sh</code></strong> (from this
+repo) onto the FAT32 USB stick and plug it into the printer.</li>
+<li><strong>Connect via SSH</strong> with a tool like
+<strong>PuTTY</strong> (Windows) or <code>ssh</code> (Mac/Linux):
+<em>Host Name</em> = the printer’s <strong>IP</strong> (from your
+router’s device list or the Phrozen display), <em>Port</em>
+<code>22</code>, login <strong><code>mks</code></strong> / password
+<strong><code>makerbase</code></strong>.</li>
+<li>Run:
+<strong><code>bash ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</code></strong>
+<em>(that <code>~/printer_data/gcodes/USB</code> is where the Arco
+auto-mounts the stick).</em></li>
+<li>The script syncs the stick (and unmounts it if it had to mount it).
+<strong>On your PC, confirm <code>arco-phrozen-ams.tar.gz</code> is
+really on the stick</strong> — if it’s missing, re-insert it in the
+printer and run the command again.</li>
+</ol>
+<p>It writes <strong><code>arco-phrozen-ams.tar.gz</code></strong> onto
+the stick; the new system re-installs it automatically on first
+boot.</p>
+</blockquote>
+<h2 id="two-ways-to-install">Two ways to install</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th></th>
+<th><strong>A) Easy direct flash</strong> <em>(self-flash)</em></th>
+<th><strong>B) eMMC replacement / recovery</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How</td>
+<td>Run <strong><code>install-unleashed.sh</code></strong> on the
+printer — it overwrites its <strong>own</strong> eMMC, streaming the
+image from a USB stick</td>
+<td>Pull the eMMC, write it on a PC with <strong>balenaEtcher</strong>,
+put it back</td>
+</tr>
+<tr>
+<td>Teardown</td>
+<td><strong>None</strong></td>
+<td>Open the housing + unscrew the eMMC</td>
+</tr>
+<tr>
+<td>Best for</td>
+<td>A quick in-place install / update</td>
+<td>Swapping to a fresh eMMC, or <strong>recovering</strong> a bricked
+one</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>✅ <strong>Proven on hardware</strong> (full end-to-end run,
+2026-07-10). Still <strong>one shot, no net</strong>: once the write
+begins, a failure needs <strong>path B</strong> to recover.
+<em>Before</em> it begins, pulling the stick + a power-cycle stands it
+down.</td>
+<td>✅ <strong>Proven</strong> — and the recovery path for A</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Path A</strong> <em>(easy)</em> → on the printer, from where
+the stick auto-mounts: <code>cd ~/printer_data/gcodes/USB</code> →
+<code>sh prepare_unleashed_self_flash.sh</code> →
+<code>sudo bash ~/selfflash/install-unleashed.sh --arm</code>. Details:
+<a href="selfflash/README.md"><code>selfflash/</code></a>.</li>
+<li><strong>Path B</strong> <em>(eMMC replacement / recovery)</em> → the
+detailed steps below, also in the illustrated <strong><a
+href="MANUAL.md">MANUAL</a></strong>.</li>
+</ul>
+<h3 id="what-goes-on-the-usb-stick">What goes on the USB stick</h3>
+<p>One <strong>FAT32</strong> stick, ≥ 4 GB. <strong>The two paths need
+different files</strong> — the big difference is that <strong>path A
+carries the image on the stick</strong>, while <strong>path B writes the
+image straight to the eMMC</strong> on your PC, so its stick only
+carries the first-boot files.</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 31%" />
+<col style="width: 31%" />
+<col style="width: 18%" />
+</colgroup>
+<thead>
+<tr>
+<th>File</th>
+<th style="text-align: center;">Path A (self-flash)</th>
+<th style="text-align: center;">Path B (eMMC swap)</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">— <em>(goes on the eMMC via
+balenaEtcher)</em></td>
+<td>the image</td>
+</tr>
+<tr>
+<td><code>…img.gz.sha256</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">—</td>
+<td>checksum — verified before any write</td>
+</tr>
+<tr>
+<td><code>…img.gz.rawsize</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">—</td>
+<td>drives the on-display progress %</td>
+</tr>
+<tr>
+<td><code>unleashed-selfflash.tar.gz</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">—</td>
+<td>the self-flash tool</td>
+</tr>
+<tr>
+<td><code>prepare_unleashed_self_flash.sh</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">—</td>
+<td>unpacks the tool</td>
+</tr>
+<tr>
+<td><code>Arco_FW_V*.zip</code> <em>(optional — see below)</em></td>
+<td style="text-align: center;">( ✅ )</td>
+<td style="text-align: center;">( ✅ )</td>
+<td>Phrozen’s official firmware package</td>
+</tr>
+<tr>
+<td><strong><code>arco-phrozen-ams.tar.gz</code></strong> <em>(from Step
+0)</em></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td>the rescued AMS files — re-installed on first boot</td>
+</tr>
+<tr>
+<td><em>optional</em> <code>wifi-seed.txt</code> <strong>or</strong>
+<code>no_wifi.txt</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">—</td>
+<td>path-A WiFi (else live-captured) — see the WiFi note below</td>
+</tr>
+</tbody>
+</table>
+<p>The first five all live inside one archive — <strong><a
+href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
+— extract it to the top level of the stick.
+<code>arco-phrozen-ams.tar.gz</code> is produced by
+<code>collect_data_arco.sh</code> on your still-running printer (see
+<em>Rescue the AMS server</em> below) and is the one file you
+<strong>must</strong> bring: it exists nowhere else.</p>
+<blockquote>
+<p><strong><code>Arco_FW_V*.zip</code> is normally not needed.</strong>
+Phrozen publishes the display module in their own public repository, and
+the first boot offers to fetch it from there — you confirm once, and the
+checksum is verified before anything is installed. Put the zip on the
+stick if <strong>either</strong> applies: the printer will have
+<strong>no internet</strong> while you set it up, or you want
+<strong>PhrozenGo</strong>, which is only in Phrozen’s own package.
+(Display and AMS firmware are not a reason — those come through
+Phrozen’s own USB firmware update.) A zip on the stick always wins:
+nothing is downloaded then.</p>
+</blockquote>
+<blockquote>
+<p><strong>WiFi (path A).</strong> Recommended: add
+<strong>nothing</strong> → the tool <strong>live-captures</strong> the
+network the printer already uses — and it <strong>carries over that
+printer’s own WiFi country</strong>, so the region is correct
+automatically. <strong>Or</strong> a
+<strong><code>wifi-seed.txt</code></strong> — plain lines
+<code>SSID=YourNetworkName</code>, <code>PSK=YourWiFiPassword</code>,
+and <code>COUNTRY=US</code> — <strong>your 2-letter WiFi region
+code</strong> (US, CA, GB, AU, …). No quotes, a <strong>2.4 GHz</strong>
+network. <strong>Set the country to yours</strong> — the regulatory
+region must match your router, or the printer may not join.
+<code>no_wifi.txt</code> leaves WiFi to the first-boot portal, where you
+pick your network <strong>and your country</strong> from dropdowns. A
+wrong or <strong>non-connecting</strong> WiFi falls back to that phone
+portal on first boot after about 90 seconds; and if the portal itself
+fails to appear, a <code>wifi-seed.txt</code> dropped on the stick
+rescues the printer after the flash too. (Full detail: <a
+href="selfflash/README.md"><code>selfflash/</code></a>.)</p>
+</blockquote>
+<blockquote>
+<p><strong>Where the stick appears:</strong> on both a stock printer and
+Unleashed the USB stick auto-mounts at
+<strong><code>~/printer_data/gcodes/USB</code></strong>. If that folder
+is empty, mount it there <strong>yourself</strong> — same place, so
+every command below then works unchanged:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> ~/printer_data/gcodes/USB/     <span class="co"># stick usually here already</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">lsblk</span>                             <span class="co"># if not: find your stick&#39;s partition (e.g. sda1)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+</blockquote>
+<blockquote>
+<p>📖 <strong>Prefer pictures?</strong> The illustrated <strong><a
+href="MANUAL.md">step-by-step install manual</a></strong> covers
+<strong>both paths</strong> end to end — the self-flash, eMMC removal,
+balenaEtcher, the WiFi portal, the USB install, and the MCU flash —
+every screen pictured. A condensed checklist is in <strong><a
+href="QUICKSTART.md">QUICKSTART</a></strong>.</p>
+</blockquote>
+<h2 id="path-b-emmc-replacement-recovery-detailed">Path B — eMMC
+replacement / recovery (detailed)</h2>
+<p><em>(For <strong>path A</strong>, the easy in-place self-flash, see
+<a href="selfflash/README.md"><code>selfflash/</code></a> instead — the
+steps below are the PC-based eMMC flash, and the way to recover if a
+self-flash ever fails.)</em></p>
+<h3 id="what-you-need">What you need</h3>
+<p><strong>Tools:</strong> <strong>Allen / hex keys</strong> (to remove
+the toolhead’s rear extruder cover and open the printer’s lower housing
+cover), a <strong>small Phillips screwdriver</strong> (for the eMMC’s
+screw on the mainboard), and a <strong>USB-to-eMMC adapter</strong>.
+<strong>Media:</strong> a <strong>FAT32 USB stick, ≥ 4 GB</strong>
+(ideally the original Phrozen one from the printer), <strong>Phrozen’s
+official <code>Arco_FW_V199.zip</code></strong> (download it yourself),
+and a PC with <strong>balenaEtcher</strong>.</p>
+<h3 id="flash-the-image-to-the-emmc">1. Flash the image to the eMMC</h3>
+<p>Take
+<strong><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code></strong> out
+of <strong><a
+href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
+(the release ships that one archive), then: eMMC out → USB adapter → PC
+→ write it with <strong>balenaEtcher</strong> (GUI, no WSL) → eMMC back
+in.</p>
+<h3
+id="first-boot-wifi-portal-usb-install-on-your-phone-no-pc-needed">2.
+First boot — WiFi portal + USB install (on your phone, no PC
+needed)</h3>
+<p>The public image ships <strong>without</strong> Phrozen’s software,
+so the first boot opens a <strong>WiFi setup portal</strong>. Put the
+<code>arco-phrozen-ams.tar.gz</code> from the pre-flash step above onto
+a <strong>FAT32 USB stick</strong> — and, only if you need it (no
+internet at setup, or you want PhrozenGo), Phrozen’s own <a
+href="https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip"><code>Arco_FW_V*.zip</code></a>
+beside it. Then <strong>insert that stick into the printer’s USB port —
+before you connect.</strong> Now on your phone, join the
+<strong><code>Arco-Unleashed-Setup</code></strong> Wi-Fi → the page pops
+up — pick your network, enter the password, tick the consent box → press
+<strong>Connect</strong>. The printer reboots onto your WiFi and, with
+the stick already in, the <strong>display shows a progress bar</strong>
+(Reading → Installing → Patching). At 100 % the display shows
+<strong>“Update complete — wait for restart…”</strong> and the printer
+<strong>restarts itself once</strong> a few seconds later. <strong>Let
+it — don’t switch it off</strong> (the filesystem batches writes for up
+to two minutes, so pulling the power here can cost you the install).
+Remove the stick. <em>(The full-card rootfs resize happens here too; SSH
+host keys are generated on the first boot.)</em> From then on the normal
+Phrozen display WiFi screen works for future network changes.</p>
+<blockquote>
+<p><strong>You’ll then see “Error occurred” — that’s expected.</strong>
+After that restart the display settles on a <strong>“Notice — Error
+occurred”</strong> screen: Klipper can’t start yet because your
+<strong>MCUs still carry the old firmware</strong>.
+Restarting/power-cycling won’t clear it. <strong>Wait for this
+screen</strong> (it means the automatic restart is done), then SSH in
+and <strong>flash the MCUs</strong> (next step). Don’t try to set up on
+the display, and don’t SSH <em>before</em> this — the auto-restart would
+just drop the session.</p>
+</blockquote>
+<blockquote>
+<p><strong>Why USB and not a download?</strong> Arco Unleashed never
+downloads or ships Phrozen’s software. You obtain Phrozen’s official
+package yourself and provide it — nothing proprietary is
+redistributed.</p>
+</blockquote>
+<blockquote>
+<p><strong>Display firmware (.tft) — applies to both install
+paths.</strong> The image installs Phrozen’s module *incl. This project
+never updates the touch panel itself. Phrozen’s zip happens to carry the
+panel firmware (<code>FW_Arco-HMI_*.tft</code>) and their own updater
+may flash it when versions differ; the download route carries none.
+<strong>If your printer was on an older Phrozen firmware</strong> and
+the display looks off, just <strong>run one official Phrozen USB
+firmware update once</strong> — that is how panel firmware is meant to
+be updated. That’s safe: the <strong>self-heal guards re-apply the v0.13
+Klipper patches automatically</strong> on the next boot, so a Phrozen
+update never breaks the migration (see <a href="#menu-reference">Menu
+reference</a>).</p>
+</blockquote>
+<h3 id="connect-via-ssh-with-putty">3. Connect via SSH with PuTTY</h3>
+<ol type="1">
+<li>Find the printer’s <strong>IP</strong> (your router’s device list,
+or it shows on the display).</li>
+<li>Open <strong>PuTTY</strong> → <em>Host Name</em> = that IP,
+<em>Port</em> <code>22</code>, <em>Connection type</em>
+<strong>SSH</strong> → <strong>Open</strong> (accept the host-key
+warning on first connect).</li>
+<li>Login: <strong><code>mks</code></strong> / password
+<strong><code>makerbase</code></strong> (stays default).</li>
+</ol>
+<h3 id="run-the-setup-menu">4. Run the setup menu</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<h3 id="essential-steps-without-these-it-wont-run">5. Essential steps —
+without these it won’t run ⚠️</h3>
+<p>First boot did everything else automatically (step 2): WiFi
+onboarding, installing Phrozen’s module <strong>from your USB stick or,
+with your confirmation, from Phrozen’s own repository</strong> and
+patching it for v0.13, the rootfs resize, and SSH host keys.</p>
+<p>The one thing you <strong>must</strong> still do by hand: the image’s
+host runs Klipper <strong>v0.13</strong>, but <strong>your printer’s
+MCUs still have the old firmware</strong> — flash them or Klipper can’t
+talk to them. In the menu:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Menu item</th>
+<th>Why it’s essential</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flash MCUs</strong></td>
+<td>The <strong>F407 (main board) and the host MCU flash
+automatically</strong> over USB — no buttons. <strong>Only the toolhead
+F103 needs a hands-on step</strong> — its <strong>BOOT + RESET</strong>
+buttons — and only once, for the <strong>one-time Katapult
+install</strong>: on the toolhead board, <strong>hold BOOT → tap RESET
+(keep BOOT held) → keep holding ~2 s → release</strong>, then
+<strong>start the flash within ~3 s</strong> (or its ROM bootloader
+drops out again). Flashing the F407 also <strong>auto-writes its
+serial</strong> into <code>printer_MCU.cfg</code>.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Without the MCU flash you’ll see <code>mcu: Unable to connect</code>
+/ <code>Command format mismatch</code>.</p>
+</blockquote>
+<h3 id="calibrate">6. Calibrate</h3>
+<p>Bed mesh, z-offset, PID, input shaper and purge position are
+per-printer and must be redone after the migration. Three ways, easiest
+first: - <strong>Factory-reset auto-calibration</strong> <em>(from the
+display)</em> — runs input shaper, bed mesh and purge position
+end-to-end and returns to the home screen by itself. - <strong>Arco
+display calibration functions</strong> — run the individual routines
+(input shaper, bed mesh, purge position, …) one at a time from the
+display’s calibration menu. - <strong>Manual</strong> — do it all
+yourself in Mainsail (<code>SHAPER_CALIBRATE</code>, bed mesh, purge
+position, PID, z-offset).</p>
+<blockquote>
+<p><strong>Skip any built-in “print test”</strong> the first-time setup
+or a factory reset offers — the bundled test file was compiled for the
+old Klipper and can’t run on v0.13, so the flow stalls on it. Just skip
+it; your first print comes from <strong>OrcaSlicer</strong> (§6) once
+you’re set up.</p>
+</blockquote>
+<p>That’s it. Optional extras (AMS, PhrozenGo/Cloud, AddOn.cfg,
+recovery) live in the same menu — see <a href="#menu-reference">Menu
+reference</a> below.</p>
+<hr />
+<h2 id="menu-reference">Menu reference</h2>
+<p>The setup menu runs an update check on start (if the kit is a git
+clone) and only prompts y/n when an update exists.</p>
+<pre><code>   ESSENTIAL:     Flash MCUs
+   MAINTENANCE:   Backup / restore YOUR settings (local or USB) · Check self-heal guards
+   SOMETHING BROKE: Emergency repair — one action, no diagnosis required
+   EXTRAS:        AMS on/off · PhrozenGo/Cloud · AddOn.cfg · Beacon probe (experimental)
+   UPDATE:        check GitHub for a newer version</code></pre>
+<ul>
+<li><strong>Phrozen-update protection</strong> — pressing
+<em>Update</em> on the Phrozen display overwrites the Klipper core +
+<code>printer.cfg</code> and halts the printer (Katapult keeps the F103
+safe). The smart way is to <strong>stay ahead of it</strong> — this
+option has three parts:
+<ul>
+<li><strong>Back up once, right after setup</strong>
+<em>(recommended)</em> — a “golden” snapshot of your patched stack +
+config.</li>
+<li><strong>Pre-patch USB — before <em>every</em> Phrozen
+update</strong> <em>(recommended)</em> — it bakes your fixes (from that
+backup) onto the update stick, so Phrozen’s update <strong>installs them
+along with itself</strong>. Each new update incrementally carries the
+fixes — nothing gets clobbered and <strong>you never need to
+recover</strong>.</li>
+<li><strong>Restore</strong> — the fallback <em>only</em> if an update
+ever slips through un-patched: one click puts back the v0.13 core,
+patched module and your config (calibration preserved) and the printer
+comes back up.</li>
+</ul></li>
+<li><strong>Backup / restore settings</strong> — the guards restore the
+Klipper core and the phrozen_dev module on their own, so the software
+needs no preparation any more. What no guard can do is give back the
+numbers <strong>your</strong> machine measured. <code>Backup</code>
+captures your printer configuration and calibration, the web interface’s
+own settings (theme, presets, macro groups, history — none of it in
+<code>printer.cfg</code>), your WiFi and the phrozen_dev module;
+<code>Restore</code> puts them back. It can also write the backup to a
+<strong>USB stick</strong>, which is the copy that survives a reflash —
+the local one lives on the very eMMC it is protecting.
+<code>Pre-patch</code> additionally writes your config onto a Phrozen
+update stick, so the installer deploys <em>your</em>
+<code>printer.cfg</code> instead of Phrozen’s.</li>
+<li><strong>Emergency repair</strong> — the one to reach for when the
+printer halted, the display is dead, or an update button keeps failing.
+It runs every repair in order without asking what went wrong, because at
+that moment nobody knows whether Phrozen’s firmware, a Klipper update, a
+Moonraker update or a “hard recover” caused it. Every step is
+idempotent, so it is a no-op on a healthy printer, and it reports what
+actually needed fixing. It also covers two things no automatic guard
+catches: an <code>AddOn.cfg</code> that lost its
+<code>[arco_mcu_timing]</code> section (the MCU timing would silently
+stop being applied), and root-owned files in <code>~/klipper</code> or
+<code>~/moonraker</code>, which make Moonraker’s update button fail with
+a git error that points nowhere near the actual cause.</li>
+<li><strong>Check self-heal guards</strong> — the entry that replaced
+<em>“Re-apply Klipper patches”</em>, which had become redundant: those
+patches are re-applied by a guard on every Klipper start and by
+Emergency repair. What nothing checked is whether the guards are wired
+at all. They are installed when the image is built, not when the kit
+updates itself, so a printer that has been running a while can be
+missing a guard the current kit assumes — with no symptom until the
+failure it exists to catch. This compares <code>klipper.service</code>
+against what the kit’s own installer writes, so the expected list cannot
+drift, and offers to install anything missing. <strong>You do not have
+to do anything about that:</strong> <code>klipper.service</code> runs
+seven <code>ExecStartPre</code> guards before klippy loads, so the
+restart that follows any update puts everything straight back. This menu
+option is the manual equivalent, idempotent and safe anytime. &gt;
+<strong>Moonraker’s three actions are not equally harmless.</strong>
+<em>Update</em> refuses outright on a modified repo &gt; and otherwise
+just pulls. <em>Soft recover</em> resets tracked files and leaves
+untracked ones alone. &gt; <strong>Hard recover</strong> runs
+<code>git reset --hard</code> + <code>git clean -d -f</code>, so
+everything untracked is deleted — &gt; <code>phrozen_dev</code> and our
+modules with it. Slow and unnecessary, but not fatal: the guards put our
+modules &gt; back automatically, and a copy of <em>your</em> phrozen_dev
+is kept outside the Klipper tree for exactly this &gt; case. If it ever
+does go wrong, <strong>Emergency repair</strong> above is the one action
+to run. &gt; Klipper is <strong>not</strong> pinned: it sits on
+<code>master</code> with HEAD attached, the repository is clean and
+valid, &gt; and Moonraker offers new versions normally — nothing is
+greyed out or held back. &gt;
+(<code>scripts/pin-klipper-updates.sh</code> can hold a version
+deliberately, if you want that.)</li>
+<li><strong>PhrozenGo / Cloud</strong>
+(<code>scripts/phrozengo.sh</code>) — <em>Privacy</em> closes the frpc
+<strong>SSH tunnel</strong> to the vendor’s server (app still works via
+TUTK); <em>OTA</em> toggles Phrozen’s auto-update — turn it
+<strong>OFF</strong> to protect your v0.13 from a hostile Phrozen
+firmware update; <em>Disable</em> stops the cloud app entirely (no
+phone-home), frees the webcam + resources, and stops Phrozen from
+deleting <strong>Obico</strong> on boot. Defaults are as Phrozen ships
+(all on); local display + light always stay. &gt; ⚠️ <strong>Installing
+Obico? Turn PhrozenGo off first.</strong> Phrozen’s own KlipperScreen
+launcher runs &gt; <code>rm -rf ~/moonraker-obico</code> and
+<code>~/moonraker-obico-env</code> on <strong>every boot</strong>, and
+PhrozenGo ships &gt; <strong>on</strong>, so those lines are live on a
+fresh printer. Obico installs cleanly, works until the next &gt;
+restart, and is then simply gone — with nothing in any log to explain
+it. <em>Disable</em> here comments &gt; the lines out. Other Moonraker
+add-ons (Spoolman, Mobileraker) are not touched.</li>
+<li><strong>AMS</strong> (<code>scripts/ams_toggle.sh on|off</code>) —
+toggles AMS / “Chroma Kit” mode (flips <code>auto_connect</code> + the
+<code>~/hdlDat/Phrozen_Dev.json</code> work-mode; the runtime lever is
+the <code>P0</code> gcode). <code>AddOn.cfg</code> provides clickable
+<code>AMS_ON</code>/<code>AMS_OFF</code>/<code>AMS_STATUS</code> macros
+for Mainsail (needs the <code>gcode_shell_command</code> extension). It
+also writes a macro-readable <code>ams</code> flag that <strong>steers
+OrcaSlicer</strong> automatically (P0 M1/M2/M3 picked at print start —
+see <a href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>).
+Note: a factory-NEW AMS additionally needs one-time provisioning
+(firmware flash/pairing).</li>
+</ul>
+<p><a id="beacon-as-new-probing-device-for-meshing--experimental"></a></p>
+<h2 id="beacon-as-new-probing-device-for-meshing-experimental">Beacon as
+new probing device for meshing 🧪 <em>experimental</em></h2>
+<p><code>scripts/beacon_toggle.sh status|on|off</code> · setup menu →
+<strong>b</strong></p>
+<p>Swaps Phrozen’s piezo probe for a <strong>Beacon</strong>
+eddy-current probe: Z is homed by a virtual endstop, the bed mesh is
+<em>scanned</em> instead of poked, and a 15×15 mesh costs less time than
+the stock 6×6 did. The config comes from a real conversion contributed
+by <strong>Philippe Humeau</strong> (unPhrozen) — including the gotchas
+he paid for, which are written into <code>beacon.cfg</code> where you
+need them.</p>
+<p>Toggling is reversible: <code>off</code> restores
+<code>printer.cfg</code> byte-for-byte (verified) and keeps your
+calibrated <code>beacon.cfg</code>. <code>on</code> walks five gates
+before it changes anything, and each one aborts cleanly:</p>
+<ol type="1">
+<li><strong>Not mid-print</strong> — switching restarts Klipper.
+Checked, not asked.</li>
+<li><strong>Is the machine physically ready?</strong> — Beacon mounted,
+wired and plugged in; rigid mount; bed clear. Asked <em>before</em>
+anything is downloaded, so declining leaves no half-finished
+conversion.</li>
+<li><strong>Is a Beacon actually on USB?</strong> — the one thing the
+script can verify by itself. No probe, no change.</li>
+<li><strong>The module.</strong> Klipper does <strong>not</strong> ship
+one: mainline v0.13 has generic eddy-current support
+(<code>probe_eddy_current</code> + <code>ldc1612</code>, for LDC1612
+probes like BTT Eddy), but Beacon speaks its own protocol over its own
+MCU, so it needs the vendor’s out-of-tree module. If it is missing, you
+are told what will be downloaded, from where, under which licence and to
+which path — and asked. Nothing is redistributed by this kit.</li>
+<li><strong>The config change</strong> — type <code>BEACON</code>. A
+backup is written, and it rolls back if Klipper does not come up.</li>
+</ol>
+<blockquote>
+<h3 id="read-this-before-switching">⚠️ Read this before switching</h3>
+<p><strong>1. It is experimental in the literal sense.</strong> No Arco
+Unleashed developer has run it on a machine. Every number in
+<code>beacon.cfg</code> — <code>y_offset</code>,
+<code>z_positions</code>, mesh bounds — is <em>one other printer’s</em>
+value, not an Arco constant. Treat them as a starting point and verify
+each one.</p>
+<p><strong>2. Do not use the Arco display for anything Z-related
+afterwards.</strong> Not Z-calibration, not auto-levelling, not “probe”
+or mesh from the touchscreen. Its calibration flow was written for the
+piezo probe: it declares Z positions instead of measuring them
+(<code>SET_KINEMATIC_POSITION</code>), and it loads a stored mesh that
+was probed against a different Z reference. On a Beacon machine that can
+drive Z out of safe bounds — it was tested, and it did. <strong>Use
+Mainsail or Fluidd</strong> for homing, probing, mesh and Z-offset.
+Printing from the display is unaffected.</p>
+<p><strong>3. Verify <code>z_positions</code> before you trust
+<code>Z_TILT_ADJUST</code>.</strong> The order must match the
+<em>physical</em> Z motors, not the order of the config sections.
+Swapped, z_tilt <strong>diverges</strong> instead of converging and the
+retries make it worse. Check with
+<code>STEPPER_BUZZ STEPPER=stepper_z</code> / <code>stepper_z1</code>
+and watch which side of the gantry moves.</p>
+</blockquote>
+<h2 id="sensorless-xy-homing-a-repair-option-not-an-upgrade">Sensorless
+XY homing — a repair option, not an upgrade</h2>
+<p><code>scripts/sensorless_toggle.sh status|on|off</code> · setup menu
+→ <strong>s</strong></p>
+<p>X and Y stop by detecting motor load (Trinamic StallGuard) instead of
+by a microswitch. Z is untouched and keeps its load-cell probe.</p>
+<p><strong>The microswitches remain the default and the
+recommendation.</strong> They stop at the same physical place every
+time, for free, with nothing to tune. If your switches work, leave this
+off.</p>
+<p>What makes it worth shipping is one specific failure: X’s microswitch
+hangs off the <strong>toolhead</strong> MCU while the driver’s DIAG line
+goes to the <strong>main</strong> MCU. A broken toolhead cable therefore
+kills the switch but not the sensorless path — the printer homes again
+without waiting for a spare part.</p>
+<p>Proven on hardware here: <code>G28 X</code>, <code>G28 Y</code> and a
+full <code>G28</code> all home on StallGuard, and the disconnected
+switches still <strong>click</strong> at the end of the move. The click
+is the point — the stall happens <em>at</em> the mechanical stop, so the
+zero does not shift and the filament cutter (X=319), the wipe position
+(Y=322) and any saved mesh stay valid.</p>
+<p><code>on</code> equalises the two homing speeds (levelling
+<em>down</em>, never up — StallGuard’s reading is velocity-dependent, so
+two axes at different speeds cannot share one sensitivity), installs a
+<code>sensorless.cfg</code> that gates StallGuard by velocity, and rolls
+everything back if Klipper does not come up. <code>off</code> restores
+<code>printer.cfg</code> byte-for-byte, homing speed included — verified
+against the toggle’s own backup. A Phrozen update replaces
+<code>printer.cfg</code>; the kit re-applies sensorless mode before
+every Klipper start while it is enabled, because handing back a dead
+switch is exactly the wrong failure.</p>
+<blockquote>
+<h3 id="read-this-before-switching-1">⚠️ Read this before switching</h3>
+<p><strong>1. Watch the first few homings, with <code>M112</code> in
+reach.</strong> Wrong sensitivity means the carriage grinds into the
+rail instead of stopping, and on CoreXY that drags the other axis along.
+Listen for the switch to click: Klipper reports position <code>0</code>
+whether it reached the wall or tripped 2 mm in, so the sound is the only
+honest signal you have.</p>
+<p><strong>2. Sensitivity is <code>driver_SGT</code>, and the scale is
+backwards from intuition — LOWER is MORE sensitive.</strong> Grinds
+without stopping → lower it. Stops early with no click → raise it. The
+shipped <code>1</code> is what this hardware wanted at 30 mm/s and 1.2
+A.</p>
+<p><strong>3. Calibrate at your running current.</strong> A value found
+at a reduced current does not transfer. With too little current the
+motor <em>slips</em> instead of building the load StallGuard measures,
+so nothing triggers at all — which looks exactly like “sensorless does
+not work on this machine”.</p>
+</blockquote>
+<p><strong>What it changes.</strong> Four things have to
+<em>disappear</em> from <code>printer.cfg</code>, which no include can
+do — <code>[probe]</code> (claims the same <code>!PB9</code>),
+<code>[homing_override]</code> (claims <code>G28</code> and drives Z
+against the piezo), <code>stepper_z</code>’s
+<code>position_endstop</code> (Klipper rejects it as unused once the
+endstop is virtual) and <code>stepper_z1</code>’s
+<code>endstop_pin</code> (a second endstop on a probe-homed rail). Each
+is commented with a <code>#:beacon:</code> marker, so <code>off</code>
+is a prefix strip. Everything additive lives in <code>beacon.cfg</code>,
+included <strong>last</strong> so its section merges win.</p>
+<p><strong>Update safety.</strong> The Beacon module is untracked in
+Klipper’s tree, so Klipper updates leave it alone; Moonraker is not
+involved. A <strong>Phrozen update is the dangerous one</strong> — it
+replaces <code>printer.cfg</code> wholesale, which would put the piezo
+config back while a Beacon sits on the toolhead, and the next
+<code>G28</code> would drive Z down waiting for a trigger that cannot
+come. So Beacon mode is re-applied by the <code>ExecStartPre</code>
+config guard on every Klipper start, keyed off a marker file, before
+klippy parses anything. A copy of your <code>beacon.cfg</code> is kept
+outside <code>printer_data/</code> for the same reason.</p>
+<p><strong>First steps after switching</strong> (in Mainsail/Fluidd, not
+on the display): <code>STEPPER_BUZZ</code> both Z steppers →
+<code>G28</code> → <code>Z_TILT_ADJUST</code> → <code>BEACON_CAL</code>
+(contact auto-calibration) → <code>BEACON_MESH</code> (re-scan the mesh
+— the saved one was probed with the piezo).</p>
+<h2 id="themes-optional">Themes (optional)</h2>
+<p>An electric-cobalt comic theme matching the Arco Unleashed branding —
+navy glass panels, halftone-burst background, the bookworm logo + a
+Burst “U” favicon.</p>
+<ul>
+<li><strong>Mainsail</strong> — <a
+href="mainsail-theme/"><code>mainsail-theme/</code></a>, light / dark +
+a switcher. Full details in its <a
+href="mainsail-theme/README.md">README</a>.</li>
+<li><strong>Fluidd</strong> — <a
+href="fluidd-theme/"><code>fluidd-theme/</code></a>, the same look
+ported (both apps are Vuetify, so it is the same design, not a
+lookalike). Install with
+<code>bash fluidd-theme/setup-fluidd-theme.sh</code>, then reload with
+<strong>Ctrl+F5</strong> and pick the dark theme. Fluidd has no hook for
+a custom logo or favicon, so those stay its own.</li>
+</ul>
+<p>Mainsail can’t add <em>named</em> themes to its dropdown (that needs
+a Mainsail fork/rebuild, which breaks on every update), so the kit ships
+<strong>two <code>.theme</code> variants + a switcher</strong> instead —
+update-safe:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Base</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Voron Light</strong></td>
+<td>navy <code>#070E1F</code> (default)</td>
+</tr>
+<tr>
+<td><strong>Voron Dark</strong></td>
+<td>near-black <code>#02050c</code> (same accents / logo / favicon)</td>
+</tr>
+<tr>
+<td><strong>Stock</strong></td>
+<td>theme off (plain Mainsail)</td>
+</tr>
+</tbody>
+</table>
+<p>Switch over SSH —
+<code>sh ~/printer_data/config/unleashed-theme.sh next</code> (cycles
+light → dark → stock) — or one-click in the <strong>Macros
+panel</strong> via <code>SWITCH_THEME</code> (needs the
+<code>gcode_shell_command</code> extension;
+<code>setup-theme-macros.sh</code> wires it up). Hard-reload after
+switching (<strong>Ctrl+F5</strong>). The active state is kept in
+<code>.theme-state</code> and survives reboots. Note: the
+<code>.theme</code> overlay is global, so it also tints the built-in
+themes — keeping those pristine would need a Mainsail fork (out of
+scope, not update-safe).</p>
+<p><a id="orcaslicer--multicolor--ams-auto-mode"></a></p>
+<h2 id="orcaslicer-multicolor-ams-auto-mode">OrcaSlicer — multicolor
+&amp; AMS auto-mode</h2>
+<p>The Arco is a single-nozzle multicolor printer (filament-swap, like a
+Bambu AMS). Slice in <strong>OrcaSlicer</strong>; the AMS mode is chosen
+automatically at print start.</p>
+<p><strong>Profile.</strong> Stock OrcaSlicer already ships the official
+<strong>Phrozen Arco</strong> profile (vendor <code>Phrozen</code>, no
+fork needed) — just pick it. The kit adds an enhanced variant in <a
+href="orca/"><code>orca/</code></a> with the flag-driven start-gcode
+below. Import it via <em>File → Import → Import Configs…</em>,
+<strong>or</strong> paste the complete <em>Machine start G-code</em>
+below into your own profile.</p>
+<p><strong>The flag.</strong> AMS on/off is a deliberate
+<strong>physical toolhead conversion</strong>, so you set it via the
+<strong>SSH menu / <code>AMS_ON</code>·<code>AMS_OFF</code></strong>
+(not casually in Mainsail). That writes a persistent <code>ams</code>
+flag (<code>[save_variables]</code>); the start-gcode macro
+<code>PHROZEN_AMS_START</code> reads it — so OrcaSlicer needs no
+knowledge of whether the AMS is attached:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>AMS flag</th>
+<th>Slice</th>
+<th>Print starts in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>on</strong></td>
+<td>multicolor</td>
+<td><code>P0 M1</code> (color changes via <code>Tn</code>)</td>
+</tr>
+<tr>
+<td><strong>on</strong></td>
+<td>single-color</td>
+<td><code>P0 M2</code> (auto-refill / endless spool — load the
+<strong>same</strong> color)</td>
+</tr>
+<tr>
+<td><strong>off</strong></td>
+<td>single-color</td>
+<td><code>P0 M3</code> (standalone, toolhead runout protection)</td>
+</tr>
+<tr>
+<td><strong>off</strong></td>
+<td>multicolor</td>
+<td>aborts with an error (multicolor needs the AMS)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Complete Machine start G-code</strong> (already in the kit
+profile — paste this whole block into Orca’s <em>Machine start
+G-code</em> field if you set up your own printer):</p>
+<pre class="gcode"><code>M107
+G90
+M104 S140 ; nozzle warm-up (stays cool = no ooze during probe)
+M140 S[bed_temperature_initial_layer_single] ; bed straight to print temp (no 65C detour)
+M109 S140
+M190 S[bed_temperature_initial_layer_single] ; heat-soak at target temp
+PG28
+;AUTO_LEVELING_2
+G30
+G21
+M83
+M104 S[nozzle_temperature_initial_layer] ; nozzle up to print temp
+M109 S[nozzle_temperature_initial_layer]
+{if size(filament_diameter) &gt; 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}
+{if size(filament_diameter) == 1}
+T0
+{endif}</code></pre>
+<p>Above heats the <strong>bed straight to your print
+temperature</strong> (no wasteful 65 °C-then-cool-down wait) and keeps
+the <strong>nozzle at a probe-safe 140 °C</strong> during
+<code>PG28</code> home + probe (so it can’t ooze onto the load-cell),
+then raises the nozzle to print temp. <strong><code>G30</code></strong>
+loads your saved <code>phrozen</code> bed mesh instantly (and calibrates
++ saves it the first time if none exists yet). The
+<strong><code>PHROZEN_AMS_START</code></strong> line is the AMS
+auto-mode; the closing <code>{if size(filament_diameter)…}</code>
+selects <code>T0</code> for single-color prints. Needs the
+<code>auto_mode</code> + <code>ams</code> features in
+<code>AddOn.cfg</code> (on by default) and the
+<code>gcode_shell_command</code> extension; homing is automatic.</p>
+<p><strong>Set the other Machine G-code fields too</strong> (the
+imported profile already has them; set them if you paste into your own):
+<strong>End G-code</strong> = <code>PRINT_END</code> ·
+<strong>Pause</strong> = <code>M601</code> (→ <code>PAUSE</code> alias)
+· <strong>Change filament</strong> =
+<code>PHROZEN_TOOLCHANGE FLUSH=[flush_length]</code>. In
+<strong>Others</strong>, tick <strong>Label objects</strong>
+(<code>gcode_label_objects</code>) — required for the adaptive bed mesh
+(per-object bounding boxes via <code>EXCLUDE_OBJECT_DEFINE</code>) and
+it enables Mainsail per-object exclusion. (The AMS <code>ams</code> flag
+is separate — set once via SSH, see <em>The flag</em> above.) Pause /
+filament-change adapt automatically to the <code>ams</code> flag — see
+<em>Pause &amp; filament change</em> below.</p>
+<h3 id="adaptive-bed-mesh-optional">Adaptive bed mesh (optional)</h3>
+<p>Rather than loading the saved full-bed mesh, Klipper can probe
+<strong>only the print area</strong> on each print. Replace the
+<strong><code>G30</code></strong> line above with:</p>
+<pre class="gcode"><code>M106 S255
+BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
+M106 S0</code></pre>
+<p>The <code>M106 S255</code>/<code>M106 S0</code> runs the part fan
+during probing to keep the nozzle tip clean (Phrozen wraps its mesh
+probe the same way; the <code>G30</code> load doesn’t probe, so it needs
+no fan). Also <strong>enable OrcaSlicer’s <em>Label objects</em>
+checkbox</strong> (<em>Others → Label objects</em>). Adaptive meshing
+reads the object bounding boxes from the
+<code>EXCLUDE_OBJECT_DEFINE</code> lines that checkbox emits —
+<strong>without it Klipper falls back to probing the whole bed</strong>.
+After one test slice, confirm the <code>EXCLUDE_OBJECT_DEFINE</code>
+lines sit <strong>before</strong> <code>BED_MESH_CALIBRATE</code> in the
+sliced G-code; if not, set Moonraker
+<code>[file_manager] enable_object_processing: True</code>. Adaptive
+meshes are transient (<code>adaptive-XXXX</code>) and never overwrite
+your saved <code>phrozen</code> profile. Trade-off: probes each print
+(~30–60 s) vs. the instant <code>G30</code> load.</p>
+<h3
+id="pause-filament-change-handled-automatically-for-ams-and-standalone">Pause
+&amp; filament change (handled automatically for AMS and
+standalone)</h3>
+<p>You don’t need mode-specific <em>Pause</em> / <em>Change
+filament</em> G-code — the printer-side macros adapt to the
+<code>ams</code> flag automatically: - <strong>Color / filament
+change:</strong> Orca’s <code>change_filament_gcode</code> is
+<strong><code>PHROZEN_TOOLCHANGE FLUSH=[flush_length]</code></strong>,
+which is AMS-aware. With the AMS it retracts and purges the slice’s
+flush volume (a sized <code>P10</code> spit) while Orca’s
+<code>Tn</code> drives the actual cut / load / purge. Without the AMS it
+retracts and calls the <strong><code>M600</code></strong> macro — a full
+manual retract → load → purge → resume. (<code>M600</code> also reads
+the <code>ams</code> flag: full manual flow when off, a no-op when on
+since changes go via <code>Tn</code>.) - <strong>Pause:</strong> Orca’s
+stock <code>machine_pause_gcode</code> is
+<strong><code>M601</code></strong>, which is <em>not</em> a Klipper
+command — the kit ships an <strong><code>M601</code> →
+<code>PAUSE</code></strong> alias (in <code>AddOn.cfg</code>) so an Orca
+pause-at-layer works instead of hitting “Unknown command”.
+<code>PAUSE</code> behaves the same with or without the AMS. (Keep the
+profile’s <code>machine_pause_gcode</code> as <code>M601</code> — the
+alias handles it — or set it to <code>PAUSE</code> directly.) -
+<strong>Runout:</strong> the toolhead sensor is watched by Phrozen’s own
+module — but only after the print mode has been set, which is what
+<code>PHROZEN_AMS_START</code> does. A start G-code without it prints
+<strong>unprotected</strong>, and stock says nothing.
+<code>[arco_fila_status]</code> reports it: a console warning once the
+job is past its start G-code, <code>FILA_STATUS</code> on demand, and
+<code>printer['arco_fila_status']</code> (<code>filament_present</code>,
+<code>adc</code>, <code>threshold</code>,
+<code>protection_active</code>) for your own macros. It is read-only —
+detection and pausing stay with Phrozen’s module.</p>
+<h2 id="belts-and-idlers">Belts and idlers</h2>
+<p>Three macros for the mechanics, all of them in <code>AddOn.cfg</code>
+and all toggleable from the setup menu. They derive their limits from
+your own configuration rather than carrying hard-coded coordinates, so a
+different bed or a different mesh does not silently inherit numbers
+chosen for one machine.</p>
+<p><strong><code>BELT_TENSION</code></strong> — homes, then parks where
+<strong>both belt spans are equal</strong>, which is where you pluck
+them. That is not the middle of the bed and not the middle of the
+travel: behind the Y rail there is a further 60 mm of belt to the idler
+(measured on this machine), so the middle of the <em>span</em> is Y190
+where the middle of the travel would be Y160. Park at the wrong place
+and two perfectly matched belts read as mismatched. Aim for
+<strong>equal pitch</strong> between the two, not for any particular
+frequency — the absolute number depends on span length. Leave the
+steppers energised; <code>M84</code> lets the belts go slack and the
+reading is void.</p>
+<p><strong><code>BELT_WARMUP</code></strong> — runs the gantry through
+its range to loosen cold, stiff belts.
+<code>BELT_WARMUP ACCEL=5000 MARGIN=40 SPEED=200 CYCLES=10</code>. It
+bounds its own acceleration rather than inheriting the machine’s 40000
+ceiling, keeps <code>MARGIN</code> off the frame at the low end, and
+stays clear of the purge/wipe unit at the high end — those two ends are
+not symmetric, which is why it derives them separately. Previous limits
+are restored, and it re-homes at the end rather than trusting the step
+count, because a cold-belt warm-up at speed is precisely what can lose
+steps.</p>
+<p><strong><code>CLEAN_IDLERS</code></strong> — turns the idler pulleys
+a measured amount so you can wipe the deposits off them. Run it with no
+arguments and it opens a dialog in Mainsail or Fluidd: pick the
+<strong>left</strong> or <strong>right</strong> pulleys, and the
+toolhead parks at the opposite end so it is not travelling past the hand
+holding the cotton bud. A second dialog with a <strong>Stop</strong>
+button replaces it while it runs.</p>
+<p>One turn of a 20-tooth GT2 pulley is 40 mm of belt, so the default
+1.5 turns is 60 mm — and on CoreXY that is also 60 mm of carriage
+travel, with no ratio to correct for. Everything is adjustable:
+<code>CLEAN_IDLERS SIDE=left TURNS=1.5 TEETH=20 SPEED=45 PAUSE=3 PAUSE_TURN=1</code>.
+It pauses <strong>before</strong> each forward pass — that is when you
+hold the bud against the pulley, not while it moves — and only briefly
+at the far end. It refuses while a print is running, and refuses if the
+requested turns would carry Y past the purge unit.</p>
+<h2 id="layout">Layout</h2>
+<pre><code>config-templates/    printer.cfg + includes + AddOn.cfg + wpa  (templates; secrets/serial removed)
+scripts/  unleashed_setup.sh   the setup MENU; _arco-lib.sh = shared helpers/actions
+          fetch-phrozen-fw · usb-fw   &lt;- installs Phrozen&#39;s module: user&#39;s USB zip first, else a confirmed fetch from Phrozen&#39;s own repo)
+          apply-phrozen-patches  (3 v0.13 sed fixes + the SHAPER_END/BED_PROBE_END cal-handshake macros — only our rules)
+          apply-phrozen-restore  (keeps a copy of YOUR phrozen_dev outside the Klipper tree; puts it back if an update deleted it)
+          emergency-repair  (one action for &quot;something broke&quot; — runs every repair, reports what was wrong)
+          apt-hold (mask auto-apt/unattended-upgrades + hold kernel/DTB/fw) · fix-gpio-led · resize-emmc · optimize-fs (noatime)
+          optimize-boot  -&gt; 40k real-time tuning: performance governor · klippy CPU3 + F407-IRQ affinity · numpy=1 · F407 USB no-suspend · ImageId
+          flash_mcus [f407|f103|host] · install-katapult · set-mcu-serial
+          phrozengo · ams_toggle · addon-toggle · addon-features · phrozen-recover · selfupdate
+          beacon_toggle  (EXPERIMENTAL: piezo probe &lt;-&gt; Beacon; reversible printer.cfg surgery)
+          arco_*.py  own Klipper extras, untracked + self-healed by apply-arco-extras (ExecStartPre):
+                     mcu_timing (MCU timing without patching mcu.py) · tool_gate (hide T1-T15 without an AMS)
+                     sdcard_select (SDCARD_SELECT_FILE for the display) · fila_status (filament state, read-only)
+          arco-firstrun (portal→fetch→install) · wifi-portal/ · tft.sh (boot progress screen)
+          arco-splash (loading-screen branding)
+system/                   USB automount (udev rule + mount service) for the gcodes/USB stick path
+collect_data_arco.sh      grab phrozen_master + ~/hdlDat (AMS server, NOT in Arco_FW_V*.zip) from YOUR printer -&gt; USB
+mainsail-theme/           optional Arco Unleashed Mainsail theme (Voron Light/Dark + switcher + mainsail-seed)
+orca/                     OrcaSlicer profile (flag-driven AMS auto-mode; import or copy the start-gcode line)</code></pre>
+<h2 id="credits-notes">Credits &amp; notes</h2>
+<ul>
+<li><strong>No Phrozen software is redistributed, hosted or mirrored
+here.</strong> Everything Phrozen ships as its own reaches the printer
+either from a <strong>USB stick you provide</strong> (their official
+<code>Arco_FW_V*.zip</code>, obtained by you from Phrozen) or, after you
+confirm, straight from <strong>Phrozen’s own public repository</strong>:
+the <strong><code>phrozen_dev</code> Python module</strong> (GPL-3.0, <a
+href="https://github.com/phrozen3d/klipper">phrozen3d/klipper</a>) and
+the proprietary parts — the <code>voronFDM</code> display binary
+(Phrozen’s own closed-source C++, <em>not</em> GPL despite the name),
+the display <code>.tft</code> and the AMS firmware. This repository
+ships the patch <em>rules</em> and its own scripts; the DTB and the WiFi
+firmware are in the <strong>image</strong>, not here. The config
+templates under <code>config-templates/</code> do derive from Phrozen’s
+own Arco configuration, which they publish under
+<strong>AGPL-3.0</strong> (<a
+href="https://github.com/phrozen3d/Phrozen_ARCO">phrozen3d/Phrozen_ARCO</a>)
+— the same licence as this project, which is what makes that legitimate.
+See <a href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>.</li>
+<li>For privacy, prefer <strong>Tailscale/WireGuard</strong> over
+PhrozenGo’s cloud for remote access.</li>
+<li>No personal data is shipped — WiFi, SSH keys and calibration are
+per-printer (templates/placeholders).</li>
+</ul>
+<h2 id="trademarks-disclaimer">Trademarks &amp; disclaimer</h2>
+<p><em>Phrozen</em>, <em>Arco</em> and <em>PhrozenGo</em> are trademarks
+of <strong>Phrozen Tech Co., Ltd.</strong>; <em>ThroughTek</em>,
+<em>Kalay</em> and <em>TUTK</em> of <strong>ThroughTek Co.,
+Ltd.</strong> They are used here only for identification/description
+(nominative fair use). All trademarks and copyrights remain with their
+respective owners. <strong>Arco Unleashed is an independent,
+community-made project — not developed, supported, sponsored, endorsed
+by, or affiliated with Phrozen or ThroughTek. No proprietary
+Phrozen/ThroughTek software is bundled, hosted or mirrored; Phrozen’s
+parts come either from the official package the owner obtains from
+Phrozen and provides on a USB stick, or — only after the owner confirms
+— from Phrozen’s own public repository.</strong> See <a
+href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>.</p>
+<h2 id="license">License</h2>
+<p><strong>Arco Unleashed — Copyright © 2026 solutionphil.</strong>
+Licensed under the <strong>GNU Affero General Public License
+v3.0</strong> (AGPL-3.0) — see <a href="LICENSE">LICENSE</a> and <a
+href="NOTICE">NOTICE</a>.</p>
+<p>If you redistribute or build on Arco Unleashed, AGPL-3.0 requires you
+to <strong>keep it open</strong> (publish your complete source,
+including for any networked/hosted use), <strong>state your
+changes</strong>, and <strong>preserve the copyright notice and the
+“Arco Unleashed” attribution</strong> (<a
+href="https://github.com/solutionphil/arco-unleashed">github.com/solutionphil/arco-unleashed</a>)
+— this attribution is a stated additional term under <strong>AGPL
+§7(b)</strong>, in the source and in any user-facing
+“About”/documentation of your derivative.</p>
+<p>Bundled third-party components keep their own licenses (the Klipper
+MCU firmware is GPL-3.0) — see <a
+href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>.</p>
+<blockquote>
+<p>[!CAUTION] Working with electricity and electronic components can be
+dangerous. Always ensure you take the necessary safety precautions when
+handling electrical devices.</p>
+<p>This software and associated documentation are provided “as is”
+without warranty of any kind, either express or implied, including but
+not limited to the implied warranties of merchantability and fitness for
+a particular purpose. In no event shall the authors or copyright holders
+be liable for any claim, damages, or other liability, whether in an
+action of contract, tort, or otherwise, arising from, out of, or in
+connection with the software or the use or other dealings in the
+software.</p>
+<p>Use this software at your own risk. The authors are not responsible
+for any damage to your equipment, personal injury, or any other
+consequences resulting from the use of this software.</p>
+</blockquote>
+</body>
+</html>

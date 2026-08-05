@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Arco Unleashed — Quick Start</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    /* Arco Unleashed — branded theme for pandoc-generated docs (README.html / MANUAL.html).
+       Mirrors the hand-built QUICKSTART.html look (gradient banner, card, styled headings, callouts).
+       Applied via: pandoc … --include-in-header image-toolbox/pandoc-dark-header.html
+       Uses !important to override pandoc's default light template. */
+    :root{
+      --blue:#2E74F2; --blue-hi:#5B97FF; --navy:#0E2247; --ink:#070E1F;
+      --page:#10254a; --outer:#081832; --muted:#9db0cc; --line:#24406e;
+    }
+    html{ background:var(--outer) !important; }
+    body{
+      max-width:880px !important; margin:26px auto !important; padding:34px 40px 42px !important;
+      background:var(--page) !important; color:#dfe8f5 !important;
+      border-radius:12px !important; box-shadow:0 2px 22px rgba(0,0,0,.45) !important;
+      font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif !important;
+    }
+    /* Title banner — pandoc's title block, pulled full-bleed via negative margins (like QUICKSTART <header>) */
+    #title-block-header{
+      margin:-34px -40px 26px !important; padding:30px 40px !important;
+      background:linear-gradient(135deg,var(--ink),var(--navy)) !important;
+      border-radius:12px 12px 0 0 !important;
+    }
+    #title-block-header .title{ margin:0 !important; color:#fff !important; font-size:27px !important;
+      font-weight:700 !important; letter-spacing:.3px; border:0 !important; padding:0 !important; }
+    #title-block-header .subtitle{ color:#cdd9f2 !important; font-size:15px !important; font-weight:400 !important; }
+    h1,h2,h3,h4,h5,h6{ color:#fff !important; line-height:1.25 !important; }
+    h1{ font-size:23px !important; margin:1.5em 0 .5em !important; }
+    h2{ font-size:19px !important; margin:1.7em 0 .5em !important; padding-bottom:6px !important;
+        border-bottom:2px solid var(--line) !important; }
+    h3{ font-size:16px !important; color:#cfe0ff !important; margin:1.3em 0 .4em !important; }
+    a{ color:var(--blue-hi) !important; text-decoration:none !important; }
+    a:hover{ text-decoration:underline !important; }
+    p,li,td,dd,dt,figcaption{ color:#dfe8f5 !important; }
+    strong,b{ color:#fff !important; }
+    em,i{ color:#cdd9ef !important; }
+    code{ background:#0b1a33 !important; color:#cfe0ff !important; padding:1.5px 5px !important;
+          border-radius:4px !important; font:13px/1.4 Consolas,Menlo,monospace !important; }
+    pre{ background:var(--ink) !important; color:#e8f0ff !important; padding:13px 16px !important;
+         border-radius:8px !important; border-left:3px solid var(--blue) !important; overflow:auto !important; }
+    pre code{ background:none !important; color:inherit !important; padding:0 !important; }
+    blockquote{ margin:14px 0 !important; padding:11px 16px !important;
+         background:rgba(46,116,242,.09) !important; color:#c7d4ec !important;
+         border:0 !important; border-left:4px solid var(--blue) !important; border-radius:0 8px 8px 0 !important; }
+    blockquote p{ margin:.3em 0 !important; color:#c7d4ec !important; }
+    table{ border-collapse:collapse !important; margin:14px 0 !important; }
+    th,td{ border:1px solid var(--line) !important; padding:6px 11px !important; }
+    th{ background:#12294d !important; color:#fff !important; }
+    tr:nth-child(even) td{ background:rgba(255,255,255,.03) !important; }
+    hr{ border:0 !important; border-top:1px solid var(--line) !important; margin:24px 0 !important; }
+    img{ max-width:100% !important; height:auto !important; border-radius:8px !important; }
+    ul,ol{ padding-left:24px !important; }
+    li{ margin:4px 0 !important; }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Arco Unleashed — Quick Start</h1>
+</header>
+<h1 id="arco-unleashed-quick-start">Arco Unleashed — Quick Start</h1>
+<p>From a stock Phrozen Arco to <strong>Debian Bookworm · kernel 6.18 ·
+Klipper v0.13</strong>, without opening the printer: it flashes its own
+eMMC from a USB stick.</p>
+<p>Six steps, about <strong>90 minutes</strong>, of which maybe 20 are
+hands-on — the rest is waiting for the printer. Every screen is pictured
+in the <strong><a href="MANUAL.md">MANUAL</a></strong>; the full
+reference is the <strong><a href="README.md">README</a></strong>.</p>
+<blockquote>
+<p>⚠️ <strong>Your risk, and probably your warranty.</strong> Replacing
+the factory OS and firmware will very likely <strong>void your Phrozen
+warranty</strong>, and you do it entirely at your own risk — no
+guarantee of any kind, and nobody here is liable for a printer that ends
+up damaged or unusable.</p>
+<p>ℹ️ <strong>Not affiliated with Phrozen.</strong> Arco Unleashed is an
+independent, community-made project — not endorsed, supported or
+distributed by Phrozen, who cannot be asked for support on a printer
+running it. <em>Phrozen</em> and <em>Arco</em> are their trademarks,
+used only to say which machine this fits. <strong>No Phrozen proprietary
+software is shipped or downloaded here</strong> — you supply their
+firmware package yourself.</p>
+</blockquote>
+<hr />
+<h2 id="before-you-begin">Before you begin</h2>
+<p><strong>You need:</strong> the printer on your network · a PC · one
+<strong>empty, freshly formatted FAT32 stick</strong> (≥ 4 GB, plugged
+straight into the printer — <strong>never through a USB hub</strong>) ·
+Phrozen’s <strong><code>Arco_FW_V*.zip</code></strong> <em>(you download
+it from Phrozen)</em> · an SSH client (<strong>PuTTY</strong> on
+Windows) · a <strong>2.5 mm hex key</strong> for Step 4.</p>
+<p><strong>Three things are irreversible, so decide now:</strong></p>
+<ol type="1">
+<li>The AMS server exists <strong>only on your printer</strong> and the
+flash erases it. <strong>Step 0 saves it.</strong> Skip that and AMS
+detection hangs afterwards, with no way to recover the files.</li>
+<li>The eMMC is overwritten in place. If you may ever want to return to
+stock, the only way to keep that option is Step 0b below: it images the
+whole eMMC onto your stick, no teardown needed. Phrozen do not publish a
+stock image.</li>
+<li>Once the write begins there is no undo — a failure needs path B to
+recover.</li>
+</ol>
+<p><strong>Start from an empty stick.</strong> The tools find their
+inputs by pattern (<code>Arco-Unleashed*.img.gz</code>,
+<code>Arco_FW_V*.zip</code>) and take the <strong>first</strong> match,
+so an old firmware zip or a <code>(1)</code> re-download left on the
+stick can win silently and install something you did not intend.</p>
+<hr />
+<h2 id="step-0-save-what-only-your-printer-has">Step 0 — Save what only
+your printer has</h2>
+<blockquote>
+<p>🛑 <strong>Not a backup of your printer.</strong> This rescues
+<strong>two files</strong> that exist nowhere else. Your calibration,
+your uploaded G-code and Phrozen’s own system are <strong>erased and
+gone</strong>. If you want a way back, make one first — <strong>Step
+0b</strong> below images the whole eMMC onto your stick, without opening
+the printer.</p>
+</blockquote>
+<p>On the <strong>still-running original printer</strong>. Insert the
+stick — it auto-mounts at <code>~/printer_data/gcodes/USB</code> (check
+with <code>lsblk</code> if in doubt) — then SSH in (<code>mks</code> /
+<code>makerbase</code>, port 22) and run <strong>one</strong> of:</p>
+<p><code>collect_data_arco.sh</code> is in the release zip, so
+<strong>it is already on the stick</strong> if you extracted that first
+(Step 1). If you are using the printer’s original Phrozen stick instead,
+copy the one file onto it from your PC. Then:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span></code></pre></div>
+<p>Downloading it on the printer instead works only once this project’s
+repository is public:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://raw.githubusercontent.com/solutionphil/arco-unleashed/main/collect_data_arco.sh <span class="at">-O</span> /tmp/collect.sh</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> /tmp/collect.sh ~/printer_data/gcodes/USB</span></code></pre></div>
+<p>While it is still private that URL answers <strong>404 Not
+Found</strong>, which looks like a broken link rather than a permission
+problem — use the stick.</p>
+<p><strong>Done when:</strong> <code>arco-phrozen-ams.tar.gz</code> is
+on the stick — <em>check it on your PC</em>, not just on screen. If it
+is missing, re-insert the stick and run the command again.</p>
+<hr />
+<h2 id="step-0b-optional-your-way-back">Step 0b — <em>optional:</em>
+your way back</h2>
+<p>Phrozen publish no stock image, so once the eMMC is overwritten the
+machine you have today is gone unless you copied it first. This copies
+<strong>all of it</strong> onto your stick as one file — no screws, no
+PC:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
+<p>It checks that the stick has room, then reboots and images the eMMC
+before the system starts, with a progress bar on the display. When it is
+done it carries on booting by itself — nothing on the printer was
+touched, so there is nothing to restart for. Pulling the stick cancels
+it at any point. Needs a <strong>stick of 8 GB or more</strong>; on a 32
+GB eMMC it took about half an hour and produced a 2.3 GB file. It runs
+<strong>once per command</strong>: run it again for another backup.
+Write one back later with <code>--arm --image &lt;that file&gt;</code>,
+or from the setup menu under <strong>i)</strong>. Full details in the
+<strong><a href="MANUAL.md">MANUAL</a></strong>.</p>
+<p><strong>Keep the file private</strong> — it is a byte-for-byte copy,
+so it holds your WiFi password and SSH keys.</p>
+<p><strong>Done when:</strong>
+<code>arco-emmc-backup-stock.img.gz</code> and its <code>.sha256</code>
+are on the stick. (The name says which system it holds:
+<code>-stock</code> before migrating, <code>-unleashed</code> after.
+Each rotates on its own, so a routine backup can never overwrite the one
+that takes you back to Phrozen’s system.)</p>
+<hr />
+<h2 id="step-1-fill-the-stick">Step 1 — Fill the stick</h2>
+<p>Extract <strong><a
+href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
+to the <strong>top level</strong> of the stick. That supplies the image,
+its checksums, the self-flash tool and the guides. Then add the two
+files only you can provide:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>On the stick</th>
+<th>From</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code> +
+<code>.sha256</code> + <code>.rawsize</code></td>
+<td>the release zip</td>
+</tr>
+<tr>
+<td><code>unleashed-selfflash.tar.gz</code> +
+<code>prepare_unleashed_self_flash.sh</code></td>
+<td>the release zip</td>
+</tr>
+<tr>
+<td><code>Arco_FW_V*.zip</code></td>
+<td>you download it from Phrozen</td>
+</tr>
+<tr>
+<td><code>arco-phrozen-ams.tar.gz</code></td>
+<td>Step 0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>WiFi</strong> — the printer must be online afterwards,
+because Step 4 runs over SSH. Pick one:</p>
+<ul>
+<li><p><strong>Nothing to do (default).</strong> The flasher copies the
+network this printer is already using, region setting included.</p></li>
+<li><p><strong>A <code>wifi-seed.txt</code> you create</strong> — plain
+text, no quotes, a <strong>2.4 GHz</strong> network (the Arco has no 5
+GHz radio), and <code>COUNTRY</code> set to <em>your</em> two-letter
+region or it may not join:</p>
+<pre><code>SSID=YourNetworkName
+PSK=YourWiFiPassword
+COUNTRY=US</code></pre></li>
+<li><p><strong>A <code>no_wifi.txt</code></strong> — leaves WiFi empty
+on purpose, and the printer raises its own setup hotspot on first boot
+so you can pick the network from your phone.</p></li>
+</ul>
+<p><strong>Done when:</strong> all four rows above are on the stick, and
+no <em>older</em> image or firmware zip is.</p>
+<hr />
+<h2 id="step-2-flash">Step 2 — Flash</h2>
+<p>Put the filled stick back in the printer, then SSH in again and arm
+it:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span></span></code></pre></div>
+<p>Type <code>yes</code> to the disclaimer, then the target device to
+confirm. Reboot the printer: the display shows a progress bar and
+<strong>DO NOT POWER OFF</strong>, then it restarts by itself.</p>
+<blockquote>
+<p>🚪 <strong>If something goes wrong <em>before</em> the write
+starts</strong> — missing image, checksum mismatch, a hang —
+<strong>pull the stick and power-cycle.</strong> With no image on the
+stick the flasher stands down and your existing system boots
+normally.</p>
+<p>It stays <strong>armed</strong>, which is how you retry: put a good
+image back and power-cycle. But if you stop here and keep using the old
+system, cancel it — otherwise the next boot with that stick in
+overwrites the eMMC without asking:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
+<p>🔌 <strong>A checksum mismatch is usually the stick, not the
+download.</strong> Take it off any <strong>USB hub</strong> and plug it
+straight into the printer, then copy the image again. If you see
+<strong>CRC or I/O errors</strong>, the stick itself is failing or is
+one this printer cannot drive — use another, preferably a plain USB 2.0
+one.</p>
+</blockquote>
+<p><strong>Done when:</strong> the printer has rebooted itself and the
+progress bar is gone.</p>
+<hr />
+<h2 id="step-3-first-boot">Step 3 — First boot</h2>
+<p>It installs Phrozen’s firmware and your rescued AMS files on its own,
+restarts once more, and then settles on a <strong>“Notice — Error
+occurred”</strong> screen.</p>
+<p><strong>That error is expected and is not a fault.</strong> Klipper
+cannot start until Step 4 flashes the MCUs, so the display has nothing
+to recover to — restarting or power-cycling will not clear it. Do not
+set anything up on the display, and do not skip ahead: wait for that
+screen to settle, which is how you know the automatic restarts have
+finished.</p>
+<p><strong>Allow up to five minutes per stage and do not power-cycle to
+hurry it.</strong> The display is drawn once per stage and then simply
+stays put; an unchanged screen is not a hung printer. Power-cycling in
+the middle restarts the stage rather than speeding it up. If you used
+<code>no_wifi.txt</code>, this is where the
+<strong>Arco-Unleashed-Setup</strong> hotspot appears — the full WiFi
+scan happens first, so give it time.</p>
+<p><strong>Done when:</strong> the display sits on the settled “Error
+occurred” screen and the printer answers on your network. Remove the
+stick.</p>
+<blockquote>
+<p><strong>Printer never appears?</strong> Put a
+<code>wifi-seed.txt</code> (as in Step 1) on the stick and power-cycle.
+The first boot re-reads the stick on every power-cycle until Phrozen’s
+firmware is installed, applies the file once, and renames it
+<code>.applied</code> so you can see it was picked up. Each seed is used
+<strong>once, by its contents</strong>: to try again the details must
+actually differ — a corrected password, say. Writing out the identical
+file changes nothing, so if the details were right and it still did not
+join, use the setup portal instead.</p>
+</blockquote>
+<hr />
+<h2 id="step-4-flash-the-mcus-the-one-step-that-is-not-optional">Step 4
+— Flash the MCUs · <strong>the one step that is not
+optional</strong></h2>
+<p>The host runs Klipper v0.13; your MCUs still carry the factory
+firmware and cannot talk to it. SSH in (<code>mks</code> /
+<code>makerbase</code>) and open the menu:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<p>Take <strong>1 — Flash MCUs</strong>. The <strong>F407 main
+board</strong> and the <strong>host MCU</strong> flash over USB with no
+buttons. The <strong>toolhead F103</strong> needs a one-time hands-on
+step: remove the front cover (unplug its fan), undo the four screws of
+the back cover, and with the printer <strong>running</strong> and the
+script waiting at its prompt — <strong>hold BOOT → tap RESET while
+holding it → let go of BOOT → press ENTER.</strong> There is no
+countdown: the chip reads BOOT the instant RESET comes back up, and
+afterwards stays in its bootloader until something resets it again.</p>
+<p>The teardown is pictured step by step in the <strong><a
+href="MANUAL.md">MANUAL</a></strong>. Power the printer off only while
+the covers are coming off; the flash itself needs it switched on.</p>
+<p>When the flash finishes, switch the printer fully <strong>off for
+about 10 seconds</strong> and back on. A reboot is not enough, and
+Klipper is deliberately left stopped until you do it — so nothing works
+in between, and that is not a failed flash.</p>
+<p><strong>Done when:</strong> after that power-cycle, Mainsail at
+<code>http://&lt;printer-ip&gt;/</code> comes up <strong>ready</strong>
+with no MCU error, and the display’s error popup is gone.</p>
+<hr />
+<h2 id="step-5-calibrate-then-save-it">Step 5 — Calibrate, then save
+it</h2>
+<p>Bed mesh, PID, input shaper and purge position are measured per
+machine and the image ships none — another printer’s numbers are
+worthless. Easiest is the display’s <strong>factory-reset
+auto-calibration</strong>, which runs input shaper, bed mesh and purge
+position back to back and returns to the home screen by itself. It does
+<strong>not</strong> do PID: run <code>PID_BED</code> and
+<code>PID_NOZZLE</code> from Mainsail afterwards, then
+<code>SAVE_CONFIG</code>. There is <strong>no z-offset step</strong> —
+the Arco probes with a load cell.</p>
+<p><strong>Skip any “print test” it offers.</strong> That bundled file
+was compiled for the old Klipper and cannot run, so the flow stalls on
+it.</p>
+<p>Then save what you just measured — setup menu → <strong>2 — Backup /
+restore settings</strong> → also <strong>copy it to a USB
+stick</strong>, because the local copy lives on the very eMMC it is
+protecting.</p>
+<p><strong>Done when:</strong> calibration is back at the home screen,
+<code>SAVE_CONFIG</code> has restarted Klipper after the PID runs, and
+your backup is on a stick.</p>
+<hr />
+<h2 id="step-6-print">Step 6 — Print</h2>
+<p>OrcaSlicer already ships the official <strong>Phrozen Arco</strong>
+profile, so no fork is needed. To also get the kit’s AMS auto-mode,
+import one of the two profiles in <a href="orca/"><code>orca/</code></a>
+via <em>File → Import → Import Configs…</em> — <code>(Unleashed)</code>
+loads your saved bed mesh at print start,
+<code>(Unleashed, adaptive mesh)</code> probes the print area each time
+instead. Or paste the start G-code from the <strong><a
+href="README.md#orcaslicer--multicolor--ams-auto-mode">README</a></strong>
+into your own profile.</p>
+<p>Set AMS <strong>on</strong> or <strong>off</strong> once in the setup
+menu whenever you physically attach or remove it; Orca then picks
+single-colour, multicolour or auto-refill by itself.</p>
+<p><strong>Done when:</strong> a sliced file prints.</p>
+<hr />
+<h2 id="youre-done">You’re done</h2>
+<p><strong>Mainsail</strong> is on
+<code>http://&lt;printer-ip&gt;/</code> (<code>:81</code> works too) and
+<strong>Fluidd</strong> on <code>:8808</code> — the same ports your Arco
+used before. The theme is applied, AMS is off, PhrozenGo is on. Klipper
+is <strong>not</strong> pinned: it tracks <code>master</code> and
+updates normally, and the guards on <code>klipper.service</code>
+re-apply this project’s changes before every start, so an update repairs
+itself.</p>
+<p>Everything else is optional and lives in the setup menu. If something
+ever breaks, run <strong>Emergency repair</strong> from it — one action,
+no diagnosis needed.</p>
+<p>For remote access, prefer <strong>Tailscale</strong> or
+<strong>WireGuard</strong> over PhrozenGo’s cloud.</p>
+</body>
+</html>

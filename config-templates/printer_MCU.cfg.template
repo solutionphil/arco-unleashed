@@ -1,0 +1,12 @@
+[mcu]
+serial: /dev/serial/by-id/usb-Klipper_stm32f407xx_CHANGE-your-chip-id-if00
+baud: 230400
+
+
+[mcu MKS_THR]
+serial: /dev/ttyS0
+restart_method: command
+
+[mcu rpi]
+serial: /tmp/klipper_host_mcu
+

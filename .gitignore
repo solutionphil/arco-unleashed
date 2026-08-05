@@ -1,0 +1,10 @@
+# The DTB/firmware/patches ARE needed for a friend (hardware-generic, not secret)
+# -> deliberately NOT ignored, so they land in the repo.
+
+# Never commit (secret / local):
+*wpa_supplicant-wlan0.conf
+!*.template
+*.bak
+*.img
+*.img.gz
+__pycache__/

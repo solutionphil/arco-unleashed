@@ -1,0 +1,16 @@
+[Unit]
+Description=Arco Unleashed boot splash on the serial display (drawn before voronFDM takes over)
+DefaultDependencies=no
+After=local-fs.target
+Before=KlipperScreen.service
+
+[Service]
+Type=oneshot
+# bash-prefixed on purpose: a kit deployed as a flat copy/tarball may lose the exec bit, and a direct
+# ExecStart then fails with 203/EXEC -> no splash (fresh-flash finding 2026-07-02).
+ExecStart=/bin/bash /home/mks/arco-unleashed/scripts/arco-splash.sh
+# keep it snappy; never let the splash hold up the boot
+TimeoutStartSec=15
+
+[Install]
+WantedBy=multi-user.target
