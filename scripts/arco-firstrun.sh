@@ -184,11 +184,29 @@ fi
 # is not a diagnostic anyone should need. So: let it speak, and say so when it fails. The guard set
 # is the one thing on a fresh printer whose absence changes nothing visible until the day it was
 # meant to save the machine.
-# PIPESTATUS, not the pipeline's own status: piping through sed makes `if` test SED's exit code, so
-# a failing optimize-boot would still read as success. That mistake is what made the silence above
-# possible in the first place.
-bash "$DIR/optimize-boot.sh" 2>&1 | sed 's/^/  optimize-boot: /'
-_ob_rc=${PIPESTATUS[0]}
+# TO THE STICK, not just the journal. The first version of this fix sent the output to journald and
+# called the problem solved -- it was not: journald on this image is VOLATILE, and firstrun reboots
+# the machine when it finishes. The log is gone before anyone can read it, which is exactly how a
+# missing guard stayed undiagnosable through two flashes on 2026-08-05. The stick is the one medium
+# that survives, and the WiFi portal already uses it for the same reason.
+#
+# PIPESTATUS, not the pipeline's own status: piping through tee makes `if` test TEE's exit code, so a
+# failing optimize-boot would still read as success -- the other half of the original silence.
+_ob_log=""
+for _u in "$AHOME/printer_data/gcodes/USB" /media/usb /mnt/usb; do
+    [ -d "$_u" ] && [ -w "$_u" ] && { _ob_log="$_u/arco-firstrun-guards.log"; break; }
+done
+if [ -n "$_ob_log" ]; then
+    { echo "=== optimize-boot.sh @ $(date -Is) (boot $(uptime -s)) ==="; } >> "$_ob_log" 2>/dev/null
+    bash "$DIR/optimize-boot.sh" 2>&1 | tee -a "$_ob_log" | sed 's/^/  optimize-boot: /'
+    _ob_rc=${PIPESTATUS[0]}
+    echo "  optimize-boot: exit $_ob_rc — full output on the USB stick: $(basename "$_ob_log")"
+    echo "=== exit $_ob_rc ===" >> "$_ob_log" 2>/dev/null
+else
+    bash "$DIR/optimize-boot.sh" 2>&1 | sed 's/^/  optimize-boot: /'
+    _ob_rc=${PIPESTATUS[0]}
+    echo "  optimize-boot: no writable USB stick — this output dies with the journal on reboot."
+fi
 if [ "$_ob_rc" -ne 0 ]; then
     echo "WARNING: optimize-boot.sh exited $_ob_rc — the self-heal guards may not match this kit."
     echo "         Check with: bash $DIR/check-guards.sh"
