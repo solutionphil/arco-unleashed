@@ -375,13 +375,15 @@ reconcile_home_hook() {
     [ -f "$PRINTER_CFG" ] && [ -f "$HOME_HOOK" ] || { warn "cannot reconcile the post-home hook (missing $PRINTER_CFG or helper)"; return 0; }
     local want r
     if [ -n "$(include_line 'kaos-trust-wiring\.cfg')" ]; then want=apply; else want=revert; fi
-    r="$(bash "$HOME_HOOK" "$want" "$PRINTER_CFG" 2>&1)"
-    case "$r" in
-        applied)  say "post-home hook added to [homing_override] — without it KAOS blocks every mesh calibration" ;;
-        reverted) say "post-home hook removed from [homing_override]" ;;
-        already*) : ;;
-        *)        warn "post-home hook $want: $r" ;;
-    esac
+    # Possibly two lines now: the homing_override body and the hook call. Exit status decides
+    # success; everything reported is passed through. Same reasoning as in kaos-guard.sh.
+    if ! r="$(bash "$HOME_HOOK" "$want" "$PRINTER_CFG" 2>&1)"; then
+        warn "post-home hook $want: $(printf '%s' "$r" | tr '\n' ' ')"
+        return 0
+    fi
+    printf '%s\n' "$r" | grep -vE '^[[:space:]]*(already|$)' | while IFS= read -r line; do
+        [ -n "$line" ] && say "$line"
+    done
 }
 
 # ---------------------------------------------------------------- activation
