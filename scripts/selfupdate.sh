@@ -141,6 +141,42 @@ update(){
 # daily timer. So it checks, reports, and hands over the exact command.
 after_update(){
   echo
+  # THE BRIDGE LIVES BESIDE THE KIT, NOT INSIDE IT. `unleashed-x-kaos/` is a subtree of this
+  # repository, but the printer runs it from ~/unleashed-x-kaos: rebake.sh and update-from-usb.sh
+  # both split it out on extraction, and klipper's boot guard points at that outside path. A git pull
+  # cannot split anything -- it updates the copy inside the kit and leaves the one that actually runs
+  # untouched, silently older with every update. That is the same failure this project already had
+  # once, when the bridge rode in no tarball at all and a printer ended up running one five days
+  # behind its own kit, with KAOS blocking every travel. So deploy it here, right after the pull.
+  #
+  # Staged copy plus one rename, so the live tree is valid at every instant -- the boot guard may
+  # fire while this runs.
+  if [ -d unleashed-x-kaos ]; then
+    parent="$(dirname "$KIT")"; dst="$parent/unleashed-x-kaos"; stage="$dst.incoming.$$"
+    rm -rf "$stage"
+    if cp -a unleashed-x-kaos "$stage" 2>/dev/null; then
+      # .cache holds the KAOS payload KAOS_ON fetched. It belongs to the printer, not to this
+      # repository, and dropping it would cost a download that was already paid for.
+      [ -d "$dst/.cache" ] && cp -a "$dst/.cache" "$stage/.cache" 2>/dev/null
+      chmod +x "$stage"/scripts/*.sh 2>/dev/null || true
+      if [ -f "$stage/scripts/kaos-guard.sh" ]; then
+        rm -rf "$dst.replacing.$$"
+        [ -d "$dst" ] && mv "$dst" "$dst.replacing.$$"
+        if mv "$stage" "$dst"; then
+          rm -rf "$dst.replacing.$$"
+          echo "Unleashed x KAOS bridge deployed to $dst"
+        else
+          [ -d "$dst.replacing.$$" ] && mv "$dst.replacing.$$" "$dst"
+          echo "WARNING: could not deploy the bridge — $dst is unchanged and may be older than the kit."
+        fi
+      else
+        rm -rf "$stage"
+        echo "WARNING: the bridge subtree looks incomplete — $dst left as it was."
+      fi
+    else
+      echo "WARNING: could not stage the bridge — $dst may now be older than the kit."
+    fi
+  fi
   if [ -x scripts/check-guards.sh ]; then
     if bash scripts/check-guards.sh >"/tmp/.arco-guards.$$" 2>&1; then
       echo "Self-heal guards: all present."
