@@ -48,6 +48,15 @@ tft_status(){  # $1=text  $2=percent (0-100)
   # (y=150..306) with NO gaps — leftover portal text (e.g. the green "Arco-Unleashed-Setup" at y=255)
   # is painted over by their navy backgrounds. These boxes are drawn every update anyway, so there is
   # no extra fill and no flicker.
+  #
+  # The band ABOVE them was the exception. Nothing repainted y100..150: tft_init writes the title at
+  # y70..100 and the first status box starts at 150, so whatever page 6 had there survived. And it
+  # does have something — the panel carries static elements in the .tft that reappear after
+  # tft_init's two full-screen fills, which is why those fills exist and still are not enough.
+  # Photographed on hardware 2026-08-05: a fragment of the panel's own layout sat above the status
+  # line for the entire first boot. Cleared here rather than in tft_init on purpose — init runs once,
+  # this runs on every update, and the panel redraws its own content at moments we do not control.
+  _tft_s "fill 0,100,800,50,$C_BG"
   _tft_s "xstr 0,150,800,62,0,$C_TXT,$C_BG,1,1,1,\"$msg\""  # status band: y150..212
   _tft_s "fill 0,210,800,42,$C_BG"                         # clear the FULL bar row (sides + just above/below) -> no gap around the bar
   _tft_s "fill 100,213,600,36,$C_TRK"                      # bar track (inset in the cleared row)
