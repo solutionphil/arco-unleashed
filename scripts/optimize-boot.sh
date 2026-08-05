@@ -22,6 +22,20 @@ set -uo pipefail
 # it: the KAOS bridge migration below rewrites unit files and a deployed config, and "it looked right
 # when I read it" is not how this project has been finding its bugs.
 SD="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}"
+
+# THE OWNER'S HOME, DERIVED — never $HOME. systemd does not set HOME for services, and firstrun runs
+# this script directly (`bash optimize-boot.sh`), not through a login shell the way it runs
+# fetch-phrozen-fw.sh (`su - mks -c ...`). With `set -u` the first $HOME reference therefore aborted
+# the entire script at line ~105, and every guard after that point was silently never installed: on
+# two consecutive flashes the printer came up with 13 and 14 but without 16-19 and without the
+# moonraker update-manager drop-in, and nothing said why.
+#
+# It took a log on the USB stick to see it, because journald here is volatile and firstrun reboots.
+# An earlier attempt to reproduce it ran the script under `env -i HOME=/root` — which supplied the
+# very variable that was missing, and so proved the opposite of what it was asked.
+KITDIR="$(cd "$(dirname "$0")/.." && pwd)"          # <home>/arco-unleashed
+AHOME="$(dirname "$KITDIR")"
+AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
 changed=0
 for unit in klipper.service moonraker.service; do
   f="$SD/$unit"
@@ -102,9 +116,9 @@ if [ -f "$SD/klipper.service.d/15-arco-mcu-timing.conf" ]; then
   systemctl daemon-reload 2>/dev/null || true
   echo "  klipper: removed the old mcu.py timing ExecStartPre (superseded by [arco_mcu_timing])"
 fi
-_MCU="$HOME/klipper/klippy/mcu.py"
+_MCU="$AHOME/klipper/klippy/mcu.py"
 if [ -f "$_MCU" ] && grep -q '^    TIMEOUT_TIME = 10.0$' "$_MCU" 2>/dev/null; then
-  if git -C "$HOME/klipper" checkout HEAD -- klippy/mcu.py 2>/dev/null; then
+  if git -C "$AHOME/klipper" checkout HEAD -- klippy/mcu.py 2>/dev/null; then
     echo "  klipper: mcu.py restored to pristine — repo is clean again, updates are possible"
   else
     echo "  klipper: WARN could not restore mcu.py; repo stays dirty and Klipper updates stay blocked"
@@ -179,9 +193,6 @@ fi
 # What must NOT be lost is .cache: the KAOS payload KAOS_ON downloaded, and the backup of Phrozen's
 # own dev.py that KAOS_OFF restores. The old directory is kept, not deleted -- if any of this is
 # wrong, everything needed to go back is still on disk.
-KITDIR="$(cd "$(dirname "$0")/.." && pwd)"      # <home>/arco-unleashed
-AHOME="$(dirname "$KITDIR")"                    # the owner's home, whatever it is called
-AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
 OLDB="$AHOME/unleashed-x-kaos"
 NEWB="$KITDIR/unleashed-x-kaos"
 if [ -d "$OLDB" ] && [ -d "$NEWB" ] && [ ! -e "$OLDB/.migrated-into-kit" ]; then
