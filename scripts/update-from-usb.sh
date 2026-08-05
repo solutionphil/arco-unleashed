@@ -60,7 +60,7 @@ fi
 
 NEW="$PARENT/$NAME.incoming-$STAMP"
 rm -rf "$NEW"; mkdir -p "$NEW"
-tar -xf "$TAR" -C "$NEW" --exclude='unleashed-x-kaos' --exclude='unleashed-x-kaos/*' \
+tar -xf "$TAR" -C "$NEW" \
   || { echo "extract FAILED — bad or truncated tarball"; rm -rf "$NEW"; exit 1; }
 
 # Refuse anything that is not recognisably this kit, before it can replace a working one.
@@ -78,18 +78,28 @@ fi
 # everything 644. Restore the bit rather than discovering it at the next menu run.
 chmod +x "$NEW"/scripts/*.sh 2>/dev/null || true
 
+chmod +x "$NEW"/unleashed-x-kaos/scripts/*.sh 2>/dev/null || true
+
+# CARRY THE BRIDGE'S RUNTIME STATE ACROSS THE SWAP. unleashed-x-kaos/ is part of the kit now, so the
+# tarball brings its CODE -- but .cache is the printer's, not the repository's: it holds the KAOS
+# payload that KAOS_ON downloaded and, decisively, the backup of Phrozen's own dev.py that KAOS_OFF
+# restores. The swap below moves the whole kit aside, so without this the backup would end up in a
+# .replaced- directory nobody looks in, and a printer with KAOS active could no longer be put back to
+# the vendor file -- an armed motion guard with no way home, which the boot guard calls the one state
+# never to boot into. Copied rather than moved: if anything below fails, the old kit is still intact.
+if [ -d "$KIT/unleashed-x-kaos/.cache" ]; then
+  if cp -a "$KIT/unleashed-x-kaos/.cache" "$NEW/unleashed-x-kaos/.cache" 2>/dev/null; then
+    echo "  carried the bridge's cache across (KAOS payload + vendor dev.py backup)"
+  else
+    echo "  REFUSING: could not carry the bridge's .cache across — the swap would strand the"
+    echo "            backup of Phrozen's dev.py. Nothing was changed."
+    rm -rf "$NEW"; exit 1
+  fi
+fi
+
 OLD="$PARENT/$NAME.replaced-$STAMP"
 mv "$KIT" "$OLD" && mv "$NEW" "$KIT" || { echo "SWAP FAILED — the old kit is at $OLD"; exit 1; }
 echo "  swapped in. Previous kit kept at $OLD"
-
-# The bridge rides in the same tarball but lives beside the kit, not inside it.
-if tar -tf "$TAR" 'unleashed-x-kaos/' >/dev/null 2>&1; then
-  B="$PARENT/unleashed-x-kaos"
-  [ -d "$B" ] && mv "$B" "$B.replaced-$STAMP"
-  tar -xf "$TAR" -C "$PARENT" 'unleashed-x-kaos' 2>/dev/null \
-    && chmod +x "$B"/scripts/*.sh 2>/dev/null \
-    && echo "  Unleashed x KAOS bridge updated too"
-fi
 
 cat <<TXT
 

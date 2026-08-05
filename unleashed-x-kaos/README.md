@@ -70,14 +70,24 @@ Anything less and `KAOS_ON` leaves the printer worse than it found it.
 ## Independence
 
 This directory is **self-contained at runtime**. It does not read from or write to the kit's own
-files, and the printer keeps the two apart: the bake and `update-from-usb.sh` both extract it to
-`~/unleashed-x-kaos`, *beside* `~/arco-unleashed`, never inside it. A printer that never types
-`KAOS_ON` carries the files and nothing else — no include, no Python, no behaviour.
+files. A printer that never types `KAOS_ON` carries these files and nothing else — no include, no
+Python, no behaviour.
 
-It lived in its own repository until 2026-08-05. That bought the separation at a price nobody was
-paying attention to: the subtree had to be folded into the kit tarball by hand, which was forgotten
-twice — two images shipped with no bridge at all, and every tester update package omitted it, so a
-bridge could only ever be renewed by reflashing. One repository, one archive, nothing to remember.
+It runs from where it sits: `~/arco-unleashed/unleashed-x-kaos`. Two earlier arrangements were tried
+and both failed the same way, so the reasoning is worth keeping.
+
+It was **its own repository** until 2026-08-05. That meant the subtree had to be folded into the kit
+tarball by hand, which was forgotten twice: two images shipped with no bridge at all, and every
+tester update package omitted it, so a bridge could only be renewed by reflashing.
+
+It then lived **beside** the kit, at `~/unleashed-x-kaos`, with the bake and `update-from-usb.sh`
+splitting it out on extraction. A `git pull` cannot split anything — so `ARCO_UPDATE` updated the
+copy inside the kit while the one the printer actually ran fell silently further behind with every
+update. Measured on the dev printer, which ended up carrying two.
+
+One location ends both. Every update route — git, USB tarball, fresh image — carries it by simply
+carrying the kit. Its `.cache` (the KAOS payload and the backup of the vendor `dev.py`) is
+gitignored and deliberately preserved across a kit swap; it belongs to the printer, not here.
 
 > **This directory is PUBLIC.** The kit repository is published at release. Working material —
 > assessments, integration notes, correspondence, runbooks that quote printer addresses — belongs in

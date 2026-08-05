@@ -18,7 +18,10 @@
 # version — the line has to be edited in the unit file itself. A Klipper/Moonraker reinstall
 # via KIAUH would re-add it; just re-run this (or the whole System-prep) afterwards. Idempotent.
 set -uo pipefail
-SD=/etc/systemd/system
+# Overridable so the drop-in logic can be exercised against a fake tree. Nothing but a test ever sets
+# it: the KAOS bridge migration below rewrites unit files and a deployed config, and "it looked right
+# when I read it" is not how this project has been finding its bugs.
+SD="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}"
 changed=0
 for unit in klipper.service moonraker.service; do
   f="$SD/$unit"
@@ -164,6 +167,52 @@ ExecStartPre=+/usr/bin/timeout 10 $SELFDIR/ensure-imageid.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
   echo "  klipper: /etc/ImageId.json guard (ExecStartPre, root) installed"
+fi
+
+# ── Move an old side-by-side KAOS bridge into the kit ───────────────────────────────────────────
+# Until 2026-08-05 the bridge lived at ~/unleashed-x-kaos, beside the kit. It is a subtree of the kit
+# now, so every update route carries it along by itself -- but a printer set up before that still has
+# the old directory, a boot-guard drop-in pointing into it, and a kaos-bridge.cfg whose shell command
+# names it. A kit update alone cannot fix any of those: two are outside the kit and one needs root.
+# So it happens here, in the script owners already run with sudo after every update.
+#
+# What must NOT be lost is .cache: the KAOS payload KAOS_ON downloaded, and the backup of Phrozen's
+# own dev.py that KAOS_OFF restores. The old directory is kept, not deleted -- if any of this is
+# wrong, everything needed to go back is still on disk.
+KITDIR="$(cd "$(dirname "$0")/.." && pwd)"      # <home>/arco-unleashed
+AHOME="$(dirname "$KITDIR")"                    # the owner's home, whatever it is called
+AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
+OLDB="$AHOME/unleashed-x-kaos"
+NEWB="$KITDIR/unleashed-x-kaos"
+if [ -d "$OLDB" ] && [ -d "$NEWB" ] && [ ! -e "$OLDB/.migrated-into-kit" ]; then
+  echo "  KAOS bridge: found the old side-by-side copy at $OLDB — moving it into the kit"
+  if [ -d "$OLDB/.cache" ] && [ ! -d "$NEWB/.cache" ]; then
+    if cp -a "$OLDB/.cache" "$NEWB/.cache" 2>/dev/null; then
+      chown -R "$AUSER:$AUSER" "$NEWB/.cache" 2>/dev/null || true
+      echo "    carried the cache across (KAOS payload + vendor dev.py backup)"
+    else
+      echo "    WARNING: could not copy $OLDB/.cache — leaving everything as it was"
+      NEWB=""
+    fi
+  fi
+  if [ -n "$NEWB" ]; then
+    # Re-point the boot guard. kaos-sideload.sh writes this drop-in from its own location, so once
+    # the bridge is the in-kit one it stays correct by itself; this only repairs the inherited file.
+    if [ -f "$SD/klipper.service.d/21-kaos-guard.conf" ]; then
+      sed -i "s#$OLDB/scripts/kaos-guard.sh#$NEWB/scripts/kaos-guard.sh#" \
+        "$SD/klipper.service.d/21-kaos-guard.conf"
+      echo "    boot guard now points into the kit"
+    fi
+    # And the console front door, whose shell command carries an absolute path.
+    KBCFG="$AHOME/printer_data/config/kaos-bridge.cfg"
+    if [ -f "$KBCFG" ] && grep -q "$OLDB/scripts/kaos-sideload.sh" "$KBCFG"; then
+      sed -i "s#$OLDB/scripts/kaos-sideload.sh#$NEWB/scripts/kaos-sideload.sh#" "$KBCFG"
+      echo "    kaos-bridge.cfg now points into the kit (KAOS_* commands need a klipper restart)"
+    fi
+    touch "$OLDB/.migrated-into-kit" 2>/dev/null || true
+    echo "    $OLDB is no longer used. Kept as-is; delete it once KAOS_STATUS looks right."
+  fi
+  systemctl daemon-reload 2>/dev/null || true
 fi
 
 # Moonraker update-manager entry. The FIRST guard on moonraker.service rather than klipper -- it edits
