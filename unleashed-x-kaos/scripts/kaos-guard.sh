@@ -125,13 +125,17 @@ sync_home_hook() {
         [ "$want" = apply ] && log "WARNING - kaos-trust-wiring.cfg is included, but this bridge has no scripts/kaos-home-hook.sh. Nothing can add the post-home hook to [homing_override], so homing will NEVER grant trust and KAOS blocks every travel. Update the unleashed-x-kaos bridge."
         return 0        # want=revert: nothing to undo, silence is correct
     fi
-    r="$(bash "$HOME_HOOK" "$want" "$PRINTER_CFG" 2>&1)"
-    case "$r" in
-        applied)  log "re-added the post-home hook to [homing_override] — the trust wiring is included, so a home must be able to grant trust" ;;
-        reverted) log "removed the post-home hook — the trust wiring is no longer included" ;;
-        already*) : ;;                     # happy path, silent
-        *)        log "WARNING - post-home hook $want: $r" ;;
-    esac
+    # The helper reports on TWO edits now -- the homing_override body and the hook call -- so it can
+    # print more than one line. Matching a single word against its whole output, as this used to,
+    # turned a successful body swap into a spurious WARNING. Judge by exit status, then pass through
+    # what it actually did. "already ..." stays silent: this runs before every klipper start.
+    if ! r="$(bash "$HOME_HOOK" "$want" "$PRINTER_CFG" 2>&1)"; then
+        log "WARNING - post-home hook $want failed: $(printf '%s' "$r" | tr '\n' ' ')"
+        return 0
+    fi
+    printf '%s\n' "$r" | grep -vE '^[[:space:]]*(already|$)' | while IFS= read -r line; do
+        [ -n "$line" ] && log "$line"
+    done
 }
 
 # ---------------------------------------------------------------------------
