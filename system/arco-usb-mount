@@ -1,0 +1,31 @@
+#!/bin/bash
+# arco-usb-mount — mount/unmount a USB mass-storage partition at Moonraker's gcodes/USB.
+#
+# The Phrozen serial display (voronFDM) looks for firmware updates under
+# <gcodes>/USB/phrozen_dev (see utils_get_usbmount). The stock Buster OS auto-mounted the
+# stick there; armbian-mkspi does not, so the display never sees an inserted USB. Driven by
+# udev + a systemd template unit, this helper restores that mount point.
+#
+# Usage: arco-usb-mount add|remove <kernel-name>     e.g. arco-usb-mount add sdb1
+set -u
+action=${1:-}
+dev=${2:-}
+mnt=/home/mks/printer_data/gcodes/USB
+uid=$(id -u mks 2>/dev/null || echo 1000)
+gid=$(id -g mks 2>/dev/null || echo 1000)
+
+case $action in
+  add)
+    # partitions only (sda1, sdb1, …) — never a whole disk
+    case $dev in sd[a-z][0-9]*) ;; *) exit 0 ;; esac
+    mountpoint -q "$mnt" && exit 0
+    mkdir -p "$mnt"
+    mount -o rw,uid="$uid",gid="$gid",umask=022 "/dev/$dev" "$mnt" 2>/dev/null \
+      || mount "/dev/$dev" "$mnt" 2>/dev/null
+    logger -t arco-usb-mount "add /dev/$dev -> $mnt ($(mountpoint -q "$mnt" && echo ok || echo failed))"
+    ;;
+  remove)
+    umount "$mnt" 2>/dev/null || umount -l "$mnt" 2>/dev/null
+    logger -t arco-usb-mount "remove -> $mnt unmounted"
+    ;;
+esac

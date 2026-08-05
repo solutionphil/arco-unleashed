@@ -1,0 +1,115 @@
+/*  ░▒▓ ARCO UNLEASHED — BOOKWORM EDITION ▓▒░
+    Mainsail Theme · electric cobalt + comic navy + halftone burst
+    ──────────────────────────────────────────────────────────────
+    Install: copy the contents of this folder into
+             ~/printer_data/config/.theme/
+    Tip:     for the cleanest accent also set
+             Settings → General → Primary Color = #2E74F2            */
+
+:root{
+  --arco-blue:#2E74F2;        /* ARCO electric blue            */
+  --arco-blue-hi:#5B97FF;     /* hover / highlight             */
+  --arco-blue-dim:#1B49A8;
+  --arco-navy:#081225;        /* panel base                    */
+  --arco-navy-2:#050d1c;
+  --arco-ink:#02050c;         /* app background                */
+  --arco-line:rgba(91,151,255,.14);
+  --arco-text:#eaf1ff;
+}
+
+/* ───── base surfaces ───── */
+.v-application{ background:var(--arco-ink)!important; }
+.v-main,.v-main__wrap{ background:transparent!important; }
+
+/* cards & drawers — blue-edged glass with depth */
+.theme--dark.v-card,
+.theme--dark.v-navigation-drawer{
+  background:linear-gradient(180deg,#0c2142 0%,var(--arco-navy) 60%,var(--arco-navy-2) 100%)!important;
+  border:1px solid var(--arco-line)!important;
+  border-radius:14px!important;
+  box-shadow:0 8px 26px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+.theme--dark.v-navigation-drawer{ border-radius:0 16px 16px 0!important; }
+
+/* top app bar */
+.v-app-bar.theme--dark,.v-toolbar.theme--dark{
+  background:linear-gradient(90deg,var(--arco-navy-2),#0c2142)!important;
+  border-bottom:1px solid var(--arco-line)!important;
+}
+
+/* ───── primary accent ───── */
+.v-application .primary,
+.v-btn--has-bg.primary,
+.v-progress-linear__determinate.primary,
+.v-progress-linear .primary{
+  background-color:var(--arco-blue)!important;
+  border-color:var(--arco-blue)!important;
+}
+.v-application .primary--text{
+  color:var(--arco-blue-hi)!important; caret-color:var(--arco-blue-hi)!important;
+}
+.v-btn--has-bg.primary{
+  box-shadow:0 0 0 1px rgba(91,151,255,.45),0 6px 20px rgba(46,116,242,.40)!important;
+  text-transform:uppercase; letter-spacing:.04em; font-weight:700;
+}
+.v-btn--has-bg.primary:hover{ background-color:var(--arco-blue-hi)!important; }
+
+/* sliders · switches · circular progress */
+.v-slider__thumb,.v-slider__track-fill,.primary--text .v-slider__thumb{ background:var(--arco-blue-hi)!important; }
+.v-input--switch__track.primary--text,.v-input--is-active .v-input--switch__thumb{ color:var(--arco-blue-hi)!important; }
+.v-progress-circular__overlay{ stroke:var(--arco-blue-hi)!important; }
+
+/* ───── sidebar navigation ───── */
+.v-navigation-drawer .v-list-item--active{
+  background:linear-gradient(90deg,rgba(46,116,242,.28),rgba(46,116,242,0))!important;
+  border-left:3px solid var(--arco-blue-hi);
+}
+.v-navigation-drawer .v-list-item--active .v-icon,
+.v-navigation-drawer .v-list-item--active .v-list-item__title{ color:var(--arco-blue-hi)!important; }
+.v-navigation-drawer .v-list-item:hover{ background:rgba(46,116,242,.10)!important; }
+
+/* ───── panel titles — comic punch ───── */
+.v-card>.v-card__title{
+  text-transform:uppercase; letter-spacing:.06em; font-weight:800; color:var(--arco-text)!important;
+}
+.v-card>.v-card__title .v-icon{ color:var(--arco-blue-hi)!important; }
+
+/* ───── inputs ───── */
+.theme--dark.v-text-field--filled>.v-input__control>.v-input__slot{ background:rgba(3,9,20,.72)!important; }
+.theme--dark.v-text-field--outlined fieldset{ border-color:var(--arco-line)!important; }
+.theme--dark.v-text-field--outlined.v-input--is-focused fieldset{ border-color:var(--arco-blue-hi)!important; }
+
+/* ───── tables ───── */
+.theme--dark.v-data-table thead th{
+  color:var(--arco-blue-hi)!important; text-transform:uppercase; letter-spacing:.04em;
+}
+.theme--dark.v-data-table tbody tr:hover{ background:rgba(46,116,242,.10)!important; }
+
+/* ───── console ───── */
+.console .v-list-item:hover{ background:rgba(46,116,242,.08)!important; }
+
+/* ───── chips / badges ───── */
+.v-chip.primary{ background:var(--arco-blue)!important; font-weight:700; }
+
+/* ───── scrollbar — brand blue ───── */
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-track{ background:var(--arco-ink); }
+*::-webkit-scrollbar-thumb{
+  background:linear-gradient(var(--arco-blue-dim),var(--arco-blue));
+  border-radius:8px; border:2px solid var(--arco-ink);
+}
+*::-webkit-scrollbar-thumb:hover{ background:var(--arco-blue-hi); }
+
+/* ───── bookworm rides the main page scroll — pure-CSS scroll-driven (Chrome/Edge 115+) ───── */
+@supports (animation-timeline: scroll()){
+  body::after{
+    content:""; position:fixed; right:7px; top:72px; z-index:7; pointer-events:none;
+    width:34px; height:31px; filter:drop-shadow(0 2px 5px rgba(0,0,0,.5));
+    animation:arco-wormride linear both; animation-timeline:scroll(root block);
+    background:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI0NiIgdmlld0JveD0iNyAxMCA1MCA0NiI+CiAgPHBhdGggZD0iTTMyIDEyLjVDNDUuNSAxMi41IDUzLjUgMjIgNTMuNSAzM0M1My41IDQ1IDQ0IDUzLjUgMzIgNTMuNUMyMCA1My41IDEwLjUgNDUgMTAuNSAzM0MxMC41IDIyIDE4LjUgMTIuNSAzMiAxMi41WiIgZmlsbD0iIzNiODJmZiIgc3Ryb2tlPSIjMGExYzNhIiBzdHJva2Utd2lkdGg9IjIuNiIvPgogIDxlbGxpcHNlIGN4PSIyNSIgY3k9IjIyIiByeD0iOC41IiByeT0iNSIgZmlsbD0iIzdmYjBmZiIgb3BhY2l0eT0iMC42Ii8+CiAgPGNpcmNsZSBjeD0iMjQuNSIgY3k9IjMxIiByPSI4LjIiIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzBhMWMzYSIgc3Ryb2tlLXdpZHRoPSIyLjciLz4KICA8Y2lyY2xlIGN4PSI0MC41IiBjeT0iMzEiIHI9IjguMiIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjMGExYzNhIiBzdHJva2Utd2lkdGg9IjIuNyIvPgogIDxwYXRoIGQ9Ik0zMS42IDI5LjhRMzIuNSAyOC40IDMzLjQgMjkuOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGExYzNhIiBzdHJva2Utd2lkdGg9IjIuNCIvPgogIDxjaXJjbGUgY3g9IjI2IiBjeT0iMzIuNCIgcj0iMy4yIiBmaWxsPSIjMGExYzNhIi8+PGNpcmNsZSBjeD0iNDIiIGN5PSIzMi40IiByPSIzLjIiIGZpbGw9IiMwYTFjM2EiLz4KICA8Y2lyY2xlIGN4PSIyNC42IiBjeT0iMzAuNiIgcj0iMS4yIiBmaWxsPSIjZmZmZmZmIi8+PGNpcmNsZSBjeD0iNDAuNiIgY3k9IjMwLjYiIHI9IjEuMiIgZmlsbD0iI2ZmZmZmZiIvPgogIDxwYXRoIGQ9Ik0yNiA0Mi41UTMyIDQ1IDM4IDQyLjVRMzYgNDkuNSAzMiA0OS41UTI4IDQ5LjUgMjYgNDIuNVoiIGZpbGw9IiMwYTFjM2EiLz4KICA8cGF0aCBkPSJNMzAuMiA0NlEzMiA0OC42IDMzLjggNDZaIiBmaWxsPSIjZmY2YjhhIi8+CiAgPGcgc3Ryb2tlPSIjMGExYzNhIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIj48cGF0aCBkPSJNMTYgMjkuNUw5LjUgMjciLz48cGF0aCBkPSJNNDggMjkuNUw1NC41IDI3Ii8+PC9nPgo8L3N2Zz4K") center/contain no-repeat;
+  }
+  @keyframes arco-wormride{ from{ top:72px } to{ top:calc(100vh - 50px) } }
+}
+
+/* ───── logo breathing room ───── */
+.sidebar-logo img,.v-navigation-drawer .sidebar-logo{ filter:drop-shadow(0 2px 10px rgba(46,116,242,.45)); }

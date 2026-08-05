@@ -1,0 +1,21 @@
+Arco Unleashed — Bookworm Edition
+Copyright (C) 2026 solutionphil  <https://github.com/solutionphil/arco-unleashed>
+
+This program is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License, version 3, as published by the Free
+Software Foundation. See the LICENSE file for the full license text.
+
+Attribution (stated additional term under AGPL-3.0 section 7(b)):
+  Any redistribution, modification, or derivative work of Arco Unleashed must
+  preserve this copyright notice and credit the project as "Arco Unleashed"
+  with a link to <https://github.com/solutionphil/arco-unleashed> — both in the
+  source and in any user-facing "About"/documentation of the derivative.
+
+Bundled third-party components keep their own licenses (e.g. the Klipper MCU
+firmware is GPL-3.0). See THIRD-PARTY-NOTICES.md.
+
+No proprietary Phrozen or ThroughTek software is included, bundled, or downloaded
+by this project. The user obtains Phrozen's official firmware package from official
+Phrozen sources and provides it themselves. Arco Unleashed is an independent,
+community-made project and is not developed, supported, sponsored, endorsed by, or
+affiliated with Phrozen or ThroughTek.

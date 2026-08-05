@@ -1,0 +1,460 @@
+#printer.cfg_version:V25271
+
+[include printer_MCU.cfg]
+[include printer_gcode_macro.cfg]
+[include AddOn.cfg]
+[include unleashed-theme-macros.cfg]
+
+## 机器设置
+[printer]
+kinematics:corexy
+max_velocity: 1000
+max_accel: 40000
+minimum_cruise_ratio: 0.75
+max_z_velocity: 10
+max_z_accel: 150
+square_corner_velocity: 8
+
+[stepper_x]
+step_pin:PC14
+dir_pin:!PC13
+enable_pin:!PC15
+microsteps: 16
+rotation_distance: 39.94
+full_steps_per_rotation:200  
+#endstop_pin:tmc5160_stepper_x:virtual_endstop
+endstop_pin:!MKS_THR:PB12
+position_min: -10  
+position_endstop: 0
+position_max: 330
+homing_speed:30
+homing_retract_dist:0
+
+[stepper_y]
+step_pin:PE5
+dir_pin:!PE4
+enable_pin:!PD14
+microsteps:16
+rotation_distance: 39.94
+full_steps_per_rotation:200 
+# endstop_pin:tmc5160_stepper_y:virtual_endstop
+endstop_pin:!PB8
+position_min: -10
+position_endstop:0
+position_max:330
+homing_speed:50
+homing_retract_dist:0
+
+[stepper_z]
+step_pin:PE1
+dir_pin:PE0
+enable_pin: !PE2
+microsteps: 16
+rotation_distance:2.674
+full_steps_per_rotation: 200
+endstop_pin:!PB9
+position_endstop: 0.00
+position_max: 303
+position_min: -5.0
+homing_speed: 5
+homing_retract_dist: 5
+second_homing_speed: 3
+homing_positive_dir: false
+step_pulse_duration:0.0000001
+
+[stepper_z1]
+step_pin:PB5
+dir_pin:PB4
+enable_pin:!PB6
+microsteps:16
+rotation_distance:2.674
+endstop_pin:!PB9
+full_steps_per_rotation: 200
+step_pulse_duration:0.0000001
+
+[extruder]
+step_pin:MKS_THR:PB9
+dir_pin:MKS_THR:PB8
+enable_pin:!MKS_THR:PC15 
+microsteps:16
+#rotation_distance: 53.7	
+rotation_distance:49.7
+gear_ratio: 1517:170
+full_steps_per_rotation: 200
+nozzle_diameter: 0.400
+filament_diameter: 1.750
+min_temp: -100
+max_temp: 350
+heater_pin: MKS_THR:PB3
+sensor_type: NTC 100K MGB18-104F39050L32
+sensor_pin: MKS_THR:PA1
+max_power: 1.0
+min_extrude_temp: 170
+smooth_time: 0.000001
+nozzle_diameter:0.4
+pressure_advance: 0.032
+pressure_advance_smooth_time:0.03
+max_extrude_cross_section:200
+instantaneous_corner_velocity: 10
+max_extrude_only_distance: 3000
+max_extrude_only_velocity:5000
+max_extrude_only_accel:2000
+step_pulse_duration:0.000002
+
+[verify_heater extruder]
+max_error: 200
+check_gain_time:100
+hysteresis: 10
+heating_gain: 1
+
+[heater_bed]
+heater_pin: PD12
+sensor_type: NTC 100K MGB18-104F39050L32
+sensor_pin: PC0
+max_power: 1.0
+min_temp: -50
+max_temp: 140
+
+[heater_fan Fan0]
+pin:MKS_THR:PB4
+shutdown_speed: 1
+
+# [fan]
+# pin:MKS_THR:PB5
+
+[fan_generic cooling_fan]
+pin:MKS_THR:PB5
+max_power: 1.0
+shutdown_speed: 0
+cycle_time: 0.0100
+hardware_pwm: false
+kick_start_time: 0.100
+off_below: 0.0
+
+[fan_generic Chamber_fan]
+pin:PA1
+max_power: 1.0
+shutdown_speed: 0
+cycle_time: 0.0100
+hardware_pwm: false
+kick_start_time: 0.100
+off_below: 0.0
+
+[output_pin fan_assist]
+pin:MKS_THR:PB6
+pwm: True
+cycle_time: 0.0100
+hardware_pwm: false
+value: 0.00
+scale: 255
+shutdown_value: 0.0
+
+#[output_pin board_fan]
+#pin:PA2
+#value:1
+
+
+#[temperature_sensor Chamber_sensor]
+#sensor_type:NTC 100K MGB18-104F39050L32
+#sensor_pin:PC1
+
+
+
+# [temperature_fan Chamber_fan]
+# pin: PA1
+# sensor_type: NTC 100K MGB18-104F39050L32
+# sensor_pin: PC1             
+# target_temp: 32.0
+# min_temp:-171
+# max_temp:100
+# control: pid     
+# pid_Kp:  32
+# pid_Ki: 3
+# pid_Kd: 88
+# max_speed: 1.0
+# min_speed: 0
+
+
+[idle_timeout]
+timeout: 3600000
+
+[homing_override]
+gcode:
+    {action_respond_info("homing_override_start\n")}
+    M84
+    G4 P200
+    {% if (printer.gcode_move.position.z+5) < 295 %}
+    G91
+    G1 Z5 F600
+    {% else %}
+    G91
+    G1 Z-5 F600  
+    {% endif %}
+
+    G4 P500
+    G90
+    G28 Y0
+    G4 P200
+    G1 Y50 F2000
+    G4 P200
+    G28 X0
+    G4 P200
+    PRZ_WIPEMOUTH
+    G90
+    G1 X150 Y150 F8000
+    G4 P500
+    probe_up
+    G4 P200
+    G28 Z0
+    G4 P200
+    probe_off 
+    G4 P500
+    G1 Z10 F600
+
+    # {% if printer['gcode_macro PRZ_PRINTING_START'].printing_start | int == 1 %}  
+    #     {% set extruder_temp = printer.extruder.temperature | int %}
+    #     {% set bed_temp = printer.heater_bed.temperature | int %}
+    #     SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    #     G4 P200
+    #     PRZ_WAITINGAREA
+    #     G4 P200
+    #     #M104 S235
+    #     {action_respond_info("M109 S235\n")}
+    #     M109 S235
+    #     G4 P200
+    #     PRZ_SPITTING
+    #     G4 P200
+    #     M106 S255
+    #     G4 P200
+    #     PRZ_WIPEMOUTH
+    #     G4 P200
+    #     G90 
+    #     G1 X150 Y290 F8000
+    #     G4 P500
+    #     probe_up
+    #     G4 P200
+    #     G28 Z0
+    #     G4 P200
+    #     probe_off
+    #     G4 P200
+    #     SET_PIN PIN=fan_assist VALUE=255
+    #     G4 P200
+    #     G90
+    #     G1 Z0 F300
+    #     G4 P200
+    #     {action_respond_info("M109 S140\n")}
+    #     M109 S140
+    #     G4 P5
+    #     G1 Z10 F1200
+    #     G4 P200
+    #     G90
+    #     G1 X150 Y150 F8000
+    #     G4 P500
+    #     probe_up
+    #     G4 P200
+    #     G28 Z0
+    #     G4 P200
+    #     probe_off
+    #     G4 P200
+    #     G90
+    #     G1 Z10 F1200
+    #     G4 P200
+    #     SET_GCODE_VARIABLE MACRO=PRZ_PRINTING_START VARIABLE=printing_start VALUE=0
+    #     G4 P200
+    #     SET_PIN PIN=fan_assist VALUE=0
+    #     G4 P200
+    # {% endif %}
+
+    # --- Optional post-home extension point -------------------------------------------
+    # Runs after a successful home, if anything has defined it. Nothing in the kit does —
+    # this exists so an optional add-on can hook the moment homing completes without
+    # having to patch this file. [homing_override] is a Klipper SECTION, so unlike a macro
+    # it cannot be wrapped with rename_existing; a hook is the only clean way in.
+    #
+    # Placement is deliberate: immediately before homing_override_end. This override has
+    # no error branches — any failing step aborts the whole macro — so reaching this point
+    # IS the success condition, and the hook therefore only fires on a real home.
+    #
+    # The `is defined` guard is not optional. A bare call would turn every single home
+    # into an unknown-command error on any printer where the hook is absent, which is the
+    # default. With it, this block is completely inert.
+    #
+    # Scope: `axes: z` below means this runs for `G28` and `G28 Z`, never for `G28 X` or
+    # `G28 Y`, so axis-only homes do not fire the hook. Widening `axes:` would change
+    # homing behaviour on a load-cell-probed machine and is not worth it.
+    {% if printer['gcode_macro _ARCO_POST_HOME_HOOK'] is defined %}
+        _ARCO_POST_HOME_HOOK
+    {% endif %}
+    {action_respond_info("homing_override_end\n")}
+
+axes: z
+
+
+# [gcode_macro PG28]
+# gcode:
+#     G28
+
+[probe]
+pin: !PB9
+x_offset: 0
+y_offset: 0
+z_offset: 0
+speed: 5
+samples: 2
+samples_result: median
+sample_retract_dist: 2#3
+samples_tolerance: 0.02
+samples_tolerance_retries: 5
+activate_gcode:probe_up
+deactivate_gcode:probe_off
+
+# [bed_mesh]
+# speed: 150             
+# horizontal_move_z: 3    
+# mesh_min: 20, 20           
+# mesh_max: 280, 280          
+# probe_count: 5,5              
+# mesh_pps: 4,4                          
+# bicubic_tension: 0.2   
+
+[bed_mesh]
+speed: 300             
+horizontal_move_z: 2    
+mesh_min: 10, 10           
+mesh_max: 290, 290          
+probe_count: 6,6              
+mesh_pps: 8,8
+algorithm: bicubic                          
+bicubic_tension: 0.2    
+
+[tmc5160 stepper_x]
+cs_pin: PE6
+spi_software_sclk_pin: PE12
+spi_software_mosi_pin: PE14
+spi_software_miso_pin: PE13
+spi_speed: 200000
+run_current: 1.2
+sense_resistor: 0.12
+stealthchop_threshold: 0
+diag1_pin: ^!PA14
+driver_SGT: 1
+
+driver_TBL: 2
+driver_TOFF: 3
+driver_HEND: 2
+driver_HSTRT: 4
+
+[tmc5160 stepper_y]
+cs_pin: PE3
+spi_software_sclk_pin: PE12
+spi_software_mosi_pin: PE14
+spi_software_miso_pin: PE13
+spi_speed: 200000
+run_current: 1.2
+sense_resistor: 0.12
+stealthchop_threshold: 0
+diag1_pin: ^!PA15
+driver_SGT: 1
+
+driver_TBL: 2
+driver_TOFF: 3
+driver_HEND: 2
+driver_HSTRT: 4
+
+#[tmc5160 stepper_x]
+#cs_pin:PE6
+#spi_software_sclk_pin:PE12
+#spi_software_mosi_pin:PE14
+#spi_software_miso_pin:PE13
+#spi_speed:200000
+#run_current: 1.4
+#sense_resistor:0.12
+#stealthchop_threshold:0
+#diag1_pin:^!PA14
+#driver_SGT:1
+
+#[tmc5160 stepper_y]
+#cs_pin:PE3
+#spi_software_sclk_pin:PE12
+#spi_software_mosi_pin:PE14
+#spi_software_miso_pin:PE13
+#spi_speed:200000
+#run_current: 1.4
+#sense_resistor:0.12
+#stealthchop_threshold:0
+#diag1_pin:^!PA15
+#driver_SGT:1
+
+
+
+[tmc2209 stepper_z]
+uart_pin: PB7
+interpolate: true
+run_current: 0.9
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+[tmc2209 stepper_z1]
+uart_pin: PB3
+interpolate: true
+run_current: 0.9
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+
+
+[tmc2209 extruder]
+uart_pin: MKS_THR:PC13
+interpolate: true
+run_current: 0.707
+sense_resistor: 0.110
+stealthchop_threshold: 0
+
+
+[duplicate_pin_override]
+pins: PB9
+
+
+[gcode_arcs]
+resolution: 0.5
+
+
+[virtual_sdcard]
+path: /home/mks/printer_data/gcodes
+
+## 暂停恢复功能调用
+[pause_resume]
+
+[display_status]
+
+[adxl345]
+cs_pin: MKS_THR:PA4
+spi_bus: spi1
+axes_map: -x, z, -y
+rate: 800
+
+[temperature_sensor host]
+sensor_type: temperature_host
+min_temp: 0
+max_temp: 95
+
+[resonance_tester]
+accel_chip: adxl345
+probe_points:
+    150, 150, 20 
+
+
+[phrozen_dev]
+dev_port: /dev/ttyACM1
+auto_connect: false
+fila_cut_x_pos: 319
+fila_cut_x_pos_up: 1
+fila_cut_y_pos: 260
+fila_exist_value: 0.476252
+fila_empty_value: 0.249695
+fila_sensor_pin: MKS_THR:PA2
+wait_max_velocity: 180          
+wait_line_width: 0.5            
+wait_timeout: 60                
+switch_fila_zup_by_gcode: 0
+

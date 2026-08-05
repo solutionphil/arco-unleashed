@@ -1,0 +1,111 @@
+# beacon.cfg — Arco Unleashed · EXPERIMENTAL
+# Beacon as the new probing device for meshing (eddy-current probe, virtual Z endstop).
+#
+# Deployed and included by scripts/beacon_toggle.sh — do not add [include beacon.cfg] by hand,
+# the toggle also has to disable Phrozen's piezo probe sections in printer.cfg (they claim the
+# same pin and the same G28). Turn it off the same way you turned it on:
+#     bash ~/arco-unleashed/scripts/beacon_toggle.sh off
+#
+# Based on the writeup Philippe Humeau (unPhrozen) shared with this project — including the
+# gotchas he paid for. Credit to him; the mistakes below are ours to avoid, not his to repeat.
+#
+# ⚠️ EXPERIMENTAL — no Arco Unleashed developer has run this on a machine. Every value here is
+#    a starting point from ONE converted printer, not a verified Arco default. Read the three
+#    warnings in the README before your first print.
+#
+# ⚠️ THE ARCO DISPLAY IS NOT SAFE FOR ANYTHING Z ONCE THIS IS ON. Use Mainsail/Fluidd for
+#    homing, probing, mesh and Z-offset. Details in the README section "Beacon (experimental)".
+
+[beacon]
+# The toggle script fills this in from /dev/serial/by-id (it is stable across reboots).
+serial: @BEACON_SERIAL@
+x_offset: 0
+# Coil offset from the nozzle. MEASURE YOURS — it depends on your mount, and a wrong value
+# shifts the whole mesh. -17 is the value from the reference conversion, not an Arco constant.
+y_offset: -17
+mesh_main_direction: x
+mesh_runs: 2
+# Lets the mesh reach the bed edges on a CoreXY without the probe leaving the bed.
+mesh_overscan: 10
+
+# ---------------------------------------------------------------------------------------------
+# Section merges. Klipper reads duplicate sections in include order and the LAST value wins, so
+# these override what printer.cfg set for the piezo probe without editing it. Options that have
+# to DISAPPEAR (position_endstop, stepper_z1's endstop_pin, [probe], [homing_override]) cannot be
+# undone this way — the toggle script comments those out in printer.cfg, marked with #:beacon:.
+# ---------------------------------------------------------------------------------------------
+
+[stepper_z]
+endstop_pin: probe:z_virtual_endstop
+# Contact calibration drives the nozzle BELOW Z0 to find the bed. Phrozen's -5.0 leaves enough
+# room to crash into the bed if something goes wrong; 0 would make contact unreachable.
+position_min: -2.0
+
+[safe_z_home]
+# Replaces Phrozen's [homing_override] (disabled by the toggle — the two cannot coexist, both
+# claim G28). Z is homed over the bed centre because the probe has to be above the bed.
+home_xy_position: 150, 150
+z_hop: 5
+z_hop_speed: 10
+
+[z_tilt]
+# ⚠️ THE ORDER OF z_positions MUST MATCH THE PHYSICAL MOTORS, not the order of the config
+#    sections. If they are swapped, z_tilt DIVERGES instead of converging (retries make it
+#    worse, not better) — the single most expensive mistake in the reference conversion.
+#    Verify before trusting it:  STEPPER_BUZZ STEPPER=stepper_z   /   STEPPER=stepper_z1
+#    and watch which side of the gantry moves. Swap these two lines if it is the other one.
+z_positions:
+    313, 162
+    3, 162
+points:
+    30, 150
+    270, 150
+speed: 150
+horizontal_move_z: 5
+retries: 8
+retry_tolerance: 0.0075
+
+[bed_mesh]
+# REQUIRED for Beacon: the mesh is stored relative to this point, and without it the whole mesh
+# is offset by whatever Z happened to be at the start of the scan.
+zero_reference_position: 150, 150
+# A scanning probe can afford a far denser mesh than the piezo could (printer.cfg has 6x6).
+probe_count: 15, 15
+horizontal_move_z: 4
+algorithm: bicubic
+
+# ---------------------------------------------------------------------------------------------
+# Convenience macros
+# ---------------------------------------------------------------------------------------------
+
+# Wrapper, NOT a rename_existing override of BEACON_AUTO_CALIBRATE. Wrapping it would hard-fail
+# the whole config ("Existing command not found") on any beacon module version that does not
+# register that exact command — a config error means the printer does not start at all. A plain
+# macro with a guard degrades to a clear message instead.
+[gcode_macro BEACON_CAL]
+description: Home, move to bed centre, then run Beacon contact auto-calibration
+gcode:
+    {% if printer.configfile.settings.beacon is not defined %}
+        { action_raise_error("No [beacon] section — is beacon.cfg still included?") }
+    {% endif %}
+    {% if 'x' not in printer.toolhead.homed_axes or 'y' not in printer.toolhead.homed_axes %}
+        G28 X Y
+    {% endif %}
+    G90
+    G0 X150 Y150 F12000
+    BEACON_AUTO_CALIBRATE {rawparams}
+
+[gcode_macro BEACON_MESH]
+description: Re-probe the bed mesh with the Beacon, save as 'phrozen' (SAVE_CONFIG restarts Klipper)
+# Deliberately the SAME profile name the rest of the machine uses (G30 loads 'phrozen', and the
+# display sends BED_MESH_PROFILE LOAD=phrozen on its own). Writing a second profile name would
+# leave the piezo-probed mesh in place as the one everything actually loads.
+# The SAVE_CONFIG is what makes the mesh survive a restart — without it the scan is thrown away,
+# which is the exact trap the G30 mesh fix exists for. It restarts Klipper, so do not run it
+# during a print, and expect the display to need a moment to reconnect afterwards.
+gcode:
+    {% if 'xyz' not in printer.toolhead.homed_axes %}
+        G28
+    {% endif %}
+    BED_MESH_CALIBRATE PROFILE=phrozen
+    SAVE_CONFIG

@@ -1,0 +1,70 @@
+# sensorless.cfg — arms StallGuard so a plain G28 works on the virtual endstops.
+#
+# Installed and removed by scripts/sensorless_toggle.sh. Do not edit by hand: the toggle owns this
+# file and will overwrite it.
+#
+# ── Why this file has to exist at all ────────────────────────────────────────────────────────────
+# StallGuard needs a lower velocity gate (TCOOLTHRS) or it is armed AT STANDSTILL, and then the
+# endstop reports "triggered" before the carriage has moved: G28 ends in a twitch, every time,
+# whatever sgt is set to. Klipper substitutes 0xfffff at homing time -- but ONLY when it reads 0
+# (klippy/extras/tmc.py), so the fix is simply to make it non-zero before homing.
+#
+# The obvious way to do that does not exist. `driver_TCOOLTHRS: 470` in the [tmc5160 ...] section is
+# REJECTED -- klippy refuses to start with
+#     Option 'driver_tcoolthrs' is not valid in section 'tmc5160 stepper_x'
+# because driver_* options only exist for fields a module registers via set_config_field, and
+# tcoolthrs is one Klipper manages itself. Verified on hardware 2026-07-28.
+#
+# Hence a delayed_gcode: set it once per boot, and Klipper then leaves it alone.
+#
+# KNOWN LIMIT: this fires `initial_duration` seconds after startup. A home issued inside that window
+# still meets tcoolthrs=0 and will twitch. Two seconds is far shorter than the MCU connect, so it is
+# not reachable in practice -- but a homing:home_rails_begin hook would be strictly correct, and is
+# the right shape if this ever moves into a Klipper extra.
+
+[delayed_gcode _ARCO_SENSORLESS_ARM]
+initial_duration: 2
+gcode:
+    # Comment with '#' lines like this one, never with Jinja's own comment delimiters. Klipper
+    # builds its environment with '{' as the variable start, so an opening brace followed by a
+    # hash reads as the start of an EXPRESSION, and klippy refuses to start with
+    # "Error loading template ... line N: <the text of your comment>". Learned the hard way,
+    # 2026-07-28. A '#' line is stripped by the config parser before Jinja ever sees it.
+    #
+    # Only axes actually on the virtual endstop are touched. Setting this on a switch-homed axis is
+    # harmless but pointless, and a config that quietly reconfigures a driver nobody asked about is
+    # how the next person loses an evening.
+    {% for ax in ['x', 'y'] %}
+        {% set st = 'stepper_' ~ ax %}
+        {% if 'virtual_endstop' in printer.configfile.settings[st].endstop_pin %}
+            # The gate is DERIVED from homing_speed, not hard-coded, so changing the homing speed
+            # later cannot silently leave StallGuard armed at the wrong velocity. TCOOLTHRS is a
+            # step PERIOD and scales with 1/v, so one measured pair fixes the whole curve: on this
+            # hardware register 313 corresponds to 29.955 mm/s. Gate at two thirds of the homing
+            # speed -- high enough that acceleration is not spent below it, low enough that the
+            # cruise sits comfortably inside. At the shipped 30 mm/s that yields 474 — the macro prints the value it actually set at every
+            # boot, so trust that over this line.
+            {% set hs = printer.configfile.settings[st].homing_speed|float %}
+            {% set reg = (313.0 * 29.955 / (hs * 0.66))|round|int %}
+            SET_TMC_FIELD STEPPER={st} FIELD=tcoolthrs VALUE={reg}
+            RESPOND PREFIX=sensorless MSG="{st}: StallGuard gated above {'%.1f'|format(hs * 0.66)} mm/s (tcoolthrs={reg}); homing runs at {'%.0f'|format(hs)}"
+        {% endif %}
+    {% endfor %}
+
+[gcode_macro SENSORLESS_STATUS]
+description: Show whether sensorless homing is active and how each axis is armed
+gcode:
+    {% for ax in ['x', 'y'] %}
+        {% set st = 'stepper_' ~ ax %}
+        {% set cfg = printer.configfile.settings[st] %}
+        {action_respond_info(
+            "%s: %s | homing_speed %.0f mm/s | retract %.0f"
+            % (st,
+               ("SENSORLESS (" ~ cfg.endstop_pin ~ ")" if 'virtual_endstop' in cfg.endstop_pin
+                else "switch (" ~ cfg.endstop_pin ~ ")"),
+               cfg.homing_speed|float, cfg.homing_retract_dist|float))}
+    {% endfor %}
+    {action_respond_info(
+        "Sensitivity lives in driver_SGT in the [tmc5160 ...] sections: LOWER is MORE sensitive.\n"
+        "  grinds, no trigger -> lower it     stops early, no endstop click -> raise it")}
+    DUMP_TMC STEPPER=stepper_x

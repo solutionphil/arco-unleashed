@@ -1,0 +1,1910 @@
+#版本
+#V25267-250827
+#printer_gcode_macro.cfg_version:V25272
+
+[gcode_macro GLOBAL_PARAM]
+#lancaigang250322:全局变量默认值
+variable_g_extruder_temperature: 205
+variable_g_extruder_fan_speed: 254 
+variable_g_assist_fan_value: 254  #M106 P2 S255
+variable_g_extruder_pause_temperature:200
+
+#lancaigang250519:
+variable_g_accel: 0
+variable_g_accel_to_decel: 0
+variable_g_velocity: 0
+variable_g_max_accel: 2500
+variable_g_max_accel_to_decel: 2500
+
+variable_g_bottom_y:322
+variable_g_wipemouth_start_x:140
+variable_g_spitting_start_x: 123.0
+variable_g_wait_pause_x:140
+variable_g_waittingarea_x:140
+variable_g_bottom_print_y:295
+variable_g_bottom_print_x:169
+
+gcode:
+
+
+## 震动补偿宏
+[gcode_macro G40]
+gcode:
+    ACCELEROMETER_QUERY
+    G28 
+    G90  
+    M104 S140 
+    SHAPER_CALIBRATE
+    G4 P100
+    SAVE_CONFIG
+
+[gcode_macro SHAPER_CALIBRATE]
+rename_existing: RESHAPER_CALIBRATE
+gcode:
+    RESHAPER_CALIBRATE FREQ_START=30 FREQ_END=150
+
+
+
+    ## 擦嘴设置
+[gcode_macro PRZ_WIPEMOUTH]
+gcode:
+    {action_respond_info("PRZ_WIPEMOUTH\n")}
+    #lancaigang250326：先进入等待区
+    PRZ_WAITINGAREA
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)+60} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)+60} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)+60} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wipemouth_start_x)+60} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F8000
+    G90
+    
+    
+    
+[gcode_macro PRZ_PRINTING_START]
+variable_printing_start: 0 
+gcode:
+    SET_GCODE_VARIABLE MACRO=PRZ_PRINTING_START VARIABLE=printing_start VALUE=1
+    {action_respond_info("MAINTENANCE_ITEM_PARAM :%d\n" % (printer["gcode_macro PRZ_PRINTING_START"].printing_start))}
+    
+## 吐料轨迹
+[gcode_macro PRZ_SPITTING]
+gcode:
+    {action_respond_info("PRZ_SPITTING\n")}
+
+    M106 S0
+    M106 p2 S0
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000  
+    M83
+    G92 E0
+    G1 E60 F320
+    G92 E0
+    G1 E50 F250
+    G92 E0
+    G1 E-2 F300
+
+    M106 S255
+    M106 p2 S255
+    G4 P6000
+    M106 S0
+    M106 p2 S0
+    G4 P1500
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P200
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G4 P100
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P100
+
+## lancaigang250519:吐料刮料
+[gcode_macro PRZ_SPITTING_SCRAPE]
+gcode:
+    {action_respond_info("PRZ_SPITTING_SCRAPE\n")}
+
+    # G90
+    # G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    # G4 P200
+
+    # G90
+    # G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    # G4 P100
+
+    # G90
+    # G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    # G4 P100
+
+    # G90
+    # G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    # G4 P100
+
+
+## 吐料轨迹
+[gcode_macro PRZ_SPITTING_START]
+gcode:
+    {action_respond_info("PRZ_SPITTING_START\n")}
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+
+    M106 S0
+    M106 p2 S0
+
+    #lancaigang250322:先加热到220度，多次调用也是220加热到220度
+    #M109 S{extruder_temp+20}
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000 
+    #lancaigang250327：M83防止超范围
+    M83
+    G92 E0
+    G1 E40 F320
+    #lancaigang250327：添加G92，防止XY超范围
+    G92 E0
+    G1 E20 F250
+   # G92 E0
+    #G1 E30 F150
+
+
+    G92 E0
+    G1 E-2 F300
+
+    M106 S255
+    M106 p2 S255
+    G4 P6000
+    M106 S0
+    M106 p2 S0
+    G4 P1500
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P200
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G4 P100
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P100
+
+
+## 吐料轨迹
+[gcode_macro PRZ_SPITTING_NORMAL]
+gcode:
+    {action_respond_info("PRZ_SPITTING_NORMAL\n")}
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+
+    M106 S0
+    M106 p2 S0
+
+    #lancaigang250322:先加热到220度，多次调用也是220加热到220度
+    #M109 S{extruder_temp+20}
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000 
+    #lancaigang250327：M83防止超范围
+    M83
+    G92 E0
+    G1 E70 F320
+    #lancaigang250327：添加G92，防止XY超范围
+    G92 E0
+    G1 E65 F250
+   # G92 E0
+    #G1 E30 F150
+
+
+    G92 E0
+    G1 E-2 F300
+
+    M106 S255
+    M106 p2 S255
+    G4 P6000
+    M106 S0
+    M106 p2 S0
+    G4 P1500
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P200
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G4 P100
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P100
+
+
+## 吐料轨迹
+[gcode_macro PRZ_SPITTING_END]
+gcode:
+    {action_respond_info("PRZ_SPITTING_END\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+
+    M106 S0
+    M106 p2 S0
+
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000 
+    #lancaigang250327：M83防止超范围
+    M83
+    G92 E0
+    G1 E70 F270
+    #lancaigang250327：添加G92，防止XY超范围
+    G92 E0
+    G1 E65 F220
+    #G92 E0
+   # G1 E30 F150
+
+
+    G92 E0
+    G1 E-2 F300
+
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    #lancaigang250322:吐完料，先关加热到0度，因为降温很慢
+    #M109 S0
+    {action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("M104\n")}
+    M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    
+    M106 S255
+    M106 p2 S255
+    G4 P6000
+    M106 S0
+    M106 p2 S0
+    G4 P1500
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P200
+
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G4 P100
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F12000
+    G4 P100
+    #lancaigang250322：加热到
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    #M109 S{extruder_temp}
+
+[gcode_macro PRZ_WAITINGAREA]
+gcode:
+    {action_respond_info("PRZ_WAITINGAREA\n")}
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_waittingarea_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_waittingarea_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x) + 15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    #G4 P200
+    G90
+
+#lancaigang250519：待料区
+[gcode_macro PRZ_CUT_WAITINGAREA]
+gcode:
+    {action_respond_info("PRZ_CUT_WAITINGAREA\n")}
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x) + 15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    #G4 P200
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    #G4 P200
+    G90
+
+#lancaigang250519：暂停待料区
+[gcode_macro PRZ_PAUSE_WAITINGAREA]
+gcode:
+    {action_respond_info("PRZ_PAUSE_WAITINGAREA\n")}
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    #{action_respond_info("G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000\n")}
+    #G90
+    #G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_waittingarea_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+
+
+
+[gcode_macro PG103]
+gcode:
+    {action_respond_info("PG103\n")}
+
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+[gcode_macro PG104]
+gcode:
+    {action_respond_info("PG104\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {% set assist_fan = printer["output_pin fan_assist"].value%}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    {action_respond_info("assist_fan*255=%s\n" % (assist_fan*255))}
+    #{% set velocity_accel = printer. %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+
+
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_fan_speed VALUE={fan*255}
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_assist_fan_value VALUE={assist_fan*255}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_fan_speed VALUE={fan*255}
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_assist_fan_value VALUE={assist_fan*255}
+
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+    #lancaigang250322:设置当前喷头热端温度，全局变量
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_fan_speed VALUE={fan*255}
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_assist_fan_value VALUE={assist_fan*255}
+
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #{action_respond_info("g_extruder_temperature=%d\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+
+
+    # #lancaigang250519:
+    # #lancaigang250519:
+    # variable_g_accel: 0
+    # variable_g_accel_to_decel: 0
+    # variable_g_velocity: 0
+    # variable_g_max_accel: 2500
+    # variable_g_max_accel_to_decel: 2500
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_accel VALUE={printer.toolhead.max_accel}
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_accel_to_decel VALUE={printer.toolhead.max_accel_to_decel}
+    SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_velocity VALUE={printer.toolhead.max_velocity}
+
+    
+
+
+
+
+[gcode_macro PG101]
+gcode:
+    {action_respond_info("PG101\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+    {action_respond_info("=====record last time extruder temp,global\n")}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+
+
+    # #lancaigang250519:
+    # #lancaigang250519:
+    # variable_g_accel: 0
+    # variable_g_accel_to_decel: 0
+    # variable_g_velocity: 0
+    # variable_g_max_accel: 2500
+    # variable_g_max_accel_to_decel: 2500
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    #SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+
+
+    #lancaigang250826：
+    {action_respond_info("PRZ_CUT_WAITINGAREA\n")}
+    PRZ_CUT_WAITINGAREA
+
+    #lancaigang241209：暂时取消
+    #PRZ_WAITINGAREA
+
+
+    #lancaigang250618：切线之后马上关闭风扇，防止吐料丝异常
+    M106 S0
+    M106 p2 S0
+
+
+
+    #lancaigang250323：异步异步喷嘴升温
+    {action_respond_info("M104\n")}
+    {action_respond_info("M104\n")}
+    {action_respond_info("M104\n")}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)+20}
+    {% if extruder_temp < 200 %}                                                
+        M109 S200
+    {% endif %}  
+
+    {% if ((printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)+20) > 250 %}                                                
+        M104 S250
+    {% else %}                      
+        M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)+20}
+    {% endif %}  
+
+
+
+
+
+    #lancaigang241225:先移动到切刀位置，防止在模型上停顿
+    G91
+    G1 Z1 F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G91
+    G1 Z-1 F4000
+    G90
+
+    #lancaigang241011：延时等待AMS先进行回抽动作，然后喷头也进行回抽动作
+    #G4 P1
+    G92 E0
+    G1  E-4 F600
+    G92 E0
+    
+    #lancaigang241209：暂时取消
+    #lancaigang241008：强制从吐料区移到待料区，防止吐完料直接到打印位置，刚好打印位置容易碰到吐料机构丢步
+    #G90
+    #G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y323 F4000
+    #G90
+    #G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)+15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+
+    #lancaigang250322：切线切线之前开始升温
+    #{action_respond_info("M109\n")}
+    #M109 S{extruder_temp+20}
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+
+
+#lancaigang250322：喷头热端升温同时AMS进线
+[gcode_macro PG105]
+gcode:
+    {action_respond_info("PG105\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #PRZ_WAITINGAREA
+
+    {action_respond_info("=====record last time extruder temp,global\n")}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+
+#lancaigang250322：喷头热端升温升温同时AMS退线
+[gcode_macro PG106]
+gcode:
+    {action_respond_info("PG106\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+    #PRZ_WAITINGAREA
+
+    {action_respond_info("=====record last time extruder temp,global\n")}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+
+    {action_respond_info("=====record last time extruder temp,global\n")}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_temperature VALUE={extruder_temp}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #lancaigang250322：到待料区再升温
+    #{action_respond_info("M109\n")}
+    #M109 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)+10}
+
+
+
+
+    #lancaigang250402：：先移动到吐料区
+    #{% set fan = printer["fan_generic cooling_fan"].speed %}
+    M106 S0
+    M106 p2 S0
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000 
+
+
+    #lancaigang250327：M83防止超范围
+    M83
+    G92 E0
+    #lancaigang250402：吐掉残料，防止切刀卡住
+    {action_respond_info("G1 E9 F150\n")}
+    G1 E9 F150
+    #M106 S{fan*255}
+
+
+    #G4 P100
+    #G92 E0
+    #G1 E5 F300
+    #G92 E0
+
+[gcode_macro PG109]
+gcode:
+    {action_respond_info("PG109\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+    {action_respond_info("M109\n")}
+    {action_respond_info("M109\n")}
+    {action_respond_info("M109\n")}
+    
+
+    {% if extruder_temp < 200 %}                                                
+        M109 S200
+    {% endif %}  
+
+    {% if ((printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)) > 250 %}                                                
+        M109 S250
+    {% else %}                      
+        M109 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    {% endif %}  
+
+
+
+[gcode_macro PG107]
+gcode:
+    {action_respond_info("PG107\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+
+[gcode_macro PG108]
+gcode:
+    {action_respond_info("PG108\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+    M109 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    # G90
+    # G1 X250 Y10 F6000 
+    # G91
+    # G1 Z10 F500
+    PRZ_WAITINGAREA
+    PRZ_SPITTING
+    # G92 E0
+    # G1 E100 F300
+    # G92 E0
+    PRZ_WIPEMOUTH
+    M106 S{fan*255}
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+
+
+[gcode_macro PG110]
+gcode:
+    {action_respond_info("PG110\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+
+
+    G92 E0
+    #lancaigang2500519：转动接住进料
+    {action_respond_info("S-E5\n")}
+    G1 E5 F150
+    {action_respond_info("E-E5\n")}
+
+
+
+
+[gcode_macro PG102]
+gcode:
+    {action_respond_info("PG102\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+    {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+    #lancaigang250519：降温需要时间
+    G4 P2000
+
+    #lancaigang250711：防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+    #G4 P100
+    #M400
+
+
+[gcode_macro PG111]
+gcode:
+    {action_respond_info("PG111\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    #PRZ_SPITTING_START
+    #PRZ_SPITTING_START
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+    #lancaigang250519：降温需要时间
+    G4 P2000
+
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+[gcode_macro PG112]
+gcode:
+    {action_respond_info("PG112\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    #PRZ_SPITTING_START
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+[gcode_macro PG113]
+gcode:
+    {action_respond_info("PG113\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+[gcode_macro PG114]
+gcode:
+    {action_respond_info("PG114\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+[gcode_macro PG115]
+gcode:
+    {action_respond_info("PG115\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+     
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+[gcode_macro PG116]
+gcode:
+    {action_respond_info("PG116\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+     
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+[gcode_macro PG117]
+gcode:
+    {action_respond_info("PG117\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+     
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+
+[gcode_macro PG118]
+gcode:
+    {action_respond_info("PG118\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+     
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+
+[gcode_macro PG119]
+gcode:
+    {action_respond_info("PG119\n")}
+    {action_respond_info("=====record this time extruder temp,local\n")}
+    {% set extruder_temp = printer.extruder.temperature %}
+    {action_respond_info("extruder_temp = %s \n" % (extruder_temp))}
+    {% set fan = printer["fan_generic cooling_fan"].speed %}
+    {action_respond_info("fan*255=%s\n" % (fan*255))}
+    #{% set bed_temp = printer.heater_bed.temperature %}
+    #SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed_temp}
+    
+    #lancaigang250322:吐料之前，先以当前温度+20加热
+    #M109 S{extruder_temp+20}
+
+    #lancaigang250519:吐料开始，固定加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000
+    {action_respond_info("=====SET_VELOCITY_LIMIT ACCEL=10000 ACCEL_TO_DECEL=5000\n")}
+
+    
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #PRZ_SPITTING
+    #lancaigang250519：吐料之前先刮掉残料
+    #PRZ_SPITTING_SCRAPE
+    PRZ_SPITTING_START
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    PRZ_SPITTING_NORMAL
+    #lancaigang250322：最后1次关闭加热温度为0
+    PRZ_SPITTING_END
+
+    
+    #lancaigang250322：吐完料温度恢复，降温
+    #M109 S{extruder_temp}
+    #lancaigang250322:赋值全局变量
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=extruder_temperature VALUE={printer.extruder.temperature}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {action_respond_info("=====recovery extruder temp,global\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    #M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    ##lancaigang250407:风扇恢复也用也用全局变量
+    {action_respond_info("g_extruder_fan_speed=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed))}
+    #M106 S{fan*255}
+    M106 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_fan_speed)}
+    M106 p2 S{(printer["gcode_macro GLOBAL_PARAM"].g_assist_fan_value)}
+    #lancaigang250519:吐料结束，还原，加速度 减速度 速率
+    {action_respond_info("g_accel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel))}
+    {action_respond_info("g_accel_to_decel=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel))}
+    {action_respond_info("g_velocity=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_velocity))}
+    SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel)} ACCEL_TO_DECEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel_to_decel)}
+     {action_respond_info("=====SET_VELOCITY_LIMIT;\n")}
+
+     
+    #lancaigang250519：降温需要时间
+    G4 P2000
+    #lancaigang250711：169防止撞到吐料盒
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F6000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F6000
+    #M106 S0
+    G90
+
+
+    #G4 P100
+    #M400
+
+
+
+# 打印结束
+[gcode_macro PRINT_END]
+gcode:
+    {action_respond_info("=====PRINT_END\n")}
+    {% set th = printer.toolhead %}
+    {% set x_safe = th.position.x + 20 * (1 if th.axis_maximum.x - th.position.x > 20 else -1) %}
+    {% set y_safe = th.position.y + 20 * (1 if th.axis_maximum.y - th.position.y > 20 else -1) %}
+    {% set z_safe = [th.position.z + 2, th.axis_maximum.z]|min %}
+    
+    {% if (printer.gcode_move.position.z+15) < 300 %}
+    G91
+    G1 Z15 F1000
+    G90
+    {% endif %}
+
+    G90
+    G1  X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F3000
+    G90
+    {action_respond_info("=====M400\n")}
+    M400                           ; wait for buffer to clear
+
+    # #lancaigang250608：先保证喷头温度达到挤出温度，才能操作挤出机
+    # PG109
+
+
+    # G92 E0                         ; zero the extruder
+    # #G1 E-5.0 F1800
+    # G1 E-5.0 F300
+    
+    #lancaigang250515：P2A7打印完成后，切线AMS退线，不启用暂停恢复
+    {action_respond_info("=====P2 A7\n")}
+    P2 A7
+    #G4 P15000
+    #{action_respond_info("=====P0 M0\n")}
+    #lancaigang250624：延时放到P2 A7内部，喷头有线材回退40秒，喷头没有线材回退15秒；最后P0 M0
+    #P0 M0
+
+
+    TURN_OFF_HEATERS
+    {action_respond_info("=====M107\n")}
+    M107 
+
+    #lancaigang250622：M84放最后，防止Z轴动作导致异常；  
+    #stepper_z has been manually disabled
+    #[(Phrozen)Klipper]MCU 'MKS_THR' shutdown: Timer too close
+    #M84
+    {action_respond_info("=====BED_MESH_CLEAR\n")}
+    BED_MESH_CLEAR
+    BED_MESH_PROFILE LOAD=phrozen
+    {action_respond_info("=====SET_PIN\n")}
+    SET_GCODE_OFFSET z=0 #打印结束清除z偏移
+    M106 P1 S0
+    M106 P2 S0
+    M106 P3 S0
+    TP_PUT
+    
+
+    {action_respond_info("=====M84\n")}
+    M84
+    {action_respond_info("ARCO_PRINT_END_OK\n")}
+
+
+
+
+# 取消打印
+[gcode_macro CANCEL_PRINT]
+rename_existing: BASE_CANCEL_PRINT
+gcode:
+    {action_respond_info("=====CANCEL_PRINT\n")}
+    {% if (printer.gcode_move.position.z+5) < 300 %}
+    G91
+    G1 Z5 F1000
+    G90
+    {% endif %} 
+
+    SDCARD_RESET_FILE
+    PRINT_END
+    BASE_CANCEL_PRINT
+
+
+
+
+## 暂停
+[gcode_macro PAUSE]
+rename_existing:BASE_PAUSE
+gcode:
+    {action_respond_info("=====PAUSE\n")}
+    #记录温度然后降到常温
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{action_respond_info("extruder_pause_temperature = %s \n" % (extruder_temp))}
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_pause_temperature VALUE={extruder_temp}
+
+    #{action_respond_info("=====PAUSE Start\n")}               
+
+    # # #lancaigang250402：先移动到暂停区，，防止位置异常暂停导致恢复异常
+    # # #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # # G90
+    # # #lancaigang250526：快一些，防止新旧通道切换有暂停延时，导致混色
+    # # G1 X290 Y290 F10000
+    # # {action_respond_info("=====PAUSE 2\n")}
+
+    # SAVE_GCODE_STATE NAME=PAUSE                                                        ; save current print position for resume                
+    # {action_respond_info("=====PAUSE 3\n")}
+    # # SAVE_GCODE_STATE NAME=PAUSEPARK2
+
+    # # #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # # G90
+    # # G1 X149 Y290 F6000
+    # # G90 
+
+    # # SAVE_GCODE_STATE NAME=PAUSEPARK3
+
+    # # #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # # G90
+    # # #lancaigang250526：快一些，防止新旧通道切换有暂停延时，导致混色
+    # # G1 X290 Y290 F10000
+    # # G90 
+    # # {action_respond_info("=====PAUSE 5\n")}
+
+
+    #lancaigang250402：先移动到暂停区，，防止位置异常暂停导致恢复异常
+    #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # G90
+    # G1 X290 Y290 F10000
+    #G90
+    #G1 X169 Y290 F3000
+    #G90 
+    {action_respond_info("=====SAVE_GCODE_STATE NAME=PAUSE\n")}  
+    SAVE_GCODE_STATE NAME=PAUSE     
+                
+
+    #SAVE_GCODE_STATE NAME=PAUSEPARK2
+    #{action_respond_info("=====PAUSE2\n")}  
+    #lancaigang250515：设置到290，防止暂停在换色塔上面
+    #G90
+    #G1 X169 Y290 F3000
+    #G90 
+
+    #SAVE_GCODE_STATE NAME=PAUSEPARK3
+    #{action_respond_info("=====PAUSE3\n")}  
+   
+    # {action_respond_info("=====G1 X290 Y290 F5000\n")}  
+    # # #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # G90
+    # G1 X290 Y290 F5000
+    # G90
+
+    BASE_PAUSE  
+    {action_respond_info("=====BASE_PAUSE\n")}  
+
+
+
+    #降低到常温
+    #{action_respond_info("=====不能在暂停之后加任何动作，会影响klipper自身的暂停机制，导致暂停位置不准确；M104 S35\n")}
+    #lancaigang250716:多色打印不能在暂停之后加任何动作，会影响klipper自身的暂停机制，导致暂停位置不准确
+    #M104 S35
+    #{action_respond_info("=====PAUSE 4\n")}
+    #{action_respond_info("=====BASE_PAUSE\n")}
+    # BASE_PAUSE 
+    #{action_respond_info("=====PAUSE End\n")}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## d打印中暂停
+[gcode_macro PAUSE_PRINTING]
+gcode:
+    #{action_respond_info("=====PAUSE_PRINTING\n")}
+    #记录温度然后降到常温
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{action_respond_info("extruder_pause_temperature = %s \n" % (extruder_temp))}
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_pause_temperature VALUE={extruder_temp}
+
+    # {action_respond_info("=====PAUSE_PRINTING Start\n")}               
+    # {action_respond_info("=====PAUSE\n")}
+    # {action_respond_info("=====BASE_PAUSE\n")}
+    SAVE_GCODE_STATE NAME=PAUSE          
+    BASE_PAUSE 
+    #SAVE_GCODE_STATE NAME=PAUSEPARK2
+    #{action_respond_info("=====PAUSEPARK2\n")}
+    #SAVE_GCODE_STATE NAME=PAUSEPARK3
+    #{action_respond_info("=====PAUSEPARK3\n")}
+    #{action_respond_info("=====BASE_PAUSE\n")}
+    #BASE_PAUSE 
+
+    #降低到常温
+    #{action_respond_info("=====不能在暂停之后加任何动作，会影响klipper自身的暂停机制，导致暂停位置不准确；M104 S35\n")}
+    #lancaigang250716:多色打印不能在暂停之后加任何动作，会影响klipper自身的暂停机制，导致暂停位置不准确
+    #M104 S35
+    #{action_respond_info("=====PAUSE_PRINTING End\n")}
+
+
+
+## lancaigang250515:单色自动续料暂停
+[gcode_macro PAUSEMA]
+gcode:
+    #{action_respond_info("=====PAUSEMA\n")}
+    #记录温度然后降到常温
+    #{% set extruder_temp = printer.extruder.temperature %}
+    #{action_respond_info("extruder_pause_temperature = %s \n" % (extruder_temp))}
+    #SET_GCODE_VARIABLE MACRO=GLOBAL_PARAM VARIABLE=g_extruder_pause_temperature VALUE={extruder_temp}
+
+    {% set z = params.Z|default(5)|int %}                  
+
+
+    #lancaigang250402：先移动到暂停区，，防止位置异常暂停导致恢复异常
+    #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # G90
+    # G1 X290 Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F10000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F3000
+    G90 
+
+   #{action_respond_info("=====PAUSEMA1\n")}
+    SAVE_GCODE_STATE NAME=PAUSE     
+    BASE_PAUSE                                                    ; save current print position for resume                
+
+    #SAVE_GCODE_STATE NAME=PAUSEPARK2
+    #{action_respond_info("=====PAUSEMA2\n")}
+    #lancaigang250515：设置到290，防止暂停在换色塔上面
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F3000
+    G90 
+
+    #SAVE_GCODE_STATE NAME=PAUSEPARK3
+    #{action_respond_info("=====PAUSEMA3\n")}
+   
+    
+    # #lancaigang250515：设置到290，防止暂停在换色塔上面
+    # G90
+    # G1 X290 Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F10000
+    # G90 
+
+    
+
+
+## 恢复
+[gcode_macro RESUME]
+rename_existing: BASE_RESUME
+variable_zhop: 0
+variable_etemp: 0
+gcode:
+
+    {% if printer[printer.toolhead.extruder].temperature >= printer.configfile.settings.extruder.min_extrude_temp %}                                                
+        # G1  E{e} F900                                                ; prime nozzle by E, lower Z back down
+#        {% else %}                      
+#            G1 Z{zhop * -1} F900                                                     ; lower Z back down without priming (just in case we are testing the macro with cold hotend)
+    {% endif %}  
+
+   
+    {action_respond_info("RESUME\n")}
+    #{action_respond_info("printer["gcode_macro GLOBAL_PARAM"].g_extruder_pause_temperature = %s \n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_pause_temperature))}
+    #M109 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_pause_temperature)}
+    # {% if printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature < 200 %}                                                
+    #     M109 S200
+    # {% endif %}  
+
+    #lancaigang250515：单色或单色续料，暂停恢复需要升温到模型温度
+    #{action_respond_info("printer["gcode_macro GLOBAL_PARAM"].g_extruder_pause_temperature = %s \n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_pause_temperature))}
+    {action_respond_info("M104\n")}
+    {action_respond_info("g_extruder_temperature=%s\n" % (printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature))}
+    {% if ((printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)) > 250 %}                                                
+        M104 S250
+    {% else %}                      
+        M104 S{(printer["gcode_macro GLOBAL_PARAM"].g_extruder_temperature)}
+    {% endif %}  
+
+    #lancaigang250522：防止升温达不到喷嘴最低温度
+    #{action_respond_info("G4 P3000\n")}
+    #G4 P3000
+
+
+    #RESTORE_GCODE_STATE NAME=PAUSEPARK3 MOVE=1 MOVE_SPEED=1000
+    #RESTORE_GCODE_STATE NAME=PAUSEPARK2 MOVE=1 MOVE_SPEED=1000
+    #lancaigang250711:暂停点太多，有混色风险，保留1个暂停点
+    RESTORE_GCODE_STATE NAME=PAUSE MOVE=1 MOVE_SPEED=150
+
+
+    #lancaigang250711：169防止撞到吐料盒
+    #G90
+    #G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F3000
+    #M106 S0
+    #G90
+
+
+
+    {action_respond_info("BASE_RESUME 1\n")}
+    BASE_RESUME
+    {action_respond_info("RESUME END\n")}
+                                 
+                  
+
+
+
+
+
+[force_move]
+enable_force_move : True
+
+##  关闭电机
+[gcode_macro M84]
+rename_existing:M84.1
+gcode:
+	SET_STEPPER_ENABLE STEPPER=stepper_x enable=0
+	SET_STEPPER_ENABLE STEPPER=stepper_y enable=0
+	SET_STEPPER_ENABLE STEPPER=stepper_z enable=0
+    SET_STEPPER_ENABLE STEPPER=stepper_z1 enable=0
+ 	SET_KINEMATIC_POSITION
+	
+[delayed_gcode KINEMATIC_POSITION]
+initial_duration:0.2
+gcode:
+    SET_KINEMATIC_POSITION X=150
+    SET_KINEMATIC_POSITION Y=150
+	SET_KINEMATIC_POSITION Z=150
+    {% if printer['filament_switch_sensor fila'] is defined %}SET_FILAMENT_SENSOR SENSOR=fila ENABLE=0{% endif %}
+    {action_respond_info("G_printer_position_z_init_M84\n")}
+
+
+## 自动调平宏
+[gcode_macro TP_OUT]
+gcode:
+    SET_GCODE_VARIABLE MACRO=G30 VARIABLE=k VALUE=0
+    SET_GCODE_VARIABLE MACRO=G31 VARIABLE=a VALUE=0
+    SET_GCODE_VARIABLE MACRO=PG28 VARIABLE=p VALUE=0
+
+[gcode_macro TP_PUT]
+gcode:
+    SET_GCODE_VARIABLE MACRO=G30 VARIABLE=k VALUE=1
+    SET_GCODE_VARIABLE MACRO=G31 VARIABLE=a VALUE=1
+    SET_GCODE_VARIABLE MACRO=PG28 VARIABLE=p VALUE=1
+
+[gcode_macro PG28]
+variable_p:1
+gcode:
+    {% if p|int==1 %}
+    PRZ_PRINTING_START
+    G28
+    G90
+    {% endif %}
+
+[gcode_macro G31]
+variable_a:1
+gcode:
+    {% if a|int==1 %}
+    BED_MESH_CLEAR 
+    BED_MESH_PROFILE LOAD=phrozen
+    {% endif %}
+
+
+[gcode_macro G30]
+variable_k:1
+gcode:
+    {% if k|int==1 %}
+    G90
+    G28
+    M106 S0
+    BED_MESH_CLEAR
+    BED_MESH_CALIBRATE
+    BED_MESH_PROFILE LOAD=default
+    {% endif %}
+
+## 打印自动调用-自动调平
+[gcode_macro START_PRINT]
+gcode:
+    BED_MESH_CLEAR 
+    BED_MESH_PROFILE LOAD=phrozen
+
+
+## PID自动调整
+[gcode_macro M303]
+gcode:
+    M106 S255
+    PID_CALIBRATE HEATER=extruder TARGET=210
+    G4 P100
+    SAVE_CONFIG
+    
+[gcode_macro M304]
+gcode:
+    PID_CALIBRATE HEATER=heater_bed TARGET=60
+    G4 P100
+    SAVE_CONFIG
+
+[gcode_macro G29]
+gcode:
+        G90
+        M140 S60 
+        M104 S140 
+        M190 S60 
+        M109 S140 
+        PRZ_PRINTING_START
+        G28
+        G90
+        M106 S0
+        BED_MESH_CLEAR     
+        BED_MESH_CALIBRATE PROFILE=phrozen  
+        SAVE_CONFIG
+
+
+[output_pin probe_pin]
+pin:PA0
+value:0
+
+[gcode_macro probe_up]
+gcode:
+    G4 P500
+    SET_PIN PIN=probe_pin VALUE=1
+    
+[gcode_macro probe_off]
+gcode:
+    SET_PIN PIN=probe_pin VALUE=0
+
+
+[gcode_macro M190]
+rename_existing: M99190
+gcode:
+    #Parameters
+    {% set s = params.S|float %}
+
+    M140 {% for p in params %}{'%s%s' % (p, params[p])}{% endfor %}   ; Set bed temp
+    {% if s != 0 %}
+        TEMPERATURE_WAIT SENSOR=heater_bed MINIMUM={s-2} MAXIMUM={s+10}  ; Wait for bed temp (within 1 degree)
+    {% endif %}
+
+
+[gcode_macro M109]
+rename_existing: M99109
+gcode:
+    #Parameters
+    {% set s = params.S|float %}
+    
+    M104 {% for p in params %}{'%s%s' % (p, params[p])}{% endfor %}  ; Set hotend temp
+    {% if s != 0 %}
+        TEMPERATURE_WAIT SENSOR=extruder MINIMUM={s} MAXIMUM={s+1}   ; Wait for hotend temp (within 1 degree)
+    {% endif %}
+
+
+[gcode_macro M106]
+gcode:
+    # {% set fan = printer["fan_generic cooling_fan"].speed %}
+    # {action_respond_info("fan*255=%s\n" % (fan*255))}
+    {% set p = params.P|default(0)|int %}
+
+    {% if p == 2 %}
+    {% if params.S is defined %}
+        SET_PIN PIN=fan_assist VALUE={(params.S|float)}
+    {% else %}
+        SET_PIN PIN=fan_assist VALUE=1
+    {% endif %}
+    {% endif %} 
+
+    {% if p == 0 %}
+    {% if params.S is defined %}
+        SET_FAN_SPEED FAN=cooling_fan SPEED={(params.S|float / 255.0)}
+    {% else %}
+        SET_FAN_SPEED FAN=cooling_fan SPEED=1
+    {% endif %}
+    {% endif %} 
+
+    {% if p == 1 %}
+    {% if params.S is defined %}
+        SET_FAN_SPEED FAN=cooling_fan SPEED={(params.S|float / 255.0)}
+    {% else %}
+        SET_FAN_SPEED FAN=cooling_fan SPEED=1
+    {% endif %}
+    {% endif %} 
+
+    {% if p == 3 %}
+    {% if params.S is defined %}
+        SET_FAN_SPEED FAN=Chamber_fan SPEED={(params.S|float / 255.0)}
+    {% else %}
+        SET_FAN_SPEED FAN=Chamber_fan SPEED=1
+    {% endif %}
+    {% endif %} 
+
+[gcode_macro PRZ_MANUAL_WAITING]
+gcode:
+    {action_respond_info("PRZ_WAITINGAREA\n")}
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_wait_pause_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_waittingarea_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_print_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_waittingarea_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x) + 15} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000
+    G90
+    G1 X{(printer["gcode_macro GLOBAL_PARAM"].g_spitting_start_x)} Y{(printer["gcode_macro GLOBAL_PARAM"].g_bottom_y)} F4000  
+    G90
+[gcode_macro SHAPER_END]
+# voronFDM calls this after SHAPER_CALIBRATE to advance to the bed mesh.
+# Phrozen ships no such macro -> No-op stub to avoid "Unknown command".
+gcode:
+    M118 SHAPER_END
+
+[gcode_macro BED_PROBE_END]
+# Like SHAPER_END: voronFDM needs the SAVE_CONFIG restart as the signal to move on (purge position). No-op -> display hangs at mesh 100%.
+gcode:
+    M118 BED_PROBE_END
+
+

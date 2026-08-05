@@ -1,0 +1,10 @@
+[Unit]
+Description=Arco voronFDM moonraker-websocket watchdog (restart on dead ws)
+After=KlipperScreen.service moonraker.service
+
+[Service]
+Type=oneshot
+# KillMode=process: when the oneshot exits, stop ONLY its main process — do not
+# take down the voronFDM instance it relaunched via setsid.
+KillMode=process
+ExecStart=/home/mks/arco-voronfdm-watchdog.sh

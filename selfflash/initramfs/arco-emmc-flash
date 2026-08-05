@@ -1,0 +1,716 @@
+#!/bin/sh
+# initramfs-tools init-premount FLASHER — runs IN the initramfs (in RAM), BEFORE the eMMC rootfs is
+# mounted, so the eMMC can be overwritten safely. Streams the full image from the external USB stick.
+# Fires ONLY if armed + the USB image is present + its sha256 matches; otherwise it does nothing and a
+# normal boot continues -- which is also the escape hatch: pull the stick, power-cycle, and the old system
+# boots even while armed. Proven end-to-end on real hardware (2026-07-10).
+PREREQ=""
+prereqs(){ echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0;; esac
+. /scripts/functions 2>/dev/null || true
+
+# Two jobs, two SEPARATE files -- deliberately not one file with a MODE= variable. A mode variable that
+# goes missing (truncated write, an older conf next to a newer initramfs) would fall back to *some*
+# default, and the only safe default here is "do nothing", which a variable cannot express: the flash
+# path needs the image name and hash that live in flash.conf, so its absence is itself the safety.
+# The backup only ever READS the eMMC, so the file that authorises writing is simply not present for it.
+CONF=/conf/arco-flash.conf
+BACKUPCONF=/conf/arco-backup.conf
+if [ -f "$BACKUPCONF" ]; then
+  . "$BACKUPCONF"
+  [ "${ARCO_BACKUP_ARMED:-0}" = 1 ] || exit 0
+  JOB=backup
+elif [ -f "$CONF" ]; then
+  . "$CONF"
+  [ "${ARCO_FLASH_ARMED:-0}" = 1 ] || exit 0
+  JOB=flash
+else
+  exit 0
+fi
+TARGET="${ARCO_TARGET:?no target}"
+
+# --- LOGGING. The persistent log lives on the USB STICK (mounted rw further down), NOT on the eMMC:
+# on kernel 6.18 'dd' to a whole disk is REFUSED while ANY of its partitions is mounted, so mounting the
+# eMMC's own boot partition for a log (an earlier debug build did) blocks the write at 0%. The USB is not
+# the flash target, so logging there is safe and the log survives on the stick to read on a PC afterwards.
+# kmsg is written too, but its ring buffer wraps during the minutes-long boot, so the USB file is primary. ---
+LOGF=""
+say(){ echo "[arco-selfflash] $*"; echo "arco-selfflash: $*" > /dev/kmsg 2>/dev/null || true; [ -n "$LOGF" ] && { echo "$*" >> "$LOGF" 2>/dev/null; sync 2>/dev/null; }; }
+say "PROOF OF LIFE: init-premount flasher STARTED (armed, target=$TARGET)"
+
+# --- clock the CPU up before doing anything heavy ---------------------------------------------------
+# Everything this script does is CPU-bound: gzip on the way in or out, sha256 over gigabytes. On the
+# running system that work is fast because arco-cpu-governor.service pins 'performance' -- but that is a
+# systemd unit, and systemd does not exist yet here. Whatever the kernel defaults to is what we get, and
+# on the first real backup (2026-07-30) that meant three minutes to reach 5% on a 32 GB eMMC.
+# Nothing depends on this working: if cpufreq is not up yet, or is built as a module that is not in this
+# initramfs, the files simply are not there and we carry on at whatever speed we have. No restore needed
+# either -- this ends in a reboot, and the booted system sets the governor itself.
+# Deliberately for BOTH jobs: the flash decompresses 5.5 GB and hashes it twice, and gains just as much.
+n=0
+for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+  [ -f "$g" ] || continue
+  echo performance > "$g" 2>/dev/null && n=$((n + 1))
+done
+if [ "$n" -gt 0 ]; then
+  khz=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
+  GOVMSG="CPU governor -> performance on $n core(s) (cpu0 now ${khz:-?} kHz)"
+else
+  GOVMSG="no cpufreq control in this initramfs — running at the default clock"
+fi
+say "$GOVMSG"
+# ...and keep it, because say() cannot write to the USB log yet: LOGF is only set once the stick has been
+# found and mounted, which happens further down. This block deliberately runs BEFORE that, so the CPU is
+# already fast for the stick search and the hash -- with the result that on the first run the one line
+# that answers "was the clock the problem?" went to the console and the kernel buffer only, and both were
+# gone after the power-cycle. It is re-emitted below, once there is a file to write it to.
+
+panic_shell(){
+  say "ABORT: $*"
+  say "The eMMC may be PARTIALLY written. Easiest recovery: PULL THE USB STICK and power-cycle — with no"
+  say "image on the stick the flasher stands down and the old system boots normally. If it no longer boots,"
+  say "open the printer, pull the eMMC and re-flash it on a PC (path B)."
+  sync; umount /arco_usb 2>/dev/null
+  /bin/sh
+  exit 1
+}
+# clean exit that leaves the old system booting normally
+normal_boot(){ say "$*"; sync; umount /arco_usb 2>/dev/null; exit 0; }
+
+# --- delete a file, on an initramfs that has no rm ---------------------------------------------------
+# klibc ships 'nuke', not 'rm'. Every `rm -f` in here was therefore a silent no-op, and three things
+# quietly did not happen (found on hardware 2026-07-31, after a backup that should have consumed its
+# one-shot marker and did not):
+#   * the write-probe file stayed on the stick after every run;
+#   * the arming marker was never consumed, so the one-shot guard did nothing at all;
+#   * and worst, the partial file left by a FAILED backup was never deleted -- the very cleanup that
+#     stops a half-written image from sitting there looking like a backup.
+# Offline tests all passed, because a normal Linux has rm. The hook now copies coreutils rm as well;
+# this wrapper is the belt to that braces, and it is what every call below goes through.
+# Last resort is mv, not truncation: klibc always has mv, and every caller here cares that the NAME goes
+# away, not that the bytes do. Truncating would leave the arming marker in place -- the one-shot guard
+# broken in exactly the way this function exists to fix -- and would leave a 0-byte file still sitting
+# where a backup belongs.
+# --- how many bytes has dd copied so far? ------------------------------------------------------------
+# From dd's own status=progress output, because under conv=sparse the block layer's written-sectors
+# counter is the wrong yardstick -- seeked-over runs are not written, and dd counts them as copied.
+#
+# Deliberately built from `tr` and the shell alone. The first version ended in `tail -1`, and the hook
+# copies a fixed list of tools -- dd sha256sum blkid gzip stty cut tr head wc rm -- with `tail` not on
+# it. So the pipeline produced nothing, every reading came back 0, the progress bar sat at "0 MB" for
+# forty lines, and the short-write guard then aborted a restore that had in fact completed. The printer
+# was fine; the message was not.
+#
+# dd writes two kinds of line: "0+0 records in" (first field has a '+') and "N bytes (...) copied, ..."
+# (first field all digits). Keeping the last all-digit first field picks exactly the one we want.
+dd_bytes(){
+  tr '\r' '\n' < "${1:-/run/arco-dderr}" 2>/dev/null | {
+    _last=0
+    while read -r _a _rest; do
+      case "$_a" in ''|*[!0-9]*) ;; *) _last=$_a;; esac
+    done
+    echo "$_last"
+  }
+}
+
+del(){
+  for _f in "$@"; do
+    [ -e "$_f" ] || continue
+    rm -f "$_f" 2>/dev/null && continue
+    nuke "$_f" 2>/dev/null && continue
+    mv "$_f" "$_f.stale" 2>/dev/null || true
+  done
+}
+
+# --- TFT progress screen on /dev/ttyS1 (voronFDM is NOT running here, so the port is free). Every write is
+# best-effort (|| true) so a display failure can NEVER affect the flash. TJC commands are terminated by
+# 3x 0xFF (octal \377) and need the real /usr/bin/printf, which the hook copies explicitly (klibc ships no
+# printf, and 'command -v printf' returns the shell builtin, so copy_exec used to skip it silently).
+#
+# Fonts were PROBED on the actual panel: ids 1 and 2 are DIGIT-ONLY — they silently drop every letter.
+# Usable, small -> large:  7 < 0 = 3 < 5 < 6 < 4.  (The old code's "2" was the x-align field, not a font.)
+# xstr paints its own background (sta=1), so each line erases the one it replaces; no separate fill needed.
+# The warning colour escalates with the ACTUAL risk: muted while nothing has been written yet, amber once
+# the eMMC is being overwritten. Telling the user "DO NOT POWER OFF" during the read-only checksum pass
+# would simply be a lie. ---
+TFT=/dev/ttyS1
+C_BG=4359      # #10233B deep navy
+C_ACC=11294    # #2F81F7 brand blue  (header + progress fill)
+C_TRK=10731    # #2B3E5C empty track (a darker slate vanished into the background)
+C_TXT=65535    # white
+C_MUT=36119    # #8FA3BF muted slate (hint line)
+C_WRN=64900    # #FFB020 amber
+C_ERR=63942    # #FF3B30 red
+F_BRAND=6; F_PHASE=5; F_PCT=4; F_WARN=6; F_HINT=0
+tft(){ printf '%s\377\377\377' "$1" > "$TFT" 2>/dev/null || true; }
+tft_chrome(){                                  # static frame, drawn once
+  [ -e "$TFT" ] || return 0
+  stty -F "$TFT" 115200 raw -echo 2>/dev/null || true
+  tft "page 6"; sleep 1
+  tft "fill 0,0,800,480,$C_BG"; tft "fill 0,0,800,480,$C_BG"   # twice: the panel eats the first fill after a page switch
+  tft "xstr 0,38,800,36,$F_BRAND,$C_ACC,$C_BG,1,1,1,\"ARCO UNLEASHED\""
+  tft "fill 320,92,160,2,$C_TRK"
+}
+tft_phase(){                                   # $1 headline  $2 warning  $3 warning colour  $4 hint
+  [ -e "$TFT" ] || return 0
+  tft "xstr 0,136,800,32,$F_PHASE,$C_TXT,$C_BG,1,1,1,\"$1\""
+  tft "xstr 0,322,800,36,$F_WARN,$3,$C_BG,1,1,1,\"$2\""
+  tft "xstr 0,372,800,28,$F_HINT,$C_MUT,$C_BG,1,1,1,\"$4\""
+}
+tft_bar(){                                     # $1 = percent (0-100)
+  [ -e "$TFT" ] || return 0
+  pct=$1; w=$((560*pct/100))
+  tft "fill 120,186,560,32,$C_TRK"
+  [ "$w" -gt 0 ] && tft "fill 120,186,$w,32,$C_ACC"
+  tft "xstr 0,232,800,48,$F_PCT,$C_TXT,$C_BG,1,1,1,\"${pct}%\""
+}
+tft_nobar(){ [ -e "$TFT" ] || return 0; tft "fill 0,180,800,110,$C_BG"; }   # phases without a percentage
+
+[ -b "$TARGET" ] || panic_shell "target $TARGET is not a block device in the initramfs"
+
+# --- make sure the USB storage + FAT drivers are actually LOADED and the bus has settled. MODULES=most
+# ships them in the initramfs, but at init-premount time coldplug may not have bound the stick yet — so the
+# modern UAS stick (uas), the SCSI disk layer (sd_mod) and the FAT driver (vfat) must be modprobed here or
+# /dev/sda1 never appears / 'mount -t vfat' fails. ---
+say "want image: $ARCO_IMG_NAME (read this log later from the USB stick: arco-selfflash.log)"
+say "loading USB storage + FAT drivers, settling the bus ..."
+for m in uas usb_storage sd_mod vfat nls_cp437 nls_iso8859_1 nls_iso8859-1; do modprobe "$m" 2>/dev/null || true; done
+udevadm trigger 2>/dev/null || true
+udevadm settle --timeout=25 2>/dev/null || true
+
+# --- find + mount the USB stick (FAT32, rw so we can log to it) ---
+# Flash wants the stick that HOLDS the armed image; the backup wants one it can WRITE to, which is a
+# different test -- a stick that is full or write-protected mounts perfectly well and would only fail
+# minutes later, with the eMMC already half-read into a file that cannot grow.
+if [ "$JOB" = backup ]; then
+  say "armed for BACKUP: looking for a writable USB stick (source=$TARGET)"
+else
+  say "armed: looking for $ARCO_IMG_NAME on a USB stick (target=$TARGET)"
+fi
+mkdir -p /arco_usb
+IMG=""; USBOK=""
+i=0
+while [ $i -lt 30 ]; do                        # USB can be slow to enumerate in the initramfs
+  for part in $(blkid -o device 2>/dev/null) $(ls /dev/sd*[0-9] 2>/dev/null); do
+    [ -b "$part" ] || continue
+    # NEVER a partition of the eMMC itself. blkid lists /dev/mmcblk1p1 -- the printer's own /boot, which
+    # is FAT32 and perfectly writable -- and it comes BEFORE the USB stick. Flash mode never noticed,
+    # because its test is "is the armed image here?" and /boot has no image. The backup's test is only
+    # "can I write here?", and /boot answers yes: on 2026-07-30 a backup ran onto the eMMC's own boot
+    # partition, filled its 256 MB, and died -- taking update-initramfs with it, so the one-shot could
+    # not even disarm itself. Source and destination must be different devices; that was checked for the
+    # flash at arm time and nowhere at all in here.
+    case "$part" in "$TARGET"*) continue;; esac
+    if mount -o rw "$part" /arco_usb 2>/dev/null || mount -t vfat -o rw "$part" /arco_usb 2>/dev/null; then
+      if [ "$JOB" = backup ]; then
+        # Prove it is writable rather than assuming: a read-only mount (dirty FAT, hardware lock switch)
+        # succeeds silently and only shows up when the first byte is written.
+        if echo ok > /arco_usb/.arco-write-probe 2>/dev/null; then
+          del /arco_usb/.arco-write-probe
+          USBOK="$part"; LOGF="/arco_usb/arco-selfflash.log"
+          { echo; echo "==== arco-backup run (mounted $part) ===="; } >> "$LOGF" 2>/dev/null
+          say "$GOVMSG"        # only now is there a file to write it to
+          break
+        fi
+      elif [ -f "/arco_usb/$ARCO_IMG_NAME" ]; then
+        IMG="/arco_usb/$ARCO_IMG_NAME"; LOGF="/arco_usb/arco-selfflash.log"
+        { echo; echo "==== arco-selfflash run (mounted $part) ===="; } >> "$LOGF" 2>/dev/null
+        say "$GOVMSG"          # only now is there a file to write it to
+        break
+      fi
+      umount /arco_usb 2>/dev/null
+    fi
+  done
+  if [ -n "$IMG" ] || [ -n "$USBOK" ]; then break; fi
+  [ $((i % 5)) -eq 0 ] && say "waiting ${i}s for the USB stick ..."
+  i=$((i+1)); sleep 1
+done
+if [ "$JOB" = backup ]; then
+  [ -n "$USBOK" ] || normal_boot "no writable USB stick found after 30s — nothing backed up, continuing normal boot."
+  say "writable stick: $USBOK"
+else
+  [ -n "$IMG" ] || normal_boot "image NOT found on any USB after 30s — continuing normal boot (still armed)."
+  say "found: $IMG"
+fi
+# "Step 1 of 3" counts the three things the FLASHER does, and on an install that is honest: three steps
+# here, then the printer restarts and carries on with the first-boot setup. Writing back an owner's own
+# image is the whole job -- there is no first boot to follow, nothing to install, nothing to set up --
+# so counting steps there promises a sequence that does not exist. The restore says what it is doing
+# instead of where it is in a list.
+case "${IMG##*/}" in arco-emmc-backup*) RESTORE_JOB=1;; *) RESTORE_JOB=0;; esac
+
+# Step 1 screen. Nothing is written yet, so the warning stays muted — not "DO NOT POWER OFF".
+tft_chrome; tft_nobar
+if [ "$RESTORE_JOB" = 1 ]; then
+  tft_phase "Checking your backup on the USB stick" \
+            "Please wait - do not unplug the USB stick" "$C_MUT" \
+            "Reading the whole image - this takes a few minutes."
+else
+  tft_phase "Step 1 of 3   Checking the image on the USB stick" \
+            "Please wait - do not unplug the USB stick" "$C_MUT" \
+            "Reading the whole image - this takes a few minutes."
+fi
+
+# ==================================================================================================
+# BACKUP — read the eMMC into a .img.gz on the stick. Reboots at the end; never reaches the writer.
+# ==================================================================================================
+# WHY IT LIVES HERE. A consistent image needs the filesystem unmounted, and this is the only moment the
+# printer offers that. Imaging from the running system gives a torn snapshot that may not boot.
+# WHY IT MATTERS. Phrozen do not publish a stock image, so today the only way back is to open the printer
+# and pull the eMMC. Backed up here, before flashing, every owner ends up with their OWN restore image --
+# which is also the reason it can never be shipped: it is a copy of Phrozen's system, licensed to that
+# one owner. It stays on their stick.
+if [ "$JOB" = backup ]; then
+  OUTN="${ARCO_BACKUP_NAME:-arco-emmc-backup.img.gz}"
+  OUT="/arco_usb/$OUTN"
+  BN=${TARGET##*/}
+  DEVSZ=0; read DEVSZ < "/sys/block/$BN/size" 2>/dev/null || DEVSZ=0
+  DEVSZ=$(( DEVSZ * 512 ))
+  # One-shot, enforced from the stick. The arming is embedded in the initramfs, which cannot rebuild
+  # itself, so it cannot disarm itself -- and an image taken while armed carries that arming with it.
+  # Without this, a restored backup would look for a stick on its next boot and, on any stick that did
+  # not carry the old run's marker, quietly start a second 25-minute backup.
+  # The marker is written by --backup onto the stick it checked, and consumed HERE, before any work
+  # starts: fire once, for that stick, never again. An old token from a restored image finds nothing.
+  MARK="/arco_usb/.arco-armed-${ARCO_BACKUP_TOKEN:-none}"
+  if [ ! -e "$MARK" ]; then
+    normal_boot "no arming marker on this stick for this run — not backing up. (Run --backup again if you meant to; a restored image carries an arming that was already used.)"
+  fi
+  del "$MARK"
+  sync
+
+  # klibc's gzip is DECOMPRESS-ONLY -- "gzip: this version does not support compression" -- and klibc
+  # owns /usr/bin/gzip, the exact path copy_exec would write the real one to. So copy_exec was a silent
+  # no-op and the backup had nothing that could compress: it died on the first pipe with a usage line,
+  # because a decompress-only build rejects -1 outright. Identical in shape to the coreutils-dd trap.
+  # The restore never noticed, because it only ever calls `gzip -dc`, which is the half klibc does have.
+  # This went unseen through two hardware-tested backups: those ran from the migrated system, whose
+  # initramfs carries a gzip that can compress. It could never have worked on a STOCK Arco -- which is
+  # the printer the manual tells people to image BEFORE migrating.
+  # So: probe for one that actually compresses, and say so plainly if there is none, before touching
+  # anything. The hook now also copies the real binary as gzip.real for exactly this.
+  GZBIN=""
+  for _g in /usr/bin/gzip.real /bin/gzip.real gzip /bin/gzip /usr/bin/gzip; do
+    command -v "$_g" >/dev/null 2>&1 || [ -x "$_g" ] || continue
+    if printf 'probe' | "$_g" -1 >/run/.arco-gzprobe 2>/dev/null && [ -s /run/.arco-gzprobe ]; then
+      GZBIN="$_g"; del /run/.arco-gzprobe; break
+    fi
+    del /run/.arco-gzprobe
+  done
+  if [ -z "$GZBIN" ]; then
+    normal_boot "no gzip in this initramfs can COMPRESS (klibc ships a decompress-only one), so the
+    backup cannot be made. Nothing was written and the printer is unchanged. Update the kit and run
+    --backup again; if this persists, image the eMMC on a PC instead (MANUAL, path B)."
+  fi
+  say "compressing with $GZBIN"
+  say "backing up $TARGET ($DEVSZ bytes) -> $OUT"
+
+  # Refuse to silently overwrite an earlier backup: it may be the only copy of a system that no longer
+  # exists anywhere. Rename it aside instead -- and if even that fails, stop rather than clobber.
+  if [ -e "$OUT" ]; then
+    if mv "$OUT" "$OUT.previous" 2>/dev/null; then
+      # The sidecars have to travel with it. install-unleashed.sh refuses to flash an image whose
+      # .sha256 is missing, so an image moved aside WITHOUT them is an image that can never be restored
+      # -- the backup would still be on the stick and still be useless.
+      mv "$OUT.sha256"  "$OUT.previous.sha256"  2>/dev/null || true
+      mv "$OUT.rawsize" "$OUT.previous.rawsize" 2>/dev/null || true
+      say "kept the earlier backup as $OUTN.previous (with its .sha256/.rawsize, so it stays restorable)"
+    else
+      normal_boot "$OUTN already on the stick and could not be renamed — nothing backed up (nothing was lost)."
+    fi
+  fi
+
+  tft_chrome; tft_nobar
+  tft_phase "Backing up the internal eMMC to the USB stick" \
+            "Safe to interrupt - nothing on the printer is changed" "$C_MUT" \
+            "Nothing is written to the printer. Only the USB stick is written to."
+  tft_bar 0
+
+  # Progress from sectors READ (field 3 of /sys/block/<dev>/stat), the mirror of what the writer does
+  # with sectors written. Pure shell, no tools this initramfs might lack.
+  read _ _ R0 _ < "/sys/block/$BN/stat" 2>/dev/null || R0=0
+  CDONE=/run/arco-backupdone; del "$CDONE" /run/arco-backuperr
+  ( dd if="$TARGET" bs=4194304 2>/run/arco-backuperr | "$GZBIN" -1 > "$OUT" 2>>/run/arco-backuperr; echo $? > "$CDONE" ) &
+  # 1% steps, not 5%. On a 32 GB eMMC a 5% step is 1.5 GB of reading, which at initramfs speed can be
+  # several minutes with the bar frozen on 0 -- indistinguishable from a hang, and a user watching that
+  # will pull the plug on a healthy backup. Seen on the first real run: 3 minutes at 0%.
+  # The log line carries megabytes AND seconds, so two consecutive lines answer the question the bar
+  # cannot: is anything moving at all, and how fast.
+  last=-1; t=0
+  while [ ! -f "$CDONE" ]; do
+    if [ "$DEVSZ" -gt 0 ]; then
+      read _ _ R _ < "/sys/block/$BN/stat" 2>/dev/null || R=$R0
+      pct=$(( (R - R0) * 512 * 100 / DEVSZ ))
+      [ "$pct" -gt 99 ] && pct=99; [ "$pct" -lt 0 ] && pct=0
+      if [ "$pct" -gt "$last" ]; then last=$pct; tft_bar "$pct"; fi
+      # Log every ~10 s regardless of the percentage, so a stall is visible as a repeated number
+      # rather than as silence.
+      # NOT say(): that syncs after every line so the log survives a power cut. Sixty of those during a
+      # multi-GB stream to a FAT32 stick would flush the whole dirty cache each time and slow down the
+      # very thing being measured. A progress line is worth nothing after a power cut anyway.
+      if [ $(( t % 10 )) -eq 0 ]; then
+        msg="backup ${pct}% — $(( (R - R0) / 2048 )) MB read in ${t}s"
+        echo "[arco-selfflash] $msg"
+        echo "arco-selfflash: $msg" > /dev/kmsg 2>/dev/null || true
+        [ -n "$LOGF" ] && echo "$msg" >> "$LOGF" 2>/dev/null
+      fi
+    fi
+    t=$(( t + 2 ))
+    sleep 2
+  done
+  wait
+  crc=$(cat "$CDONE" 2>/dev/null || echo 1)
+  sync
+  # $? of the pipeline is gzip's. A full stick shows up here, as gzip failing to write, and the
+  # half-file it leaves behind would look like a backup -- so it goes.
+  if [ "$crc" != 0 ]; then
+    CERR=$(cat /run/arco-backuperr 2>/dev/null)
+    del "$OUT"
+    say "backup FAILED (rc=$crc): [$CERR]"
+    tft_nobar
+    tft_phase "Backup FAILED" "The printer is untouched" "$C_ERR" \
+              "Most likely the stick is full. Nothing on the printer was changed."
+    sleep 6
+    normal_boot "backup failed (rc=$crc) — the incomplete file was deleted. The printer is unchanged."
+  fi
+
+  # Sidecars, in exactly the shape install-unleashed.sh expects, so restoring is the ordinary flash path
+  # with --image. Without .rawsize its truncation check would be skipped on the one file that matters most.
+  # Only when the size is actually known. Writing "0" would be worse than writing nothing: the restore
+  # path treats a present .rawsize as authoritative and would compare the gzip trailer against 0, then
+  # refuse a perfectly good backup as "INCOMPLETE or damaged". Absent means "unknown", which it handles.
+  [ "$DEVSZ" -gt 0 ] && printf '%s\n' "$DEVSZ" > "$OUT.rawsize" 2>/dev/null
+  tft_bar 100
+  tft_phase "Checking the backup" "Leave the USB stick in - almost done" "$C_MUT" \
+            "Reading the file back off the stick to make sure it is complete."
+  say "hashing the backup (reads it back off the stick) ..."
+  CH=$(sha256sum "$OUT" 2>/dev/null); CH=${CH%% *}
+  case "$CH" in
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|"")
+      del "$OUT" "$OUT.rawsize"
+      tft_nobar
+      tft_phase "Backup FAILED" "The printer is untouched" "$C_ERR" \
+                "The file could not be read back. Try another USB stick."
+      sleep 6
+      normal_boot "the backup could not be read back (empty digest) — deleted it rather than leave a file that looks valid. Run --backup again to retry.";;
+  esac
+  printf '%s  %s\n' "$CH" "$OUTN" > "$OUT.sha256" 2>/dev/null
+  # The token above is what makes THIS code one-shot. The stamp below is for code that is no longer here:
+  # every image taken before 2026-07-31 carries an initramfs whose only guard is `.arco-backup-done`, and
+  # restoring such an image brings that initramfs back. Removing the stamp as "two mechanisms for the same
+  # job" therefore disarmed the older one — a restore on 2026-07-31 came back up and immediately began a
+  # backup nobody asked for, because the new code had stopped leaving the marker the old code looks for.
+  # A guard can only be retired once nothing that depends on it can return, and an image is exactly the
+  # thing that brings old code back. So it keeps being written, for their benefit rather than ours.
+  : > /arco_usb/.arco-backup-done 2>/dev/null
+  CSZ=$(wc -c < "$OUT" 2>/dev/null)
+  say "backup OK: $OUTN = $CSZ bytes, sha256 $CH"
+  sync; umount /arco_usb 2>/dev/null; LOGF=""
+
+  tft_nobar
+  tft_phase "Backup stored on the USB stick" "You can take the stick out now" "$C_ACC" \
+            "Nothing on the printer was changed. It is starting up as usual."
+  # Neither a reboot nor a power-cycle is needed: this ran before the system started and changed nothing
+  # on the printer, so the boot simply carries on. An earlier version stopped here and asked for a manual
+  # power-cycle, which left an unattended printer sitting dark for however long nobody came -- after a
+  # job that typically runs unattended for half an hour. The screen is held long enough to be read, and
+  # the same summary is in arco-selfflash.log on the stick for whoever was not watching.
+  say "backup complete — holding the screen briefly, then continuing the normal boot."
+  sync
+  sleep 45
+  umount /arco_usb 2>/dev/null
+  exit 0
+fi
+
+# --- verify sha256 BEFORE writing (klibc initramfs has NO 'cut' -> shell prefix-strip of the first field) ---
+say "verifying sha256 (reads the whole image; a few minutes over USB) ..."
+RAW=$(sha256sum "$IMG" 2>&1); ACT=${RAW%% *}
+say "sha256sum output: [$RAW]"
+[ "$ACT" = "$ARCO_IMG_SHA" ] || normal_boot "sha256 mismatch ($ACT != $ARCO_IMG_SHA) — NOT flashing, continuing normal boot."
+say "checksum OK"
+
+# --- make ABSOLUTELY sure no partition of the target eMMC is mounted. Kernel 6.18 refuses to write to a
+# whole disk while any of its partitions is mounted (this blocked the very first real write at 0%). The USB
+# log stays mounted (different device), so we keep logging right through the write. ---
+say "clearing the kernel write-guard on $TARGET (no partition of it may be mounted) ..."
+echo 1 > /sys/module/block/parameters/bdev_allow_write_mounted 2>/dev/null || true
+while read dev _; do
+  case "$dev" in "$TARGET"*) say "  unmounting stray mount of $dev"; umount "$dev" 2>/dev/null || umount -l "$dev" 2>/dev/null;; esac
+done < /proc/mounts
+
+# --- last check before it becomes irreversible: does the image FIT? ---
+# install-unleashed.sh asks this at arm time, where the answer is still just a message. Ask again here,
+# because arming and writing are separated by a reboot: the stick can be swapped in between, and --image
+# lets any .img.gz be armed. dd would otherwise fill the eMMC, stop at ENOSPC and leave a half-written
+# device -- and that is past the point where a power-cycle can save it.
+# /sys/block/<dev>/size is in 512-byte sectors; pure shell, no binary this initramfs might lack.
+BN=${TARGET##*/}                              # 'basename' is absent in klibc -> shell suffix-strip
+DEVSZ=0; read DEVSZ < "/sys/block/$BN/size" 2>/dev/null || DEVSZ=0
+DEVSZ=$(( DEVSZ * 512 ))
+if [ "${ARCO_IMG_RAW:-0}" -gt 0 ] && [ "$DEVSZ" -gt 0 ] && [ "$ARCO_IMG_RAW" -gt "$DEVSZ" ]; then
+  normal_boot "image needs $ARCO_IMG_RAW bytes, $TARGET holds only $DEVSZ — NOT flashing (it would stop part-way and leave an unbootable eMMC). Was this image captured from a printer with a bigger eMMC?"
+fi
+say "image fits: $ARCO_IMG_RAW <= $DEVSZ bytes on $TARGET"
+
+# --- can we actually DECOMPRESS it? ------------------------------------------------------------------
+# The sha256 above proves the FILE is intact. It does not prove that the decompressor runs here, and
+# those are different failures: a missing or broken gzip leaves a perfectly valid image that produces no
+# bytes. That mattered little while the write simply started -- dd would write nothing and the
+# short-write guard would catch it with the eMMC untouched. It matters a great deal now that the sparse
+# path ZEROES the first 512 MiB before the pipeline starts: a decompressor that then fails would leave
+# the partition table and /boot wiped and nothing written in their place, which is a printer that needs
+# opening. So prove it here, while nothing has been touched, by pulling a megabyte through.
+# Count the bytes; do NOT test the pipeline's exit status. A pipeline reports its LAST command, and any
+# reader is perfectly happy with an empty pipe -- so `gzip -dc broken | head | dd` exits 0 whether the
+# decompressor produced a megabyte or nothing at all. Tested: that version passed a deliberately corrupt
+# image and a missing gzip alike, which is worse than no check, because it would have zeroed the boot
+# area on the strength of it.
+DZ=$(gzip -dc "$IMG" 2>/dev/null | head -c 1048576 | wc -c)
+if [ "${DZ:-0}" -lt 65536 ]; then
+  normal_boot "cannot decompress $IMG in this initramfs (got ${DZ:-0} bytes) — NOT writing. The file passed its checksum, so this is the decompressor, not the image."
+fi
+say "decompression works ($DZ bytes read back) — proceeding"
+
+# --- POINT OF NO RETURN ---
+say "############################################################"
+say " WRITING $IMG -> $TARGET  —  DO NOT POWER OFF (reboots itself when done)"
+say "############################################################"
+# "5-10 minutes" is right for the released image, which is 5.5 GB. A restored backup is the whole eMMC
+# -- 31 GB on a machine with a retrofitted one -- and the same promise there would have the owner
+# reaching for the power switch less than halfway through the one operation that must not be
+# interrupted. Say what this particular image actually implies.
+if [ "${ARCO_IMG_RAW:-0}" -gt 10000000000 ] 2>/dev/null; then
+  ETA="This image is $(( ARCO_IMG_RAW / 1000000000 )) GB, so expect 30-60 minutes. Do not interrupt it."
+else
+  ETA="About 5-10 minutes. The printer restarts by itself when done."
+fi
+if [ "$RESTORE_JOB" = 1 ]; then
+  tft_phase "Writing your backup back onto the printer" \
+            "DO NOT POWER OFF - do not unplug the USB stick" "$C_WRN" "$ETA"
+else
+  tft_phase "Step 2 of 3   Writing the image to the internal eMMC" \
+            "DO NOT POWER OFF - do not unplug the USB stick" "$C_WRN" "$ETA"
+fi
+tft_bar 0
+sleep 2
+
+# Write in the BACKGROUND; track progress via the block layer's written-sectors counter
+# (/sys/block/<dev>/stat field 7) — pure shell, no parsing tools needed in the klibc initramfs.
+# ARCO_IMG_RAW = uncompressed byte size (0 = unknown -> static screen, no %). bs is numeric so ANY dd
+# (klibc or coreutils) accepts it. dd's stderr is captured so a failure is logged, not swallowed.
+STATF="/sys/block/$BN/stat"                   # BN was worked out for the fits-check above
+read _ _ _ _ _ _ W0 _ < "$STATF" 2>/dev/null || W0=0
+
+# --- restoring a backup: skip writing the empty five-sixths of it -----------------------------------
+# A restored backup is the whole eMMC, and on a 32 GB machine roughly 25 of those GB were never written
+# and decompress to zeros. conv=sparse seeks over them instead of writing them, which is the difference
+# between writing 31 GB and writing 6.
+#
+# It is NOT used for an ordinary install, on purpose. Seeking leaves whatever was on the eMMC before, and
+# for someone installing over Phrozen's factory system that would leave fragments of it lying in the gaps
+# -- invisible to the filesystem, readable with a raw dump. On a restore the previous content is the same
+# owner's own system, which is a different matter.
+#
+# klibc's dd does not implement conv=sparse and it is the one that wins in PATH (the same trap that made
+# the post-write verify hash nothing at all, further down). So find a dd that actually accepts the
+# operand, by trying it, and fall back to a plain full write if none does.
+# Defined here rather than next to the verify that uses it, because the sparse pre-zero below has to
+# cover exactly this window and the two must not drift apart.
+VBYTES=536870912                              # 512 MiB — the post-write verify's comparison window
+DDW="dd"; SPARSE=""; DDPROG=""
+# ${IMG##*/}, not basename: klibc has no basename, as the line that works out BN above says in as many
+# words. Written as $(basename ...) here it expanded to nothing, the case never matched, and the whole
+# sparse branch was skipped in silence -- no sparse write and no message saying why. The first restore
+# to use it wrote all 31 GB and the only trace was a log line that was not there.
+case "${IMG##*/}" in
+  arco-emmc-backup*)
+    # The probe writes to a real file, not /dev/null: conv=sparse works by SEEKING over zero runs, and a
+    # device that cannot be seeked is not a fair test of whether the operand is understood. The first
+    # version probed /dev/null, and on 2026-07-31 every candidate came back refused on a printer whose
+    # /usr/bin/dd is coreutils and accepts conv=sparse perfectly well from a shell. Rather than guess at
+    # the reason a second time, each candidate now records its exit status in the log, so the next run
+    # says which one failed and how.
+    # dd.coreutils FIRST, and it is the only candidate expected to work: klibc owns /usr/bin/dd in this
+    # initramfs, so the hook copies the real one alongside under a name that cannot collide. The rest of
+    # the list is there so a hand-built initramfs, or a future layout, still has a chance.
+    for c in /usr/bin/dd.coreutils /usr/bin/dd /bin/dd dd; do
+      [ -x "$c" ] || command -v "$c" >/dev/null 2>&1 || { say "sparse probe: $c not present"; continue; }
+      : | "$c" conv=sparse of=/run/.arco-ddprobe 2>/run/.arco-ddprobe.err
+      rc=$?
+      if [ "$rc" = 0 ]; then
+        DDW="$c"; SPARSE="conv=sparse"; say "sparse probe: $c accepts conv=sparse"; break
+      fi
+      say "sparse probe: $c refused conv=sparse (rc=$rc) [$(cat /run/.arco-ddprobe.err 2>/dev/null | tr '\n' ' ' | cut -c1-90)]"
+    done
+    del /run/.arco-ddprobe /run/.arco-ddprobe.err
+    if [ -n "$SPARSE" ]; then
+      # The post-write verify compares the first 512 MiB of the device against the image. Any zero run in
+      # that window would be SEEKED OVER, leaving the old contents there, and the verify would then report
+      # a mismatch on a perfectly good restore -- straight into the panic shell. Zero that window first;
+      # it costs one 512 MiB write and keeps the check honest.
+      say "sparse restore via $DDW — pre-zeroing the first $VBYTES bytes so the verify stays valid"
+      dd if=/dev/zero of="$TARGET" bs=4194304 count=$(( VBYTES / 4194304 )) 2>/dev/null
+      # The progress bar counts sectors WRITTEN, and a sparse write writes about a fifth of the image --
+      # the bar would crawl to 20% and then jump to 100. Ask dd itself how far through the stream it is;
+      # it counts seeked-over bytes as copied, which is exactly the number the bar needs.
+      DDPROG="status=progress"
+    else
+      say "no dd here accepts conv=sparse — writing the image in full (slower, still correct)"
+    fi;;
+esac
+
+DONE=/run/arco-flashdone; del "$DONE" /run/arco-dderr
+( gzip -dc "$IMG" | $DDW of="$TARGET" bs=4194304 $SPARSE $DDPROG 2>/run/arco-dderr; echo $? > "$DONE" ) &
+last=-5; ft=0
+while [ ! -f "$DONE" ]; do
+  if [ "${ARCO_IMG_RAW:-0}" -gt 0 ] 2>/dev/null; then
+    if [ -n "$DDPROG" ]; then
+      # dd rewrites its progress line with \r, so the file is one long line; take the last record and
+      # its first field, which is the byte count. Falls back to 0 while dd has not printed yet.
+      B=$(dd_bytes)
+      [ -n "$B" ] || B=0
+    else
+      read _ _ _ _ _ _ W _ < "$STATF" 2>/dev/null || W=$W0
+      B=$(( (W - W0) * 512 ))
+    fi
+    pct=$(( B * 100 / ARCO_IMG_RAW ))
+    [ "$pct" -gt 99 ] && pct=99; [ "$pct" -lt 0 ] && pct=0
+    bucket=$(( pct / 5 * 5 ))
+    if [ "$bucket" -gt "$last" ]; then last=$bucket; tft_bar "$bucket"; fi
+    # The bar stays in 5% steps here -- the flash writes 5.5 GB, so a step is ~275 MB and it moves often
+    # enough on its own. The LOG gets a line every 10 s with megabytes and seconds, because "progress
+    # 55%" with no timestamps cannot answer how long a run took or where it slowed down, and that is the
+    # question every one of these runs has raised afterwards.
+    if [ $(( ft % 10 )) -eq 0 ]; then
+      msg="write ${pct}% — $(( B / 1048576 )) MB in ${ft}s"
+      echo "[arco-selfflash] $msg"
+      echo "arco-selfflash: $msg" > /dev/kmsg 2>/dev/null || true
+      [ -n "$LOGF" ] && echo "$msg" >> "$LOGF" 2>/dev/null
+    fi
+  fi
+  ft=$(( ft + 2 ))
+  sleep 2
+done
+wait
+rc=$(cat "$DONE" 2>/dev/null || echo 1)
+if [ "$rc" != 0 ]; then
+  sync; DDERR=$(cat /run/arco-dderr 2>/dev/null)
+  say "dd FAILED (rc=$rc): [$DDERR]"
+  tft_nobar
+  tft_phase "Write FAILED" "Do not trust this eMMC" "$C_ERR" \
+            "Pull the USB stick and power-cycle. See arco-selfflash.log on the stick."
+  panic_shell "dd failed while writing the image (rc=$rc): $DDERR"
+fi
+sync
+
+# short-write guard: if we know the raw size, the written bytes must be ~that (catches a mid-stream
+# decompress/pipe failure that dd's own exit status can miss).
+if [ "${ARCO_IMG_RAW:-0}" -gt 0 ] 2>/dev/null; then
+  # Under conv=sparse the device counter is the wrong yardstick: about a fifth of the image is actually
+  # written, so this guard would fire on every successful sparse restore and send the owner to the panic
+  # shell with "the image did not fully land". Ask dd how far it got instead -- it counts seeked bytes as
+  # copied, which is what "did the whole image land" means here.
+  if [ -n "$SPARSE" ]; then
+    wrote=$(dd_bytes)
+  else
+    read _ _ _ _ _ _ Wf _ < "$STATF" 2>/dev/null || Wf=$W0
+    wrote=$(( (Wf - W0) * 512 ))
+  fi
+  [ "$wrote" -ge $(( ARCO_IMG_RAW - 16*1024*1024 )) ] || {
+    tft_nobar
+    tft_phase "Write incomplete" "Do not trust this eMMC" "$C_ERR" \
+              "The image did not fully land. Pull the USB stick and power-cycle."
+    panic_shell "short write ($wrote < $ARCO_IMG_RAW) — the image did not fully land"; }
+fi
+tft_bar 100
+say "write complete; verifying ..."
+if [ "$RESTORE_JOB" = 1 ]; then
+  tft_phase "Checking what was written back" \
+            "DO NOT POWER OFF - almost done" "$C_WRN" \
+            "Comparing the printer against your backup."
+else
+  tft_phase "Step 3 of 3   Verifying what was written" \
+            "DO NOT POWER OFF - almost done" "$C_WRN" \
+            "Comparing the eMMC against the image on the stick."
+fi
+
+# --- verify after write: first 512 MiB of the device vs the decompressed image ---
+# iflag=fullblock is ESSENTIAL on the pipe side: without it 'dd count=128' from the gzip pipe stops after
+# 128 short reads (a few MiB), not 512 MiB, so it compared different amounts of data and ALWAYS "failed".
+#
+# But the initramfs is klibc-based and ships its OWN dd, which does not understand iflag= at all. The
+# hook copies coreutils dd as well, yet the bare name `dd` resolves to whichever comes first in PATH —
+# and that was klibc's. It then exited with a usage error, 2>/dev/null swallowed it, sha256sum hashed
+# NOTHING, and both sides came out as the hash of the empty input. Equal. "verify OK".
+# A flash that wrote nothing at all would have passed exactly the same way. Seen in a real run's log
+# (2026-07-22): dev=[e3b0c442…] img=[e3b0c442…] — the empty-input digest, on both sides.
+# Only the PIPE side ever needed iflag: a block device hands dd full blocks, a gzip pipe does not. And no
+# dd in this initramfs accepts iflag at all (klibc's does not implement it, and it is the one that wins in
+# PATH) — a real run stopped at "Cannot verify" because of exactly that. So bound the pipe with `head -c`
+# instead, which reads until it has the bytes and needs no dd flag. VBYTES must match the dd count below.
+VBYTES=536870912                      # 512 MiB
+VERIFIED=1
+DEV_H=$(dd if="$TARGET" bs=4194304 count=128 2>/dev/null | sha256sum); DEV_H=${DEV_H%% *}
+if printf 'abc' | head -c 2 >/dev/null 2>&1; then
+  IMG_H=$(gzip -dc "$IMG" | head -c "$VBYTES" | sha256sum); IMG_H=${IMG_H%% *}
+else
+  # No usable head either. Do NOT strand the user at a panic shell over a check that cannot run: the
+  # write itself is error-checked and almost certainly fine, and halting here turns a healthy printer
+  # into a dead one. Say it plainly on the screen and in the log, then boot.
+  VERIFIED=0
+  say "WARNING: cannot verify — this initramfs has neither a dd that accepts iflag nor 'head -c'."
+  tft_nobar
+  tft_phase "Written, not verified" "The image was written OK" "$C_WRN" \
+            "The read-back check could not run. It should boot normally; if it does not, re-flash the eMMC."
+  sleep 4
+fi
+say "verify: dev=[$DEV_H] img=[$IMG_H] (verified=$VERIFIED)"
+# The empty-input digest is what a read that produced nothing hashes to. Treat it, and anything that is
+# not a 64-char hex digest, as a failed verification — a check that cannot run must never report OK.
+if [ "$VERIFIED" = 1 ]; then
+EMPTY_H=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+for h in "$DEV_H" "$IMG_H"; do
+  case "$h" in
+    "$EMPTY_H"|"") tft_nobar
+                   tft_phase "Verify FAILED" "Nothing could be read back" "$C_ERR" \
+                             "Pull the USB stick and power-cycle. See arco-selfflash.log on the stick."
+                   panic_shell "post-write verify read NOTHING (empty digest) — the check did not run";;
+  esac
+done
+fi
+sync; umount /arco_usb 2>/dev/null; LOGF=""      # from here the USB is gone; console/kmsg only
+if [ "$VERIFIED" = 1 ] && [ "$DEV_H" != "$IMG_H" ]; then
+  tft_nobar
+  tft_phase "Verify FAILED" "Do not trust this eMMC" "$C_ERR" \
+            "Pull the USB stick and power-cycle. See arco-selfflash.log on the stick."
+  panic_shell "post-write verify FAILED (first 512 MiB differ) — do not trust this eMMC"
+fi
+# LEAVE the stick in: the fresh system seeds its WiFi and installs the Phrozen firmware from it on first
+# boot. (An earlier version told the user to remove it here, which broke the headless onboarding.)
+# Two very different endings. The usual one is the start of an install: the fresh system still has to
+# seed WiFi and unpack Phrozen's firmware off the stick, so the stick must stay in. But when what was
+# just written is the owner's OWN backup, none of that follows -- that system is finished the
+# moment it boots, and telling them to leave the stick in and wait for "the next step" would be a plain
+# untruth. So the restore gets its own screen.
+case "$ARCO_IMG_NAME" in
+  arco-emmc-backup*)
+    say "verify OK — restored from your own backup. The stick is no longer needed; rebooting."
+    tft_nobar
+    tft_phase "Restored from your own backup" "You can take the USB stick out" "$C_ACC" \
+              "Sorry to see you go - the door stays open, and your printer is exactly as you left it."
+    tft "xstr 0,190,800,28,$F_HINT,$C_TXT,$C_BG,1,1,1,\"Restarting now\""
+    ;;
+  *)
+    say "verify OK — rebooting. LEAVE THE USB STICK PLUGGED IN: the fresh system seeds WiFi and installs the"
+    say "Phrozen firmware from it on first boot. Remove it once setup has finished."
+    tft_nobar
+    tft_phase "Done   Restarting now" "Keep the USB stick plugged in" "$C_ACC" \
+              "The printer finishes setup from the stick, then reboots once more."
+    tft "xstr 0,190,800,28,$F_HINT,$C_TXT,$C_BG,1,1,1,\"Please wait until the next step proceeds\""
+    ;;
+esac
+sync; sleep 2
+reboot -f
+# if reboot returns, force it
+echo b > /proc/sysrq-trigger 2>/dev/null
+exit 0

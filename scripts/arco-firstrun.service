@@ -1,0 +1,12 @@
+[Unit]
+Description=Arco Unleashed first-boot setup (WiFi captive portal + fetch phrozen_dev)
+After=network.target systemd-networkd.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/bash /home/mks/arco-unleashed/scripts/arco-firstrun.sh
+
+[Install]
+WantedBy=multi-user.target

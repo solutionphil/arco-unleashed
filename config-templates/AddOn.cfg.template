@@ -1,0 +1,899 @@
+
+# Arco Unleashed - AddOn.cfg
+# Optional features. Toggle individual ones via the setup menu (-> "AddOn features"),
+# which comments/uncomments the #@FEAT ... #@ENDFEAT blocks below. [respond] + [exclude_object]
+# are core (slicers rely on exclude_object) and stay always on.
+
+[respond]
+[exclude_object]
+
+# Persistent store for the AMS mode flag 'ams' (1=AMS on, 0=off). Set by AMS_ON/OFF
+# + the SSH menu (ams_toggle.sh), read by PHROZEN_AMS_START + the M600 guard. Core:
+# the auto_mode feature and the M600 guard depend on it.
+[save_variables]
+filename: ~/printer_data/config/variables.cfg
+
+# Initialize the AMS mode flag so it is DEFINED out of the box. Without this, on a fresh printer
+# 'ams' is unset until the first AMS_ON/OFF -> AMS_STATUS shows a blank value and PHROZEN_AMS_START
+# only works via its |default(0) fallback. 0 = AMS off (single-color standalone). Sets it ONLY if
+# unset, so it never clobbers a user's AMS_ON/OFF choice; self-heals if variables.cfg is reset.
+[delayed_gcode arco_ams_init]
+initial_duration: 2
+gcode:
+    {% if printer.save_variables.variables.ams is not defined %}
+        SAVE_VARIABLE VARIABLE=ams VALUE=0
+    {% endif %}
+
+# NOTE: the input-shaper / bed-mesh "webcam pause" was removed — with the 40k real-time stack (performance
+# governor + klippy/IRQ CPU-affinity + numpy=1 + webcam at 15 fps) the webcam no longer threatens the cal
+# margin (verified: a full 40k Auto-Cal ran clean with the webcam on the whole time). SHAPER_CALIBRATE and
+# BED_MESH_CALIBRATE are the stock macros again; no webcam off/on, no arco_webcam_resume.
+
+#@FEAT beeper | Piezo beeper (PB2) + short startup chime
+; Must be [pwm_cycle_time], NOT [output_pin]: only this section's SET_PIN accepts a runtime
+; CYCLE_TIME parameter (klippy/extras/pwm_cycle_time.py = "pwm output pins with variable
+; frequency"). On [output_pin] the CYCLE_TIME is silently dropped, so no gating control at
+; all is possible. Do NOT add hardware_pwm — that module never reads it, and hardware PWM
+; cannot vary the cycle time per command.
+;
+; HARDWARE (tested on the printer): the Arco's buzzer is ACTIVE — holding the pin high with
+; VALUE=1.0 produces a continuous tone, which a passive piezo physically cannot do. It runs
+; its own oscillator at a fixed resonant pitch, so:
+;   VALUE      -> loudness
+;   CYCLE_TIME -> gating rate (e.g. 0.2 = 5 Hz stutter); audible only at slow rates
+;   pitch      -> NOT controllable. M300-style melodies are impossible on this hardware.
+; Don't re-litigate pitch or hardware_pwm — it is the buzzer type.
+[pwm_cycle_time beeper]
+pin: PB2
+value: 0
+shutdown_value: 0
+cycle_time: 0.001 ; default tone period; 1 / 0.001 = 1000 Hz
+
+[delayed_gcode startup_beep]
+initial_duration: 1
+gcode:
+  SET_PIN PIN=beeper VALUE=0.2
+  G4 P25
+  SET_PIN PIN=beeper VALUE=0
+  G4 P100
+  SET_PIN PIN=beeper VALUE=0.1
+  G4 P50
+  SET_PIN PIN=beeper VALUE=0
+#@ENDFEAT
+
+#@FEAT board_fan | Board fan (PA2), PID-controlled
+# When this feature is OFF the menu re-enables Phrozen's [output_pin board_fan] in printer.cfg
+# so the fan still runs (uncontrolled on/off); when ON, that output_pin stays commented (pin clash).
+[temperature_fan board_fan]
+pin: PA2
+sensor_type: temperature_host
+min_temp: 0
+max_temp: 100
+target_temp: 50.0
+max_speed: 1.0
+min_speed: 0.4
+control: pid
+pid_kp: 1.0
+pid_ki: 0.5
+pid_kd: 2.0
+gcode_id: PI
+#@ENDFEAT
+
+#@FEAT shaper130 | Input-shaper calibration up to 130 Hz (CALIBRATE_SHAPER_NEW)
+[gcode_macro CALIBRATE_SHAPER_NEW]
+description: Run Input Shaper calibration up to 130Hz
+gcode:
+    G28                           ; calibration needs a real, physical home
+    RESHAPER_CALIBRATE FREQ_START=30 FREQ_END=130
+#@ENDFEAT
+
+#@FEAT pid_tune | PID tuning macros (PID_BED, PID_NOZZLE)
+[gcode_macro PID_BED]
+description: PID calibration for bed
+gcode:
+    G28                           ; calibration needs a real, physical home
+    {% set btemp = params.TEMP|default(60)|int %}
+    RESPOND PREFIX="PID:" MSG="Start PID bed calibration - PLEASE WAIT..."
+    PID_CALIBRATE HEATER=heater_bed TARGET={btemp}
+    RESPOND PREFIX="PID:" MSG="PID bed calibration finished - Please perform save_config to save the new values"
+
+[gcode_macro PID_NOZZLE]
+description: PID calibration for hotend
+gcode:
+    {% set ntemp = params.TEMP|default(220)|int %}
+    RESPOND PREFIX="PID:" MSG="Start nozzle PID calibration - PLEASE WAIT..."
+    G28                           ; calibration needs a real, physical home
+    M140 S60                      ; heat the bed in parallel (print-realistic thermal env; non-blocking)
+    M106 S102                     ; part fan on (realistic hotend load)
+    PID_CALIBRATE HEATER=extruder TARGET={ntemp}
+    M106 S0                       ; fan off
+    M140 S0                       ; bed off
+    RESPOND PREFIX="PID:" MSG="PID nozzle calibration finished - Please perform save_config to save the new values"
+#@ENDFEAT
+
+#@FEAT belt_warmup | Belt / stepper warm-up (BELT_WARMUP)
+[gcode_macro BELT_WARMUP]
+description: Warm up (belts and steppers)
+gcode:
+    # This macro used to inherit the machine's absolute ceiling -- max_accel 40000 -- and then drive
+    # to within 20 mm of the frame, ten times over, under exactly the conditions it exists to fix:
+    # cold, stiff, possibly slack belts. That is the worst moment to be running at full acceleration
+    # with the least clearance, and an owner reported it touching the frame on every cycle.
+    #
+    # So it now bounds its own acceleration and keeps its distance, both adjustable:
+    #   BELT_WARMUP ACCEL=5000 MARGIN=40 SPEED=200 CYCLES=10
+    # The previous limits are restored at the end -- a warm-up must not quietly leave the printer
+    # slower than it found it.
+    {% set cycles = params.CYCLES|default(10)|int %}
+    {% set speed = params.SPEED|default(300)|int * 60 %}
+    {% set accel = params.ACCEL|default(5000)|int %}
+    {% set m = params.MARGIN|default(40)|float %}
+    {% set sx = printer.configfile.settings.stepper_x %}
+    {% set sy = printer.configfile.settings.stepper_y %}
+    # The two ends are NOT symmetric, and treating them as one margin is a trap I walked into while
+    # writing this: deriving the top from position_max (330) puts Y at 290, and the purge/wipe unit
+    # lives at Y295-322 (g_bottom_print_y 295, g_bottom_y 322) with the filament cutter out at X~319.
+    # Five millimetres from the purge unit is worse than the 15 the old hard-coded 280 happened to
+    # leave. So:
+    #   LOW end  -- limited by the frame, measured up from the endstop, and that is what MARGIN sets.
+    #   HIGH end -- limited by the service hardware, so it is pinned to the bed mesh's own upper
+    #               bound, which is the area the machine already treats as safe to traverse.
+    {% set mesh = printer.configfile.settings.bed_mesh %}
+    {% set xlo = (sx.position_endstop + m)|round(1) %}
+    {% set ylo = (sy.position_endstop + m)|round(1) %}
+    # mesh_max itself is NOT a safe traverse bound: it is 290 and the purge row is 295, so probing
+    # passes 5 mm away -- at probing speed, deliberately. This macro arrives there at 300 mm/s, so it
+    # keeps a further 10 mm. On the shipped machine that lands on 280, which is exactly the value the
+    # old hard-coded line used and which has run many times without touching anything; the difference
+    # is that it is now derived, so a different bed does not silently inherit a number chosen for this
+    # one.
+    {% set xhi = ([mesh.mesh_max[0] - 10, sx.position_max - m]|min)|round(1) %}
+    {% set yhi = ([mesh.mesh_max[1] - 10, sy.position_max - m]|min)|round(1) %}
+    {% set xmid = ((xlo + xhi) / 2)|round(1) %}
+    {% set ymid = ((ylo + yhi) / 2)|round(1) %}
+    {% set prev_accel = printer.toolhead.max_accel|int %}
+    G28                           ; warm-up starts from a real, physical home
+    SET_VELOCITY_LIMIT ACCEL={accel}
+    RESPOND MSG="Belt warmup: accel {accel} (was {prev_accel}), staying {m} mm off the limits"
+    RESPOND MSG="Belt warmup: {cycles} cycles over X{xlo}-{xhi} Y{ylo}-{yhi}"
+    G90                           ; absolute coordinates
+    G1 Z20 F1200                  ; lift nozzle
+    {% for i in range(cycles) %}
+    G1 X{xlo} Y{ylo} F{speed}     ; front left
+    G1 X{xhi} Y{yhi} F{speed}     ; back right (diagonal)
+    G1 X{xhi} Y{ylo} F{speed}     ; front right
+    G1 X{xlo} Y{yhi} F{speed}     ; back left (opposite diagonal)
+    G1 X{xmid} Y{ymid} F{speed}   ; mid
+    G1 X{xlo} Y{ymid} F{speed}    ; left
+    G1 X{xhi} Y{ymid} F{speed}    ; right
+    G1 X{xmid} Y{ylo} F{speed}    ; front
+    G1 X{xmid} Y{yhi} F{speed}    ; back
+    {% endfor %}
+    G1 X{xmid} Y{ymid} F{speed}   ; middle park
+    SET_VELOCITY_LIMIT ACCEL={prev_accel}
+    # Re-home rather than trust the count. If the belts DID lose steps -- which is precisely what a
+    # cold-belt warm-up at speed can provoke -- the machine would otherwise be handed back with a
+    # position that is wrong and nothing to say so, and the next print would start offset.
+    G28
+    RESPOND MSG="warmup done - re-homed, accel back to {prev_accel}"
+#@ENDFEAT
+
+#@FEAT belt_tension | Belt tension tuning position (BELT_TENSION)
+[gcode_macro BELT_TENSION]
+description: Home, then park where both belt spans are equal, for tensioning
+gcode:
+    # Belt tension is read by plucking the free span between the toolhead and the IDLER, so the
+    # position that makes both spans equal is the middle of that span -- which is not the middle of
+    # the bed, and not the middle of the travel either.
+    #
+    # Not the bed: travel is -10..330 while the mesh is 10..290, so parking at the familiar X150 Y150
+    # already leaves one span 10 mm longer than the other. A longer span sounds flatter, so two
+    # perfectly matched belts read as mismatched and the owner "corrects" a measurement error into a
+    # real one.
+    #
+    # Not the travel either, on Y: the belt does not stop where the carriage does. Behind the Y rail
+    # there is a further stretch to the idler pulley -- measured at 60 mm on this machine -- and the
+    # span runs to the idler. So the middle of the SPAN is (min + max + 60)/2 = 190, where the middle
+    # of the travel would have been 160. Measured on the hardware, not derived from the config, which
+    # is why it is a named constant here rather than arithmetic hidden in the expression.
+    #
+    # X keeps a 0 offset because nobody has measured an equivalent for it. If you do, put it in
+    # x_idler_extra rather than adjusting the result by hand.
+    {% set sx = printer.configfile.settings.stepper_x %}
+    {% set sy = printer.configfile.settings.stepper_y %}
+    {% set x_idler_extra = 0 %}         # mm of belt beyond position_max, X
+    {% set y_idler_extra = 60 %}        # mm of belt beyond position_max, Y -- measured
+    {% set cx = ((sx.position_min + sx.position_max + x_idler_extra) / 2.0)|round(1) %}
+    {% set cy = ((sy.position_min + sy.position_max + y_idler_extra) / 2.0)|round(1) %}
+    {% set z  = params.Z|default(100)|float %}
+    G28
+    G90
+    G1 Z{z} F1200                 ; Z is the nozzle-to-bed GAP, so this frees both hands either way
+    G1 X{cx} Y{cy} F6000
+    M400                          ; the report must not print until the toolhead has arrived
+    _BELT_TENSION_REPORT
+
+
+[gcode_macro _BELT_TENSION_REPORT]
+description: internal - states the parked position once the move has actually finished
+gcode:
+    # Reported from printer.toolhead AFTER M400, not computed alongside the move: Klipper renders a
+    # macro's entire template before running a single line of its gcode, so a message written next
+    # to the G1 above would faithfully report where the toolhead was before it set off.
+    {% set p = printer.toolhead.position %}
+    RESPOND PREFIX="BELT:" MSG="parked at X{p.x|round(1)} Y{p.y|round(1)} - middle of the belt SPAN, not of the bed"
+    RESPOND PREFIX="BELT:" MSG="Y allows 60 mm for the stretch behind the rail to the idler"
+    RESPOND PREFIX="BELT:" MSG="leave the steppers ENERGIZED - M84 lets the belts go slack and the reading is void"
+    RESPOND PREFIX="BELT:" MSG="pluck each belt between toolhead and idler: aim for both PITCHES EQUAL"
+    RESPOND PREFIX="BELT:" MSG="equal matters more than any absolute Hz - the figure depends on span length"
+#@ENDFEAT
+
+#@FEAT clean_idlers | Idler cleaning helper (CLEAN_IDLERS, with a Mainsail dialog)
+# Deposits build up on the idler pulleys, and reaching them with a cotton bud means turning them a
+# controlled amount rather than shoving the gantry about by hand.
+#
+# THE ARITHMETIC. On a toothed idler one turn is TEETH x PITCH of belt, so a 20-tooth GT2 pulley is
+# 40 mm per turn and the default 1.5 turns is 60 mm of belt. On CoreXY both belts move for a move on
+# either axis, so that is also 60 mm of carriage travel -- there is no ratio to correct for.
+#
+# WHY THIS IS NOT ONE MACRO WITH A LOOP. Klipper renders a macro's entire Jinja template before it
+# executes a single line, so a {% for %} loop is fully expanded up front: nothing inside it can look at
+# a variable that changes while it runs, and a STOP button would do nothing until the last pass had
+# finished. So one pass lives in a delayed_gcode that re-arms itself while a flag is set, and STOP
+# clears the flag. That is also what makes the dialog's Stop button honest.
+[gcode_macro CLEAN_IDLERS]
+description: Turn the idlers in fixed steps so the pulleys can be wiped clean
+variable_running: 0
+variable_side: 'left'
+variable_pass: 0
+variable_y0: 0.0
+variable_y1: 0.0
+variable_x: 0.0
+variable_speed: 45
+variable_dwell: 3
+variable_dwell_turn: 1
+variable_prev_accel: 0
+gcode:
+    # No arguments: open the dialog. With SIDE=, start straight away -- which is what the dialog's own
+    # buttons call, and what anyone scripting this would want.
+    {% if params.SIDE is defined %}
+      _CLEAN_IDLERS_START SIDE={params.SIDE} TURNS={params.TURNS|default(1.5)} TEETH={params.TEETH|default(20)} PITCH={params.PITCH|default(2)} SPEED={params.SPEED|default(45)} PAUSE={params.PAUSE|default(3)} PAUSE_TURN={params.PAUSE_TURN|default(1)} MARGIN={params.MARGIN|default(40)}
+    {% else %}
+      _CLEAN_IDLERS_DIALOG
+    {% endif %}
+
+[gcode_macro _CLEAN_IDLERS_DIALOG]
+description: internal - the Mainsail / Fluidd dialog
+gcode:
+    RESPOND TYPE=command MSG="action:prompt_begin Clean the idler pulleys"
+    RESPOND TYPE=command MSG="action:prompt_text The gantry will move slowly, 1.5 turns of the pulley at a time, pausing between passes. Hold a cotton bud against the pulley while it is STILL, not while it moves."
+    RESPOND TYPE=command MSG="action:prompt_text Pick the side you want to reach: the toolhead parks at the opposite end, out of the way of your hand."
+    RESPOND TYPE=command MSG="action:prompt_button_group_start"
+    RESPOND TYPE=command MSG="action:prompt_button Left pulleys|CLEAN_IDLERS SIDE=left|primary"
+    RESPOND TYPE=command MSG="action:prompt_button Right pulleys|CLEAN_IDLERS SIDE=right|primary"
+    RESPOND TYPE=command MSG="action:prompt_button_group_end"
+    RESPOND TYPE=command MSG="action:prompt_footer_button Stop|CLEAN_IDLERS_STOP|error"
+    RESPOND TYPE=command MSG="action:prompt_footer_button Close|RESPOND TYPE=command MSG=action:prompt_end|secondary"
+    RESPOND TYPE=command MSG="action:prompt_show"
+
+[gcode_macro _CLEAN_IDLERS_START]
+description: internal - work out the geometry, park, and arm the stepper
+gcode:
+    {% set turns = params.TURNS|default(1.5)|float %}
+    {% set teeth = params.TEETH|default(20)|int %}
+    {% set pitch = params.PITCH|default(2)|float %}
+    {% set m = params.MARGIN|default(40)|float %}
+    {% set travel = (turns * teeth * pitch)|round(1) %}
+    {% set sx = printer.configfile.settings.stepper_x %}
+    {% set sy = printer.configfile.settings.stepper_y %}
+    {% set mesh = printer.configfile.settings.bed_mesh %}
+    # Park at the END AWAY from the side being cleaned, so the toolhead is not travelling past the hand
+    # holding the cotton bud.
+    {% set xlo = (sx.position_endstop + m)|round(1) %}
+    {% set xhi = ([mesh.mesh_max[0] - 10, sx.position_max - m]|min)|round(1) %}
+    {% set x = xhi if params.SIDE|default('left')|lower == 'left' else xlo %}
+    {% set y0 = (sy.position_endstop + m)|round(1) %}
+    {% set y1 = (y0 + travel)|round(1) %}
+    # Same upper bound as BELT_WARMUP, and for the same reason: the purge/wipe unit sits just past the
+    # mesh's top edge, so the mesh bound less a further 10 mm is the last Y that is safe at speed.
+    {% set ycap = ([mesh.mesh_max[1] - 10, sy.position_max - m]|min)|round(1) %}
+    {% if printer.print_stats.state in ['printing', 'paused'] %}
+      { action_raise_error("CLEAN_IDLERS: a print is %s -- not moving the gantry." % printer.print_stats.state) }
+    {% elif y1 > ycap %}
+      { action_raise_error("CLEAN_IDLERS: %s turns needs %s mm and would reach Y%s, past the safe limit Y%s. Use fewer TURNS." % (turns, travel, y1, ycap)) }
+    {% endif %}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=side VALUE="'{params.SIDE|default('left')|lower}'"
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=x VALUE={x}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=y0 VALUE={y0}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=y1 VALUE={y1}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=speed VALUE={params.SPEED|default(45)|int}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=dwell VALUE={params.PAUSE|default(3)|int}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=dwell_turn VALUE={params.PAUSE_TURN|default(1)|int}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=prev_accel VALUE={printer.toolhead.max_accel|int}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=pass VALUE=0
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=running VALUE=1
+    G28
+    # Slow on purpose, and the acceleration with it: this is used with fingers near a moving belt, and
+    # a brisk approach to the turnaround is the part a hand cannot follow. Restored by STOP.
+    SET_VELOCITY_LIMIT ACCEL=500
+    G90
+    G1 Z50 F1200
+    G1 X{x} Y{y0} F3000
+    M400
+    _CLEAN_IDLERS_ANNOUNCE TURNS={turns} TRAVEL={travel} SIDE={params.SIDE|default('left')|lower}
+    UPDATE_DELAYED_GCODE ID=_clean_idlers_step DURATION=1
+
+[gcode_macro _CLEAN_IDLERS_ANNOUNCE]
+description: internal - says what is happening, after the toolhead has actually parked
+gcode:
+    # After M400 and in its own macro: Klipper renders the whole template before running any of it, so a
+    # message written next to the moves above would print while the toolhead was still elsewhere.
+    RESPOND TYPE=command MSG="action:prompt_end"
+    RESPOND TYPE=command MSG="action:prompt_begin Cleaning the {params.SIDE} idlers"
+    RESPOND TYPE=command MSG="action:prompt_text {params.TURNS} turns = {params.TRAVEL} mm of belt per pass. It pauses between passes - wipe then, not while it moves."
+    RESPOND TYPE=command MSG="action:prompt_footer_button Stop|CLEAN_IDLERS_STOP|error"
+    RESPOND TYPE=command MSG="action:prompt_show"
+    RESPOND PREFIX="IDLER:" MSG="running - CLEAN_IDLERS_STOP (or the Stop button) ends it after the current pass"
+
+[delayed_gcode _clean_idlers_step]
+# One pass, then re-arm. This is the only shape that can be stopped mid-run: a {% for %} loop inside a
+# macro is expanded before the first move happens, so nothing in it could ever see the flag change.
+gcode:
+    {% set s = printer["gcode_macro CLEAN_IDLERS"] %}
+    {% if s.running == 1 %}
+      G4 P{s.dwell * 1000}
+      G1 Y{s.y1} F{s.speed * 60}
+      G4 P{s.dwell_turn * 1000}
+      G1 Y{s.y0} F{s.speed * 60}
+      SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=pass VALUE={s.pass + 1}
+      UPDATE_DELAYED_GCODE ID=_clean_idlers_step DURATION=1
+    {% endif %}
+
+[gcode_macro CLEAN_IDLERS_STOP]
+description: Stop the idler cleaning after the current pass and restore the limits
+gcode:
+    {% set s = printer["gcode_macro CLEAN_IDLERS"] %}
+    SET_GCODE_VARIABLE MACRO=CLEAN_IDLERS VARIABLE=running VALUE=0
+    UPDATE_DELAYED_GCODE ID=_clean_idlers_step DURATION=0
+    {% if s.prev_accel > 0 %}
+      SET_VELOCITY_LIMIT ACCEL={s.prev_accel}
+    {% endif %}
+    RESPOND TYPE=command MSG="action:prompt_end"
+    RESPOND PREFIX="IDLER:" MSG="stopped after {s.pass} passes - acceleration back to {s.prev_accel}"
+#@ENDFEAT
+
+#@FEAT screws_tilt | Manual screw bed leveling (SCREWS_TILT_CALCULATE)
+[screws_tilt_adjust]
+screw1:
+    30, 30
+screw1_name:
+  bottom_left
+screw2:
+    270, 30
+screw2_name:
+  bottom_right
+screw3:
+  270, 270
+screw3_name:
+  top_right
+screw4:
+  30, 270
+screw4_name:
+  top_left
+speed: 50
+horizontal_move_z: 20
+screw_thread: CCW-M4
+
+# Wrap SCREWS_TILT_CALCULATE to home first
+[gcode_macro SCREWS_TILT_CALCULATE]
+rename_existing: _SCREWS_TILT_CALCULATE
+gcode:
+    G28
+  _SCREWS_TILT_CALCULATE
+
+# Display alias: the panel's screw-leveling button sends BED_SCREW_ADJUST. Phrozen ships no such command,
+# so map it to SCREWS_TILT_CALCULATE. Kept inside the screws_tilt feature so the alias and its target
+# toggle together. (Was present on shipped printers but missing from this template — the drift that made
+# the deployed AddOn.cfg diverge; restored so the template is the complete canonical config.)
+[gcode_macro bed_screw_adjust]
+description: Screws Tilt Calculate Wrapper
+gcode:
+    SCREWS_TILT_CALCULATE
+#@ENDFEAT
+
+#@FEAT z_tilt | Z-Tilt: dual-Z alignment (Z_TILT_ADJUST, homes first)
+[z_tilt]
+z_positions:
+  365, 150
+  -45, 150
+points:
+  270, 150
+  30, 150
+speed: 100
+horizontal_move_z: 30
+retries: 3
+retry_tolerance: 0.01
+
+# Wrap Z_TILT_ADJUST to home first
+[gcode_macro Z_TILT_ADJUST]
+rename_existing: _Z_TILT_ADJUST
+gcode:
+    G28
+  _Z_TILT_ADJUST
+#@ENDFEAT
+
+#@FEAT g30 | G30 = load saved mesh (THE MESH FIX!)
+# ───── Bed mesh: unify everything on the 'phrozen' profile ─────
+# Phrozen's G30 (slicer start-gcode AND display quick-level) calibrated a throwaway 'default' profile
+# and never saved it -> it overwrote the 'phrozen' mesh that voronFDM + the Auto-Cal use, so
+# calibrations "didn't save". Override: G30 LOADs the saved 'phrozen' mesh - or, if none exists yet
+# (fresh install / Auto-Cal never run), calibrates a fresh one for this print instead of erroring.
+# No SAVE_CONFIG (would restart Klipper mid-print, since G30 runs in the slicer start-gcode);
+# persisting 'phrozen' stays in the Auto-Cal (BED_MESH_CALIBRATE PROFILE=phrozen + SAVE_CONFIG) / G29.
+# Override mechanism: re-declare the section - Klipper merges same-named [gcode_macro] across includes
+# (AddOn.cfg is included AFTER printer_gcode_macro.cfg), so our gcode wins. NOT rename_existing: that
+# needs a separate original to rename ("Existing command 'G30' not found"), and a traditional G-code
+# can't be renamed to an extended name anyway.
+[gcode_macro G30]
+variable_k: 1
+gcode:
+    {% if k|int == 1 %}
+        {% if 'phrozen' in printer.bed_mesh.profiles %}
+            BED_MESH_PROFILE LOAD=phrozen
+        {% else %}
+            BED_MESH_CALIBRATE PROFILE=phrozen
+        {% endif %}
+    {% endif %}
+#@ENDFEAT
+
+#@FEAT light | Chamber light toggle (TOGGLE_LIGHT)
+[gcode_macro TOGGLE_LIGHT]
+variable_toggle_state: 0
+gcode:
+  {% if printer["gcode_macro TOGGLE_LIGHT"].toggle_state == 0 %}
+    SET_GCODE_VARIABLE MACRO=TOGGLE_LIGHT VARIABLE=toggle_state VALUE=1
+    P0 LED_SetState=1
+  {% else %}
+    SET_GCODE_VARIABLE MACRO=TOGGLE_LIGHT VARIABLE=toggle_state VALUE=0
+    P0 LED_SetState=0
+  {% endif %}
+#@ENDFEAT
+
+#@FEAT filament | Filament change M600 (two-stage pause) + RESUME
+# === Filament Change (two pauses; no extra check pause) ===
+[gcode_macro M600]
+description: Filament change with retract -> pause, then load -> pause, then purge & resume
+variable_filament_change: 0        # 0 = idle, 1 = in M600 flow
+variable_stage: 0                  # 0 = waiting to load, 1 = loaded & waiting second RESUME
+variable_unload_length: 45         # mm retract to unload
+variable_unload_speed: 600         # mm/min
+variable_load_length: 50           # mm load after first RESUME
+variable_load_speed: 300           # mm/min
+variable_antiooze: 2.0             # mm to retract
+variable_antiooze_speed: 600       # mm/min
+gcode:
+    # AMS on: filament changes run via Tn / the AMS logic -> a manual M600 would
+    # disrupt an AMS print with a pause + hand-swap. Only run the full flow in
+    # standalone (flag off). Reads the same 'ams' flag PHROZEN_AMS_START uses.
+    {% set ams = printer.save_variables.variables.ams|default(0)|int %}
+    {% if ams %}
+        M118 AMS active -> M600 skipped (changes go via Tn)
+    {% else %}
+        # Enter M600 flow and remember print state
+        SET_GCODE_VARIABLE MACRO=M600 VARIABLE=filament_change VALUE=1
+        SET_GCODE_VARIABLE MACRO=M600 VARIABLE=stage VALUE=0
+        SAVE_GCODE_STATE NAME=M600_state
+
+        # Record temps/fans and park at your cut-waiting area
+        PG103
+        PG104
+        PRZ_WAITINGAREA
+
+        # Unload (retract), then pause for swap
+        RESPOND PREFIX="M600" MSG="Retracting… swap filament, then press RESUME to load."
+        G91
+        G1 E-{unload_length} F{unload_speed}
+        G90
+        PAUSE
+    {% endif %}
+
+
+# === RESUME: handle M600 stages, otherwise behave normally ===
+[gcode_macro RESUME]
+rename_existing: BASE_RESUMEPRINT
+gcode:
+    {% set changing = printer["gcode_macro M600"].filament_change|int %}
+    {% set stage    = printer["gcode_macro M600"].stage|int %}
+
+    {% if changing == 1 and stage == 0 %}
+        # First RESUME after M600: heat, load and retract, then pause once more
+        RESPOND PREFIX="M600" MSG="Heating and loading… press RESUME again to continue."
+        PG109
+        G91
+        G1 E{printer["gcode_macro M600"].load_length} F{printer["gcode_macro M600"].load_speed}
+        G1 E-{printer["gcode_macro M600"].antiooze} F{printer["gcode_macro M600"].antiooze_speed}
+        G90
+        SET_GCODE_VARIABLE MACRO=M600 VARIABLE=stage VALUE=1
+        PAUSE
+        # stay paused; do NOT fall through
+
+    {% elif changing == 1 and stage == 1 %}
+        # Second RESUME: wipe, clear flag, restore state, and continue — no more pauses
+        RESPOND PREFIX="M600" MSG="Press resume…"
+        PRZ_WAITINGAREA
+        PRZ_WIPEMOUTH
+        SET_GCODE_VARIABLE MACRO=M600 VARIABLE=filament_change VALUE=0
+        SET_GCODE_VARIABLE MACRO=M600 VARIABLE=stage VALUE=0
+        RESTORE_GCODE_STATE NAME=M600_state MOVE=0
+        BASE_RESUMEPRINT
+
+    {% else %}
+    # Normal (non-M600) resumes use your existing behavior
+    BASE_RESUMEPRINT
+    {% endif %}
+#@ENDFEAT
+
+# -----------------------------------------------------------------------------
+# Arco Unleashed: M601 pause alias
+# OrcaSlicer's machine_pause_gcode (from the stock Phrozen profile) is `M601`, but M601
+# is not a Klipper built-in and phrozen_dev never registers it -> an Orca-triggered pause
+# (pause-at-layer/height) would hit "Unknown command". Map it to Klipper's PAUSE (the same
+# macro the display / Mainsail pause uses). Mode-agnostic (works with and without the AMS).
+# Plain macro (not a toggleable feature) so a pause always works.
+# -----------------------------------------------------------------------------
+[gcode_macro M601]
+description: Pause alias for OrcaSlicer machine_pause_gcode (M601 -> Klipper PAUSE)
+gcode:
+    PAUSE
+
+#@FEAT filament_loadunload | Manual LOAD_FILAMENT / UNLOAD_FILAMENT (single-color / no AMS)
+# Convenience load/unload for standalone (no-AMS) use: heats the nozzle if cold, then feeds/retracts
+# filament with pure extruder moves (no homing needed). Extrudes in place, so position the toolhead or
+# catch the purge first. Tune LENGTH to your extruder->nozzle path. Params: TEMP, LENGTH, PURGE.
+[gcode_macro LOAD_FILAMENT]
+description: Load filament - heats if cold, feeds to the nozzle + primes (params TEMP, LENGTH, PURGE)
+gcode:
+    {% set temp  = params.TEMP|default(220)|int %}
+    {% set feed  = params.LENGTH|default(80)|int %}
+    {% set purge = params.PURGE|default(50)|int %}
+    {% if printer.extruder.temperature < 180 %}
+        RESPOND MSG="LOAD: heating nozzle to {temp} C..."
+        M109 S{temp}
+    {% endif %}
+    SAVE_GCODE_STATE NAME=_arco_load
+    M83
+    RESPOND MSG="LOAD: feeding {feed} mm..."
+    G1 E{feed} F300
+    RESPOND MSG="LOAD: priming {purge} mm..."
+    G1 E{purge} F150
+    G1 E-2 F1800
+    RESTORE_GCODE_STATE NAME=_arco_load
+    RESPOND MSG="LOAD: done."
+
+[gcode_macro UNLOAD_FILAMENT]
+description: Unload filament - heats if cold, tip-forms + retracts out (params TEMP, LENGTH)
+gcode:
+    {% set temp = params.TEMP|default(220)|int %}
+    {% set pull = params.LENGTH|default(90)|int %}
+    {% if printer.extruder.temperature < 180 %}
+        RESPOND MSG="UNLOAD: heating nozzle to {temp} C..."
+        M109 S{temp}
+    {% endif %}
+    SAVE_GCODE_STATE NAME=_arco_unload
+    M83
+    RESPOND MSG="UNLOAD: tip forming..."
+    G1 E5 F300
+    G1 E-5 F1800
+    RESPOND MSG="UNLOAD: retracting {pull} mm out..."
+    G1 E-{pull} F1200
+    RESTORE_GCODE_STATE NAME=_arco_unload
+    RESPOND MSG="UNLOAD: done - pull the filament out."
+#@ENDFEAT
+
+#@FEAT ams | AMS / Chroma Kit macros (AMS_ON/OFF/STATUS)
+# ───── AMS (Chroma Kit) on/off — Arco Unleashed ─────
+# Requires gcode_shell_command.py in ~/klipper/klippy/extras/ (KIAUH: Advanced -> [G] G-Code Shell Command).
+# AMS_ON  = connect + multi-color (P0 M1 can move to the spit area, so it homes first).
+# AMS_OFF = single-color, movement-free, restarts Klipper to apply.
+# The shell command only edits the state files (auto_connect + Phrozen_Dev.json mode); the gcode
+# (P0 M1 / P28 / RESTART) is the runtime lever. A factory-NEW AMS needs one-time provisioning
+# beyond this toggle (the firmware flash / pairing — see the kit notes).
+[gcode_shell_command ams_files]
+command: bash /home/mks/arco-unleashed/scripts/ams_toggle.sh files
+timeout: 30
+verbose: True
+
+[gcode_shell_command ams_status_sh]
+command: bash /home/mks/arco-unleashed/scripts/ams_toggle.sh status
+timeout: 10
+verbose: True
+
+[gcode_macro AMS_ON]
+description: Connect AMS / Chroma Kit (multi-color)
+gcode:
+    # Always home: after a reboot phrozen's SET_KINEMATIC_POSITION marks the axes homed at an
+    # assumed 150,150,150 WITHOUT a real home, so homed_axes cannot be trusted before the P0 M1
+    # spit move -- home unconditionally to guarantee a known position.
+    RESPOND MSG="AMS_ON: homing first (P0 M1 moves to the spit area)"
+    G28
+    RESPOND MSG="Enabling AMS (multi-color)..."
+    RUN_SHELL_COMMAND CMD=ams_files PARAMS=on
+    SAVE_VARIABLE VARIABLE=ams VALUE=1        ; macro-readable flag -> steers Orca start-gcode
+    P0 M1
+    P28
+    # P30 auto-arranges device IDs for multi-AMS chains; a harmless no-op for a single unit.
+    G4 P1000
+    P30
+    # Bring the Tn tool buttons back LIVE (arco_tool_gate hid T1-T15 while ams was off);
+    # no restart -> the just-made P28 connection is left intact.
+    ARCO_TOOLS_SHOW
+    RESPOND MSG="AMS connected (multi-color); P30 arranged device IDs (for multi-AMS chains)."
+
+[gcode_macro AMS_OFF]
+description: Disconnect AMS / single-color (homed, movement-free)
+gcode:
+    {% if 'xyz' not in printer.toolhead.homed_axes %}
+      RESPOND MSG="AMS_OFF: homing first (safety)"
+      G28
+    {% endif %}
+    RESPOND MSG="Disabling AMS (single-color)..."
+    P29                                          ; disconnect AMS cleanly (close serial) - counterpart to AMS_ON's P28
+    RUN_SHELL_COMMAND CMD=ams_files PARAMS=off
+    SAVE_VARIABLE VARIABLE=ams VALUE=0        ; macro-readable flag -> steers Orca start-gcode
+    RESPOND MSG="AMS off, single-color - restarting Klipper to apply"
+    RESTART
+
+[gcode_macro AMS_STATUS]
+description: Show AMS state in the console
+gcode:
+    RUN_SHELL_COMMAND CMD=ams_status_sh
+#@ENDFEAT
+
+#@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
+# ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
+# The AMS on/off flag is set DELIBERATELY via the SSH menu / AMS_ON|AMS_OFF (it mirrors the
+# physical toolhead conversion - not a casual toggle). This macro reads that flag at print
+# start and applies the right Phrozen mode. OrcaSlicer just calls it (no live USB detection):
+#
+#   Machine start G-code (after PRINT_START), instead of P0 M1/P28/P2 A1:
+#     {if size(filament_diameter) > 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}
+#
+# Decision (flag x slice):
+#   AMS on  + multi  -> P0 M1 ; P28 ; P2 A1   (color changes via Tn)
+#   AMS on  + single -> P0 M2 ; P28           (auto-refill / endless spool; load same color!)
+#   AMS off + single -> P0 M3                 (standalone, toolhead runout protection)
+#   AMS off + multi  -> error (multicolor needs the AMS)
+[gcode_macro PHROZEN_AMS_START]
+description: Apply the menu-set AMS mode (P0 M1/M2/M3) at print start
+gcode:
+    # SAFETY — ALWAYS home first. P0 M1/M2/M3 ALL trigger a move to the purge/spit area (the mode
+    # logic runs PRZ_SPITTING), so an unhomed printer would drive into the purge from an unknown
+    # position. In the print start PG28 has already homed, so this guard is then a no-op; it
+    # protects every other call (single-color/standalone, cold, manual).
+    {% if 'xyz' not in printer.toolhead.homed_axes %}
+        M118 PHROZEN_AMS_START: homing first (P0 Mn moves to the purge/spit area)
+        G28
+    {% endif %}
+    {% set ams   = printer.save_variables.variables.ams|default(0)|int %}
+    {% set multi = params.MULTI|default(0)|int %}
+    {% if ams %}
+        {% if multi %}
+            M118 AMS + multicolor -> P0 M1
+            P0 M1
+            P28
+            P2 A1
+        {% else %}
+            M118 AMS + single-color -> P0 M2 (auto-refill / endless spool)
+            P0 M2
+            P28
+            # P8 = arm auto-refill. Not yet verified (no Phrozen M2 reference gcode) -> test
+            # whether refill arms without it; if not, uncomment the next line:
+            # P8
+        {% endif %}
+    {% else %}
+        {% if multi %}
+            { action_raise_error("Multicolor slice but AMS is OFF in the menu. Run AMS_ON or slice single-color.") }
+        {% else %}
+            M118 Standalone -> P0 M3 (toolhead runout protection)
+            P0 M3
+        {% endif %}
+    {% endif %}
+
+# Per color change. Orca's change_filament_gcode calls this as: PHROZEN_TOOLCHANGE FLUSH=[flush_length]
+# Same ams-flag branch as PHROZEN_AMS_START, so ONE Orca profile serves both:
+#   AMS on  -> P0 spit (P10 Sn); the tool change Tn already selected the channel, P10 purges the swap.
+#             S = spit size, mapped from Orca's flush_length. (P10 Sn verified in the module: it sets the
+#             spit amount and runs PRZ_CUT_WAITINGAREA.)
+#   AMS off -> PAUSE for a manual filament swap (classic pause-and-swap multicolor).
+# The official Phrozen profile hard-wires the P10 path (assumes an AMS is always present); this branch is
+# what lets a no-AMS user slice multicolor and swap by hand instead.
+[gcode_macro PHROZEN_TOOLCHANGE]
+description: Per color change - AMS spit (P10) if AMS on, else pause for a manual swap
+gcode:
+    G1 E-1 F3600                                  ; small retract, like the official profile
+    {% set ams = printer.save_variables.variables.ams|default(0)|int %}
+    {% if ams %}
+        {% set f = params.FLUSH|default(0)|float %}
+        {% if   f <= 110 %} P10 S1
+        {% elif f <= 220 %} P10 S2
+        {% elif f <= 330 %} P10 S3
+        {% elif f <= 440 %} P10 S4
+        {% elif f <= 550 %} P10 S5
+        {% else %}          P10 S6
+        {% endif %}
+    {% else %}
+        M118 No AMS -> manual filament change (M600: unload -> swap -> load -> purge -> resume)
+        M600
+    {% endif %}
+#@ENDFEAT
+
+# -----------------------------------------------------------------------------
+# Arco Unleashed: AMS P114-poll gate
+# PhrozenGo (the cloud-bridge) polls `P114` every 5 min to sync AMS status to the
+# cloud/app -- pointless console spam + serial re-init when NO AMS is attached
+# (voronFDM itself does not drive this poll). We override the P114 *command*: swallow it when our
+# 'ams' flag is off, pass it to the real handler (P114.1) when an AMS is on. Pure
+# config -- phrozen_dev stays vanilla. Live-toggle: AMS_ON sets ams=1 -> the poll
+# passes again, no Klipper restart. rename_existing must target a "traditional"
+# gcode name (letter+number), hence P114.1 -- NOT an extended name like _P114.
+# rename_existing resolves in a klippy:connect handler, so the phrozen P114
+# (registered in phrozen_dev __init__) always exists in time regardless of the
+# printer.cfg include order.
+# -----------------------------------------------------------------------------
+[gcode_macro P114]
+rename_existing: P114.1
+description: AMS status poll - passed through only when AMS on AND not mid-print (Arco Unleashed)
+gcode:
+    # Pass P114 to the real handler ONLY when an AMS is attached AND we are not
+    # printing. Two problems, one gate:
+    #   ams=0            -> swallow SILENTLY: kills the 5-min PhrozenGo cloud-poll spam
+    #                       + serial re-init when no AMS is present. Saying anything here
+    #                       would just re-create that spam under a new name.
+    #   busy (ams=1)     -> swallow, but SAY SO: P114.1 re-initialises the AMS serial port
+    #                       (cmds.py Cmds_CmdP114 -> serial.Serial(...)), which stalls the
+    #                       gcode queue and leaves surface blobs. Phrozen fixed this in their
+    #                       own cmds.py on 2026-04-28 (idle_timeout "Printing" early-return);
+    #                       our phrozen_dev predates that guard, so we reproduce it here at
+    #                       config level - phrozen_dev stays vanilla. Phrozen's version also
+    #                       answers instead of going quiet, so mirror that: the poller sees a
+    #                       definite reply, and the log shows why the status went stale.
+    #
+    # NOTE on `idle_timeout.state`: it reads "Printing" whenever the toolhead is EXECUTING,
+    # not only during a print job - a bare `G4` dwell with print_stats "standby" already
+    # reports it. So this gate is broader than "mid-print", and deliberately so: on this
+    # machine the UART toolhead MCU is sensitive to host-scheduling jitter, and a serial
+    # re-init during a home or a probe is as unwelcome as one mid-print (it is a plausible
+    # "Timer too close" trigger). Using print_stats instead would leave exactly those
+    # moments unprotected. Phrozen chose the same signal.
+    # Trade-off (same as Phrozen's): the cloud/app gets no fresh AMS status while busy.
+    {% if printer.save_variables.variables.ams|default(0)|int == 1 %}
+        {% if printer.idle_timeout.state != "Printing" %}
+            P114.1 {rawparams}
+        {% else %}
+            RESPOND MSG="P114 skipped while the printer is busy - AMS status resumes when it is idle"
+        {% endif %}
+    {% endif %}
+
+# -----------------------------------------------------------------------------
+# Arco Unleashed: hide phantom AMS tools (T1-T15) from Mainsail when no AMS.
+# -----------------------------------------------------------------------------
+# MCU host timing — the "Timer too close" widening, applied WITHOUT touching Klipper
+# -----------------------------------------------------------------------------
+# The UART toolhead MCU (MKS_THR / STM32F103) is sensitive to host-scheduling jitter;
+# Klipper's stock timeouts can trip "MCU shutdown: Timer too close" while homing or
+# probing under load. These are Phrozen's own values.
+#
+# They used to be sed'ed straight into klippy/mcu.py. That file is TRACKED by Klipper,
+# so the repo stayed permanently dirty and Moonraker refuses to update a dirty repo --
+# the printer could never take a Klipper update. The extra
+# klippy/extras/arco_mcu_timing.py sets the same three values at runtime instead, so
+# Klipper's tree stays pristine and its update button works normally.
+#
+# If a future Klipper renames these internals the extra ABORTS with a clear message
+# rather than silently leaving stock timings in place (which would show up much later
+# as "Timer too close" during homing). Check what is live with: ARCO_MCU_TIMING
+# The extra is installed/self-healed by scripts/apply-arco-extras.sh (ExecStartPre).
+# -----------------------------------------------------------------------------
+[arco_mcu_timing]
+#timeout_time: 10.0    # mcu.RetryAsyncCommand.TIMEOUT_TIME  (Klipper stock 5.0)
+#retry_time: 1.0       # mcu.RetryAsyncCommand.RETRY_TIME    (Klipper stock 0.500)
+#trsync_timeout: 0.1   # mcu.TRSYNC_TIMEOUT                  (Klipper stock 0.025)
+
+# phrozen_dev registers T0-T15 gcode commands (Orca colour-change / Chroma Kit AMS) ->
+# the web UI shows 16 "extruders" without an AMS. The first-party extra
+# klippy/extras/arco_tool_gate.py drops T1-T15 at klippy:connect when the 'ams' flag
+# is off, and keeps them when ams=1 (multi-colour). Applies on Klipper (re)start.
+# The extra is installed/self-healed by scripts/apply-arco-extras.sh (ExecStartPre).
+# -----------------------------------------------------------------------------
+[arco_tool_gate]
+#hide_from: 1      # first Tn to hide when no AMS (default 1)
+#hide_to: 15       # last Tn to hide when no AMS (default 15)
+#ams_variable: ams # save-variable that gates it (default 'ams')
+
+# -----------------------------------------------------------------------------
+# Arco Unleashed: re-adds the SDCARD_SELECT_FILE gcode command (load a virtual-SD
+# file without starting it). Phrozen's stock display firmware uses it when you
+# pick a file to print (a two-step "select file" then "start" flow); mainline
+# Klipper v0.13 dropped it (only SDCARD_PRINT_FILE load-and-start remains).
+# Standalone extra so virtual_sdcard.py stays vanilla v0.13 -- the
+# SDCARD_PRINT_FILE path used by Moonraker / Orca "Upload & Print" is untouched.
+# Installed/self-healed by scripts/apply-arco-extras.sh (ExecStartPre); see
+# klippy/extras/arco_sdcard_select.py.
+# -----------------------------------------------------------------------------
+[arco_sdcard_select]
+
+# -----------------------------------------------------------------------------
+# Arco Unleashed: makes the toolhead filament sensor visible. phrozen_dev reads the
+# sensor (MKS_THR:PA2) and pauses on runout, but has no get_status() -- so the state
+# is invisible in Mainsail/Fluidd and unreadable from macros. This extra publishes it
+# read-only: it claims NO pin (a second claim on PA2 would stop klippy from starting)
+# and is not in the pause path, so detection and pausing stay entirely with phrozen_dev.
+#
+# The part that earns its place: phrozen_dev only watches the sensor after a P0 M1/M2/M3
+# (its work mode 0 = UNKNOW leaves the runout timer disabled). A print started from a
+# slicer profile that never sends P0 therefore runs with no runout protection and no
+# warning. 'protection_active' reports that, and a console warning is emitted once per
+# job when it is false. Check any time with: FILA_STATUS
+#
+# The warning waits warn_delay into the job on purpose: the mode is set by the start
+# G-code (PHROZEN_AMS_START runs after heating and homing), so being "unprotected" in
+# the first minutes is normal. It also keys off print_stats, NOT idle_timeout -- see the
+# P114 note above: idle_timeout says "Printing" for any toolhead move, which would fire
+# this on every home.
+# Installed/self-healed by scripts/apply-arco-extras.sh (ExecStartPre); see
+# klippy/extras/arco_fila_status.py.
+# -----------------------------------------------------------------------------
+[arco_fila_status]
+#adc_name: prz_adc         # query_adc name phrozen_dev registers for the sensor
+#warn_on_print_start: True # console warning when a print runs unprotected
+#warn_delay: 300.0         # seconds into the job before that check runs
+#check_interval: 2.0       # seconds between job-state polls
+
+# >>> arco-update-console >>>
+# -----------------------------------------------------------------------------
+# UPDATE THE KIT FROM THE CONSOLE
+# -----------------------------------------------------------------------------
+# The kit could only ever be updated from a shell: selfupdate.sh over SSH, or a
+# tarball through update-from-usb.sh. KAOS_UPDATE sits right there in the console
+# and updates KAOS -- but that is KAOS only, and ours had no counterpart. So "is my
+# kit current?" was a question you could not answer without leaving the interface
+# you were already in.
+#
+# ARCO_UPDATE_CHECK reports and changes nothing.
+# ARCO_UPDATE applies. It runs selfupdate.sh's `console` mode, which adopts first
+#   when this kit is still the image's flat copy and then updates, in ONE run --
+#   adoption keeps every file untouched, it only teaches git where they came from.
+#   One run rather than two calls because Klipper's macro layer never sees an exit
+#   code: a failed adopt followed by a separate update explained the same problem
+#   twice in different words, which reads like two unrelated errors. Against a
+#   private or unreachable repository it fails fast and says so, instead of waiting
+#   on a password prompt nobody can see.
+#
+# `auto on|off` is deliberately NOT exposed here: it writes systemd units and needs
+# root, which a console command does not have. That one stays an SSH decision.
+#
+# Installed/self-healed by scripts/apply-arco-extras.sh (ExecStartPre).
+# -----------------------------------------------------------------------------
+[gcode_shell_command arco_selfupdate]
+command: /home/mks/arco-unleashed/scripts/selfupdate.sh
+timeout: 300.0
+verbose: True
+
+[gcode_macro ARCO_UPDATE_CHECK]
+description: Is a newer Arco Unleashed kit available? Reports only, changes nothing
+gcode:
+    RESPOND PREFIX=ARCO MSG="checking for a newer kit - needs network access"
+    RUN_SHELL_COMMAND CMD=arco_selfupdate PARAMS="check"
+
+[gcode_macro ARCO_UPDATE]
+description: Update the Arco Unleashed kit itself (idle printer only)
+gcode:
+    {% set st = printer.print_stats.state|default('standby') %}
+    {% if st in ['printing', 'paused'] %}
+        { action_raise_error(
+            "ARCO_UPDATE: refusing while a print is %s. Run it from an idle printer." % st) }
+    {% endif %}
+    RESPOND PREFIX=ARCO MSG="updating the kit - needs network access"
+    RUN_SHELL_COMMAND CMD=arco_selfupdate PARAMS="console"
+    RESPOND PREFIX=ARCO MSG="if that changed anything in the printer config, it lands when the klipper SERVICE restarts: sudo systemctl restart klipper"
+# <<< arco-update-console <<<

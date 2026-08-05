@@ -1,0 +1,10 @@
+{
+    "name": "Phrozen Arco 0.4 (Unleashed)",
+    "inherits": "Phrozen Arco 0.4 nozzle",
+    "from": "User",
+    "is_custom_defined": "0",
+    "printer_settings_id": "Phrozen Arco 0.4 (Unleashed)",
+    "version": "2.2.0.0",
+    "change_filament_gcode": "PHROZEN_TOOLCHANGE FLUSH=[flush_length]",
+    "machine_start_gcode": "M107\nG90\nM104 S140 ; nozzle warm-up (stays cool = no ooze during probe)\nM140 S[bed_temperature_initial_layer_single] ; bed straight to print temp (no 65C detour)\nM109 S140\nM190 S[bed_temperature_initial_layer_single] ; heat-soak at target temp\nPG28\n;AUTO_LEVELING_2\nG30\nG21\nM83\nM104 S[nozzle_temperature_initial_layer] ; nozzle up to print temp\nM109 S[nozzle_temperature_initial_layer]\n{if size(filament_diameter) > 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}\n{if size(filament_diameter) == 1}\nT0\n{endif}"
+}

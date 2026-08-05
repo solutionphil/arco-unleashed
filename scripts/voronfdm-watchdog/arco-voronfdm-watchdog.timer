@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Arco voronFDM watchdog every 15s
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=15
+AccuracySec=2s
+
+[Install]
+WantedBy=timers.target

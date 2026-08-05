@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#eef4ff"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="14.3" fill="none" stroke="#2e74f2" stroke-opacity="0.30" stroke-width="1.5"/>
+
+  <!-- glasses temple arms (behind head) -->
+  <g stroke="#0a1c3a" stroke-width="2.6" stroke-linecap="round" fill="none">
+    <path d="M15.5 30 L9 27.5"/>
+    <path d="M48.5 30 L55 27.5"/>
+  </g>
+
+  <!-- worm body nub (bottom-left) -->
+  <path d="M17 48 C 9 49, 7.5 58, 14 59 C 20 59.5, 23 53, 20.5 49 Z" fill="#2f6fe0" stroke="#0a1c3a" stroke-width="2.4"/>
+
+  <!-- head -->
+  <path d="M32 12.5 C 45.5 12.5, 53.5 22, 53.5 33 C 53.5 45, 44 53.5, 32 53.5 C 20 53.5, 10.5 45, 10.5 33 C 10.5 22, 18.5 12.5, 32 12.5 Z" fill="#3b82ff" stroke="#0a1c3a" stroke-width="2.6"/>
+  <ellipse cx="25" cy="22" rx="8.5" ry="5" fill="#7fb0ff" opacity="0.6"/>
+
+  <!-- glasses + eyes -->
+  <circle cx="24.5" cy="31" r="8.2" fill="#ffffff" stroke="#0a1c3a" stroke-width="2.7"/>
+  <circle cx="40.5" cy="31" r="8.2" fill="#ffffff" stroke="#0a1c3a" stroke-width="2.7"/>
+  <path d="M31.6 29.8 Q32.5 28.4 33.4 29.8" fill="none" stroke="#0a1c3a" stroke-width="2.4"/>
+  <circle cx="26" cy="32.4" r="3.2" fill="#0a1c3a"/>
+  <circle cx="42" cy="32.4" r="3.2" fill="#0a1c3a"/>
+  <circle cx="24.6" cy="30.6" r="1.2" fill="#ffffff"/>
+  <circle cx="40.6" cy="30.6" r="1.2" fill="#ffffff"/>
+
+  <!-- open happy mouth -->
+  <path d="M26 42.5 Q32 45 38 42.5 Q36 49.5 32 49.5 Q28 49.5 26 42.5 Z" fill="#0a1c3a"/>
+  <path d="M30.2 46 Q32 48.6 33.8 46 Z" fill="#ff6b8a"/>
+</svg>

@@ -1,0 +1,5 @@
+# Arco Unleashed — mount inserted USB sticks at Moonraker's gcodes/USB so the Phrozen
+# display (voronFDM) finds <USB>/phrozen_dev for firmware updates. armbian-mkspi ships no
+# such automount. Filesystem partitions only; the systemd unit (BindsTo=dev-%k.device)
+# handles unmount automatically on removal.
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}="arco-usb-mount@%k.service"
