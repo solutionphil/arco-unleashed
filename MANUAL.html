@@ -2277,35 +2277,43 @@ the bed nor the middle of the travel. Leave the steppers energised:
 <code>M84</code> lets the belts go slack and the reading is void. Aim
 for equal pitch between the two belts, not for any particular
 frequency.</p>
-<p><strong>Homing works, then nothing moves — “KAOS blocked …”, or a
-calibration that stops dead at 0.0</strong> Only with the KAOS add-on.
-Its motion guard refuses travel until a completed home has granted
-trust, and exactly one thing grants it: a call to
-<code>_ARCO_POST_HOME_HOOK</code> at the end of
-<code>[homing_override]</code>. That call has to sit in
-<code>printer.cfg</code> itself, because <code>[homing_override]</code>
-is a Klipper <em>section</em> and cannot be extended from another file.
-<code>printer.cfg</code> is never regenerated on a printer that already
-exists, so a kit update does not bring the call along — and a Phrozen
-firmware update carries it off. Two quite different states look
-identical from the display:</p>
-<ul>
-<li><p><strong>The call is absent.</strong> Homing reports success,
-trust stays at 0, and travel is refused however often you home. Menu
-<strong>3 — Check self-heal guards</strong> now names this outright. To
-repair it:</p>
+<p><strong>The cutter position calibration stops dead at X 0.0 — and
+other travel refused after homing</strong> Only with the KAOS add-on,
+and the rule that fixes it is one line long: <strong>home the printer
+fully once, then calibrate.</strong></p>
+<p>KAOS refuses every travel until a home has physically established
+where the toolhead is. Klipper’s own <code>homed_axes</code> is not
+evidence of that on this machine — the display routinely writes a
+position with <code>SET_KINEMATIC_POSITION</code> instead of measuring
+one, which makes Klipper believe it is homed when nothing has moved.
+That is the whole reason the guard keeps its own record.</p>
+<p>The display’s cutter calibration never homes. Its very first action
+is to lift Z, before any homing at all, and that lift is what gets
+refused — so the screen sits at 0.0 having done nothing. It is not a
+crash and nothing is broken. A full <code>G28</code> beforehand
+satisfies the guard, and KAOS then stands down for the rest of the
+session.</p>
+<p><strong>Watch the end of the calibration.</strong> It finishes with
+<code>SAVE_CONFIG</code>, which restarts Klipper — and a restart clears
+the trust again. Calibrating twice in a row therefore needs a
+<code>G28</code> in between. The same applies after
+<code>KAOS_ON</code>, after a firmware restart, and after any print that
+ends in <code>SAVE_CONFIG</code>.</p>
+<p><strong>If a home does not help.</strong> Then the trust wiring
+itself is incomplete, which is a different fault. Menu <strong>3 — Check
+self-heal guards</strong> says so under “Unleashed x KAOS trust chain” —
+it reports <code>ok</code> when either KAOS’s own
+<code>[homing_override]</code> or the post-home hook is in place, and
+names the repair when neither is. That state arises on printers set up
+before the bridge could install it, or after a Phrozen firmware update
+replaces <code>printer.cfg</code>. Bringing the bridge up to date and
+restarting the klipper <strong>service</strong> repairs it:</p>
 <div class="sourceCode" id="cb34"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-home-hook.sh apply ~/printer_data/config/printer.cfg</span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
-<p>then <code>G28</code> once. If that script does not exist, the bridge
-predates the fix — update it first, because nothing else on the printer
-can add the hook.</p></li>
-<li><p><strong>Trust merely expired.</strong> It is not persistent.
-Every Klipper restart clears it, including the one
-<code>SAVE_CONFIG</code> performs, so a <code>KAOS_ON</code> followed by
-a restart leaves you untrusted. A single <code>G28</code> is the whole
-remedy.</p></li>
-</ul>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb35"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
+not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
 help</strong> An MCU shutdown <em>latches</em>: <code>RESTART</code>
 restarts only the host side, so the latch outlives it and each new
@@ -2367,17 +2375,17 @@ keeps a later Unleashed backup from rotating it away, and what the menu
 reads to label it for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb36"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb37"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the

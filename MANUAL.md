@@ -1449,25 +1449,38 @@ Measure where **both spans are equal** — `BELT_TENSION` parks there, and it is
 the bed nor the middle of the travel. Leave the steppers energised: `M84` lets the belts go slack and
 the reading is void. Aim for equal pitch between the two belts, not for any particular frequency.
 
-**Homing works, then nothing moves — "KAOS blocked …", or a calibration that stops dead at 0.0**
-Only with the KAOS add-on. Its motion guard refuses travel until a completed home has granted trust,
-and exactly one thing grants it: a call to `_ARCO_POST_HOME_HOOK` at the end of `[homing_override]`.
-That call has to sit in `printer.cfg` itself, because `[homing_override]` is a Klipper *section* and
-cannot be extended from another file. `printer.cfg` is never regenerated on a printer that already
-exists, so a kit update does not bring the call along — and a Phrozen firmware update carries it off.
-Two quite different states look identical from the display:
+**The cutter position calibration stops dead at X 0.0 — and other travel refused after homing**
+Only with the KAOS add-on, and the rule that fixes it is one line long: **home the printer fully
+once, then calibrate.**
 
-* **The call is absent.** Homing reports success, trust stays at 0, and travel is refused however
-  often you home. Menu **3 — Check self-heal guards** now names this outright. To repair it:
-  ```bash
-  bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-home-hook.sh apply ~/printer_data/config/printer.cfg
-  sudo systemctl restart klipper
-  ```
-  then `G28` once. If that script does not exist, the bridge predates the fix — update it first,
-  because nothing else on the printer can add the hook.
-* **Trust merely expired.** It is not persistent. Every Klipper restart clears it, including the one
-  `SAVE_CONFIG` performs, so a `KAOS_ON` followed by a restart leaves you untrusted. A single `G28`
-  is the whole remedy.
+KAOS refuses every travel until a home has physically established where the toolhead is. Klipper's
+own `homed_axes` is not evidence of that on this machine — the display routinely writes a position
+with `SET_KINEMATIC_POSITION` instead of measuring one, which makes Klipper believe it is homed when
+nothing has moved. That is the whole reason the guard keeps its own record.
+
+The display's cutter calibration never homes. Its very first action is to lift Z, before any homing
+at all, and that lift is what gets refused — so the screen sits at 0.0 having done nothing. It is not
+a crash and nothing is broken. A full `G28` beforehand satisfies the guard, and KAOS then stands down
+for the rest of the session.
+
+**Watch the end of the calibration.** It finishes with `SAVE_CONFIG`, which restarts Klipper — and a
+restart clears the trust again. Calibrating twice in a row therefore needs a `G28` in between. The
+same applies after `KAOS_ON`, after a firmware restart, and after any print that ends in
+`SAVE_CONFIG`.
+
+**If a home does not help.** Then the trust wiring itself is incomplete, which is a different fault.
+Menu **3 — Check self-heal guards** says so under "Unleashed x KAOS trust chain" — it reports `ok`
+when either KAOS's own `[homing_override]` or the post-home hook is in place, and names the repair
+when neither is. That state arises on printers set up before the bridge could install it, or after a
+Phrozen firmware update replaces `printer.cfg`. Bringing the bridge up to date and restarting the
+klipper **service** repairs it:
+```bash
+bash ~/arco-unleashed/scripts/unleashed_setup.sh
+```
+```bash
+sudo systemctl restart klipper
+```
+then `G28` once. Klipper's own `RESTART` does not run the guard that performs the repair.
 
 **Every command is rejected and `RESTART` does not help**
 An MCU shutdown *latches*: `RESTART` restarts only the host side, so the latch outlives it and each
