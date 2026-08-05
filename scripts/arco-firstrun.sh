@@ -177,7 +177,22 @@ fi
 # a script the kit had already deleted. Re-running the installer here costs a few seconds once and makes
 # the guards a property of the KIT rather than of the build date. It is idempotent by design (every step
 # is check-first) and needs no network.
-bash "$DIR/optimize-boot.sh" >/dev/null 2>&1 || true
+# NOT silent. This used to be `>/dev/null 2>&1 || true`, and on 2026-08-05 a freshly flashed unit
+# came up without the moonraker update-manager guard -- with no way left to find out why: the output
+# was discarded, journald here is volatile, and by the time anyone looked the first boot was two
+# boots ago. The absence had to be inferred from the MODIFICATION DATES of the drop-in files, which
+# is not a diagnostic anyone should need. So: let it speak, and say so when it fails. The guard set
+# is the one thing on a fresh printer whose absence changes nothing visible until the day it was
+# meant to save the machine.
+# PIPESTATUS, not the pipeline's own status: piping through sed makes `if` test SED's exit code, so
+# a failing optimize-boot would still read as success. That mistake is what made the silence above
+# possible in the first place.
+bash "$DIR/optimize-boot.sh" 2>&1 | sed 's/^/  optimize-boot: /'
+_ob_rc=${PIPESTATUS[0]}
+if [ "$_ob_rc" -ne 0 ]; then
+    echo "WARNING: optimize-boot.sh exited $_ob_rc — the self-heal guards may not match this kit."
+    echo "         Check with: bash $DIR/check-guards.sh"
+fi
 
 # --- Stage 0c: eMMC self-flash headless onboarding (additive; no-op unless the self-flash markers are on
 # the USB). Applies the seeded WiFi config + consent. (It still stamps /run/arco-skip-portal, now vestigial:
