@@ -544,7 +544,14 @@ a_selfupdate(){
     printf "   from — your files are not replaced and no kit is downloaded.\n"
     printf "   [a]dopt now (needs internet) / ENTER=back: "; read -r x
     case "$x" in
-      a|A) bash "$DIR/selfupdate.sh" adopt && bash "$DIR/selfupdate.sh" check;;
+      # Adoption on its own updates nothing, and `check` signs off by naming a shell command -- the
+      # same dead end the console commands were built to remove: the reader is standing in a menu,
+      # not at a prompt. Offer the step instead of describing it. check returns 0 only when there is
+      # something to apply, so an already-current kit does not get a pointless prompt.
+      a|A) if bash "$DIR/selfupdate.sh" adopt && bash "$DIR/selfupdate.sh" check; then
+             printf "   [u]pdate now / ENTER=back: "; read -r y
+             case "$y" in u|U) bash "$DIR/selfupdate.sh" update;; *) echo "  (back)";; esac
+           fi;;
       *) echo "  (back)";;
     esac
     return 0
