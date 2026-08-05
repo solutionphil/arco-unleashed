@@ -1184,12 +1184,12 @@ installs it. Updating later is one command, `KAOS_UPDATE`.
 
 ### Nothing to install — the bridge is already on your printer
 
-The image ships it: the bridge lives in `~/unleashed-x-kaos`, its console commands are registered, and
+The image ships it: the bridge lives in `~/arco-unleashed/unleashed-x-kaos`, its console commands are registered, and
 its boot guard is in place. **None of KAOS itself is in the image** — only our bridge, which does
 nothing at all until you ask it to. There is no root step, no USB stick and no download to prepare.
 
 So Step 10 is one command, below. (If you ever want to remove even the bridge, or need to undo a
-half-finished switch by hand, `~/unleashed-x-kaos/docs/removal.md` is the complete list.)
+half-finished switch by hand, `~/arco-unleashed/unleashed-x-kaos/docs/removal.md` is the complete list.)
 
 ### Switch it on and off
 
@@ -1203,7 +1203,7 @@ From the **Mainsail/Fluidd console** — each restarts Klipper and refuses to ru
 | `KAOS_STATUS` | what is installed, which version, active or not |
 
 `KAOS_OFF` returns the printer **byte-for-byte** to its pre-KAOS state. If you ever need to remove it
-by hand, follow `unleashed-x-kaos/docs/removal.md` — the order matters.
+by hand, follow `~/arco-unleashed/unleashed-x-kaos/docs/removal.md` — the order matters.
 
 ### Open the KAOS menu
 
@@ -1460,7 +1460,7 @@ Two quite different states look identical from the display:
 * **The call is absent.** Homing reports success, trust stays at 0, and travel is refused however
   often you home. Menu **3 — Check self-heal guards** now names this outright. To repair it:
   ```bash
-  bash ~/unleashed-x-kaos/scripts/kaos-home-hook.sh apply ~/printer_data/config/printer.cfg
+  bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-home-hook.sh apply ~/printer_data/config/printer.cfg
   sudo systemctl restart klipper
   ```
   then `G28` once. If that script does not exist, the bridge predates the fix — update it first,

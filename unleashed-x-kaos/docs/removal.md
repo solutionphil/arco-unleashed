@@ -25,7 +25,7 @@ to run mid-print.
 The same code path, without needing Klipper to accept a macro:
 
 ```bash
-bash ~/unleashed-x-kaos/scripts/kaos-sideload.sh off
+bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-sideload.sh off
 ```
 
 This is the answer for almost every "it is wedged" case. It restores the vendor `dev.py`, removes the
@@ -39,7 +39,7 @@ the trust wiring in that state arms the motion guard with nothing able to grant 
 Verify:
 
 ```bash
-bash ~/unleashed-x-kaos/scripts/phase0.sh compare      # PASS = byte-identical to baseline
+bash ~/arco-unleashed/unleashed-x-kaos/scripts/phase0.sh compare      # PASS = byte-identical to baseline
 ```
 
 ---
@@ -55,7 +55,7 @@ bash ~/unleashed-x-kaos/scripts/phase0.sh compare      # PASS = byte-identical t
 | 5 | `kaos_logging.py`, `kaos_motion_guard.py`, `kaos_translations.py`, `lang/` | `klippy/extras/phrozen_dev/` | ❌ left — inert, the vendor `dev.py` never imports them |
 | 6 | `kaos.cfg`, `kaos/*.cfg`, `kaos-unleashed-shims.cfg`, `kaos-trust-wiring.cfg`, `kaos-ams-bridge.cfg` | `printer_data/config/` | ❌ left — inert once the includes are gone |
 | 7 | **`kaos-bridge.cfg`** + its include | `printer_data/config/` | ❌ left — **NOT inert**: this is the console front door (`KAOS_ON`, `KAOS_OFF`, the shell command). Deliberate — it is how you switch KAOS back on |
-| 8 | payload cache, backups, phase0 baseline | `~/unleashed-x-kaos/.cache/` | ❌ left — this is what makes re-activation instant and offline |
+| 8 | payload cache, backups, phase0 baseline | `~/arco-unleashed/unleashed-x-kaos/.cache/` | ❌ left — this is what makes re-activation instant and offline |
 | 9 | `kaos_*` keys, `magic_stage` | `variables.cfg` | ❌ left — inert |
 | 10 | boot guard `21-kaos-guard.conf` | `/etc/systemd/system/klipper.service.d/` | ❌ left — **leave it**, see below |
 
@@ -73,7 +73,7 @@ every exit path. With KAOS off it only ensures the vendor `dev.py` is in place a
 
 Two consequences, both important:
 
-* **The guard's script lives in `~/unleashed-x-kaos/scripts/`.** Deleting that directory does not
+* **The guard's script lives in `~/arco-unleashed/unleashed-x-kaos/scripts/`.** Deleting that directory does not
   remove the guard — it turns it into a silent no-op. Keep the directory, or remove the drop-in too.
 * **It can only restore `dev.py` while `.cache/backup/dev.py` exists.** That backup is the single most
   valuable file in the tree. Do not delete it casually.
@@ -81,7 +81,7 @@ Two consequences, both important:
 To remove the guard entirely (root, one-time — do this **before** deleting the repo, never after):
 
 ```bash
-sudo bash ~/unleashed-x-kaos/scripts/kaos-sideload.sh uninstall-boot-guard
+sudo bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-sideload.sh uninstall-boot-guard
 ```
 
 ---
@@ -93,7 +93,7 @@ in between: between the include removal and the rename revert there is a moment 
 `PRZ_SPITTING_END`, and a start in that window would fail prints.
 
 ```bash
-cd ~/unleashed-x-kaos
+cd ~/arco-unleashed/unleashed-x-kaos
 
 # Refuse to continue if the vendor dev.py cannot be restored (see §2).
 test -f .cache/backup/dev.py || { echo "NO dev.py BACKUP — stop, restore a vendor dev.py first"; exit 1; }
@@ -133,8 +133,8 @@ declares the macro. Decide by the include, not by eye — note it is `kaos-ams-b
 
 ```bash
 grep -c 'kaos-ams-bridge' ~/printer_data/config/printer.cfg
-#   0 -> bash ~/unleashed-x-kaos/scripts/kaos-spit-patch.sh revert ~/printer_data/config/printer_gcode_macro.cfg
-#   1 -> bash ~/unleashed-x-kaos/scripts/kaos-spit-patch.sh apply  ~/printer_data/config/printer_gcode_macro.cfg
+#   0 -> bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-spit-patch.sh revert ~/printer_data/config/printer_gcode_macro.cfg
+#   1 -> bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-spit-patch.sh apply  ~/printer_data/config/printer_gcode_macro.cfg
 curl -s -X POST "http://localhost:7125/machine/services/restart?service=klipper"
 ```
 
@@ -147,7 +147,7 @@ trust wiring is gone. Restore the vendor `dev.py` (§2), or re-add `[include kao
 is a hard config error — check that first. The bridge keeps a one-shot pre-KAOS copy:
 
 ```bash
-cp -f ~/unleashed-x-kaos/.cache/backup/printer.cfg.pre-kaos ~/printer_data/config/printer.cfg
+cp -f ~/arco-unleashed/unleashed-x-kaos/.cache/backup/printer.cfg.pre-kaos ~/printer_data/config/printer.cfg
 ```
 
 If that is gone too, the kit's own `scripts/phrozen-recover.sh` restores `printer.cfg` wholesale.
@@ -176,7 +176,7 @@ what matters, because two of the steps disarm the safety net:
 5. `variables.cfg` — only with **klippy stopped**, or it will rewrite the file from memory:
    `sed -i '/^kaos_/d; /^magic_stage/d' ~/printer_data/config/variables.cfg`
 6. Boot guard (root), **before** the repo goes:
-   `sudo bash ~/unleashed-x-kaos/scripts/kaos-sideload.sh uninstall-boot-guard`
-7. Last, and only now: `rm -rf ~/unleashed-x-kaos`
+   `sudo bash ~/arco-unleashed/unleashed-x-kaos/scripts/kaos-sideload.sh uninstall-boot-guard`
+7. Last, and only now: `rm -rf ~/arco-unleashed/unleashed-x-kaos`
    — this destroys `.cache/backup/dev.py` and `printer.cfg.pre-kaos`, your last-resort restores.
    Copy them somewhere else first if you want to keep a safety net.

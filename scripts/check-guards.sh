@@ -85,8 +85,7 @@ done
 # does not arrive with a kit update either. Result: the trust wiring loads, KAOS's motion guard
 # arms, and no amount of homing can grant trust. The printer homes and then refuses to move, and
 # from the display that reads as the cutter calibration stopping dead at 0.0.
-KIT_PARENT="$(cd "$DIR/../.." 2>/dev/null && pwd || true)"
-KAOS_DIR="${KIT_PARENT:-/nonexistent}/unleashed-x-kaos"
+KAOS_DIR="$(cd "$DIR/.." 2>/dev/null && pwd || echo /nonexistent)/unleashed-x-kaos"
 PCFG="${HOME:-/home/mks}/printer_data/config/printer.cfg"
 kaos_trouble=""
 if [ -d "$KAOS_DIR" ] && [ -f "$PCFG" ]; then
