@@ -8,3 +8,9 @@
 *.img
 *.img.gz
 __pycache__/
+
+# Written into the deployed copy by build-kit-tar.sh, never committed: it records WHICH commit a
+# printer is running. Ignored because the image may ship this kit as a real git clone -- an untracked
+# file there would make the working tree look modified, and Moonraker refuses to update a repo it
+# considers dirty. The stamp is build output, not source.
+.kit-commit
