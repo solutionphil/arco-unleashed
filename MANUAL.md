@@ -205,29 +205,34 @@ It is entirely optional. Skip it if you have no intention of ever going back.
 > installation. Path A users have both files on the stick anyway; on path B they are the one thing you
 > have to add for this step.
 
-> ⚠️ **A FAT32 stick is not enough for this one.** The backup is a single file, and FAT32 cannot hold a
-> file of 4 GiB or more — a factory Arco typically lands around 5 GB. **Format the stick as `ext4`.**
+> ⚠️ **The backup is one single file, and FAT32 cannot hold a file of 4 GiB or more.** Everything in
+> this manual uses FAT32, and so does this — but it does mean the backup has to stay under that ceiling.
+> The tool measures first and tells you the estimate before anything happens, so you find this out in a
+> sentence rather than half an hour in.
 >
-> Not exFAT: your printer is still running Phrozen's original system at this point, and that kernel is
-> older than mainline exFAT support, so the flasher cannot mount such a stick after the reboot. Not
-> NTFS either, for the same reason. `ext4` is the one that always works here — it is what the printer
-> boots from, so the driver is guaranteed to be present. On the printer, with the stick plugged in:
+> If it says the backup is too large, **deleting files will not help.** This is an image of the whole
+> eMMC, not a copy of its files: everything you delete stays in the freed blocks byte for byte, and
+> compresses no better than noise. Two things do help, in the order worth trying:
 >
-> ```bash
-> lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT
-> ```
->
-> Find your stick in that list — then, replacing `sdX1` with **its** name, and reading it twice, because
-> this erases the device completely:
+> **1. Zero the free space, then run the backup again.** Usually decisive on a printer that has seen a
+> lot of prints. It fills the disk for a few minutes and then releases it again:
 >
 > ```bash
-> sudo umount /dev/sdX1; sudo mkfs.ext4 -L ARCOBK /dev/sdX1
+> sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync
 > ```
 >
-> Windows cannot write ext4, so use a **second** stick for this and keep your FAT32 one for the files in
-> Step 0. The tool measures first, tells you the estimate, and refuses to start on a stick it could not
-> write to afterwards — you will not find this out halfway through. If you would rather not reformat
-> anything, image the eMMC on a PC instead (path B, step 1).
+> Do not print while that runs, and reboot afterwards. The backup itself also zeroes free space on its
+> own, in the moment the filesystem is unmounted — this is the same trick, done early enough to be
+> visible in the estimate.
+>
+> **2. Compress harder.** Slower, and buys roughly 10–15 %:
+>
+> ```bash
+> sudo ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh --backup
+> ```
+>
+> If it still will not fit, image the eMMC on a PC instead (path B, step 1) — that has no size limit at
+> all.
 
 On the printer:
 
@@ -348,8 +353,7 @@ the target eMMC — read that line and make sure it is the device you mean:
 <p align="center"><img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760"></p>
 
 Then it asks you to type `yes`, and after that the device name in full. Two separate confirmations, on
-purpose: once the write starts it cannot be stopped or reversed, and the system being overwritten is the
-one you would need to notice the mistake:
+purpose: once the write starts it cannot be stopped or reversed:
 
 <p align="center"><img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760"></p>
 
