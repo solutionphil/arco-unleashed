@@ -856,10 +856,20 @@ backup_emmc() {
   if [ "$fstype" = vfat ] && [ "$need" -ge 4294967296 ]; then
     warn "this stick is FAT32: it cannot hold a single file of 4 GiB or more,"
     warn "estimated at $(( need / 1000000000 )) GB."
-    if fs_flashable exfat; then
-      warn "Format the stick as exFAT and re-run — NOT NTFS, the flasher cannot mount that."
+    # Name only what THIS kernel can actually mount. exFAT is the obvious answer and the wrong one on a
+    # stock Buster Arco: mainline exfat arrives in 5.7, and that kernel predates it -- confirmed by a
+    # tester on 2026-08-06. ext4 is the one that always works there, because it is what the printer
+    # boots from, so the driver is in the initramfs by construction. NTFS is never offered: the
+    # initramfs cannot mount it at all.
+    _alt=""
+    fs_flashable exfat && _alt="exFAT"
+    fs_flashable ext4  && _alt="${_alt:+$_alt or }ext4"
+    if [ -n "$_alt" ]; then
+      warn "Format the stick as $_alt and re-run — not NTFS, the flasher cannot mount that."
+      fs_flashable exfat || warn "(exFAT is not an option on this kernel; ext4 is. Windows cannot write"
+      fs_flashable exfat || warn " ext4, so format it here on the printer, or use a second stick.)"
     else
-      warn "This kernel has no exFAT driver either, so no single file on a USB stick can hold it."
+      warn "This kernel can mount nothing larger-file-capable than FAT32 on a stick."
       warn "Image the eMMC on a PC instead: remove the module and copy it there."
     fi
     die "aborting — nothing was changed."
