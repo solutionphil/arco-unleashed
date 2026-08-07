@@ -521,7 +521,15 @@ WantedBy=multi-user.target
 EOF
   systemctl daemon-reload 2>/dev/null || true
   systemctl enable arco-update-refresh.service 2>/dev/null || true
-  echo "  update-refresh service installed + enabled (clears the post-flash INVALID by itself)"
+  # ...and start it NOW, not only from the next boot. An owner who updates the kit on a printer that is
+  # already showing INVALID would otherwise have to reboot before the fix they just installed does
+  # anything -- which is the one thing they were trying to avoid. The unit stamps itself done, so this
+  # costs nothing on a printer that is already fine.
+  # --no-block matters: this same script also runs inside arco-firstrun, and a plain `start` on a
+  # oneshot WAITS for it. That unit can legitimately sit for minutes waiting for moonraker and for name
+  # resolution, and blocking the first-boot setup behind it would be a self-inflicted stall.
+  systemctl start --no-block arco-update-refresh.service 2>/dev/null || true
+  echo "  update-refresh service installed + started (clears the post-flash INVALID by itself)"
 fi
 
 systemctl daemon-reload 2>/dev/null || true
