@@ -498,5 +498,31 @@ EOF
   echo "  wifi-rearm service installed + enabled (setup portal returns if the config is ever lost)"
 fi
 
+# 5. The update manager shows INVALID after every fresh flash, and stays that way. Moonraker's first
+#    update check runs before Wi-Fi and DNS are up, fails on "Could not resolve host: github.com", and
+#    CACHES that. It never retries by itself. Proven on hardware 2026-08-07: DNS resolving fine while
+#    the panel still said INVALID, one refresh flipping both components to valid with real versions.
+#    Two testers reported it as a fault. The danger is not the label -- it is that INVALID is exactly
+#    the state in which Moonraker offers "Hard Recover", which deletes phrozen_dev.
+if [ -f "$SELFDIR/arco-update-refresh.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/arco-update-refresh.service" <<EOF
+[Unit]
+Description=Arco Unleashed - re-check the update manager once the network is really up
+After=moonraker.service network.target
+Wants=moonraker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/bash $SELFDIR/arco-update-refresh.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable arco-update-refresh.service 2>/dev/null || true
+  echo "  update-refresh service installed + enabled (clears the post-flash INVALID by itself)"
+fi
+
 systemctl daemon-reload 2>/dev/null || true
 echo "  done (takes effect on next boot)."
