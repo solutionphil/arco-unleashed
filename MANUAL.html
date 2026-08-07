@@ -870,8 +870,10 @@ you mean:</p>
 <p align="center">
 <img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760">
 </p>
-<p>Then it makes you type <code>yes</code> <strong>and</strong> the
-exact device name. Two deliberate speed bumps — there is no undo:</p>
+<p>Then it asks you to type <code>yes</code>, and after that the device
+name in full. Two separate confirmations, on purpose: once the write
+starts it cannot be stopped or reversed, and the system being
+overwritten is the one you would need to notice the mistake:</p>
 <p align="center">
 <img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760">
 </p>

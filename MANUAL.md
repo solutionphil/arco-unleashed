@@ -347,7 +347,9 @@ the target eMMC — read that line and make sure it is the device you mean:
 
 <p align="center"><img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760"></p>
 
-Then it makes you type `yes` **and** the exact device name. Two deliberate speed bumps — there is no undo:
+Then it asks you to type `yes`, and after that the device name in full. Two separate confirmations, on
+purpose: once the write starts it cannot be stopped or reversed, and the system being overwritten is the
+one you would need to notice the mistake:
 
 <p align="center"><img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760"></p>
 
