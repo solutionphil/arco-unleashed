@@ -695,9 +695,12 @@ before you touch a button.
 > down the purge chute, where you will not get them back without taking more of the printer apart. Hold
 > a finger behind each one as you loosen it, or lay a rag over the chute opening before you start.
 >
-> **The back cover is still attached on the right.** A ribbon cable runs to it, and it is short. Ease the
-> cover away from the left first and swing it open like a door rather than pulling it straight back —
-> pulling is what tears the cable or its connector, and that is not a five-minute repair.
+> **A microswitch sits behind the left edge.** The cover has to clear it, so press the housing slightly
+> sideways as you lift that side off rather than pulling the cover straight towards you.
+>
+> On the right, a **ribbon cable** is tucked in behind the cover. It is loosely folded and has plenty of
+> slack, so it will not stop you — just take the cover off gently and let the cable follow instead of
+> dragging it.
 
 **3) Power back up and get the script waiting.** Plug in, switch on, wait for the boot, connect with
 PuTTY again ([Step 5](#step-5)) and run:
