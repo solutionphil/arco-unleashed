@@ -83,34 +83,41 @@ module, and for keeping a way back to the factory system.
 
 <p align="center"><img src="assets/manual/tools.jpg" alt="Tools laid out" width="720"></p>
 
-**What you actually need** — a **FAT32 USB stick (≥ 4 GB)** and two hex keys, **2.5 mm** and **2.0 mm**.
-That is the whole list for the normal route. The stick carries the image and the printer flashes itself
-from it; the hex keys are for **[Step 6](#step-6)**, where the toolhead is opened to reach two buttons.
+### What you need
 
-The photo above also shows a **USB-to-eMMC adapter** (the white MKS case) and a **small Phillips
-screwdriver**. Those are **not** needed here — they belong to [Appendix A](#appendix-a), which takes the
-eMMC module out for recovery or for a spare. If everything goes normally you will never touch them.
+A **FAT32 USB stick** and two hex keys, **2.5 mm** and **2.0 mm**. That is the whole list.
 
-> **A spare eMMC module** (the same MKS V1.0 part) is worth considering even so: flash the spare and the
-> original stays a guaranteed, untouched way back to stock. See [Appendix A](#appendix-a).
->
-> **About the stick:** the original Phrozen one is a good fit, but **start it empty**. The tools match
-> their inputs by pattern (`Arco-Unleashed*.img.gz`, `Arco_FW_V*.zip`) and take the **first** match, so
-> an older firmware zip or a `(1)` copy left on it can win silently and install something you did not
-> intend. Format it, then put on only what the table below lists.
+**8 GB or larger** if you intend to make the backup in [Step 2](#step-2), which is the only way to keep a
+copy of the factory system; 4 GB is enough without it. Plug it **straight into the printer** — never
+through a hub. The original Phrozen stick is a good fit.
 
-**Space** — for the first install, put the printer somewhere you can **work all the way around it**, not
-in its usual corner. In Step 6 you open the toolhead itself to press two buttons on its board, which is
-fiddly with the machine wedged against a wall and not something you want to do twice.
+**Start the stick empty.** The tools pick their inputs by pattern (`Arco-Unleashed*.img.gz`,
+`Arco_FW_V*.zip`) and take the **first** match, so an older firmware zip or a `(1)` copy left over from
+last time can win silently and install something you did not intend. Format it, then put on only what
+the table below lists.
 
-> **Running a PentaShield (or any add-on panels)?** Take **at least the rear panel off before you
-> start.** Step 6 needs the two buttons *inside the toolhead*, and the panel is in the way of both the
-> covers and your hands. Doing it up front saves interrupting the flash halfway through — see
-> [the toolhead button step](#the-toolhead-f103-button-step).
+The photo also shows a **USB-to-eMMC adapter** (the white MKS case) and a **small Phillips screwdriver**.
+You do **not** need those. They belong to [Appendix A](#appendix-a), which takes the eMMC module out for
+recovery or for a spare — and if everything goes normally you will never open the machine that far.
 
-**What goes on the stick** — extract [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)
-to the **top level** of the stick and it brings everything in the first block below. Then add the two
-files only you can supply.
+> **A spare eMMC module** is still worth considering (the same MKS V1.0 part): flash the spare, and the
+> original stays untouched as a guaranteed way back to the factory system.
+
+### Space to work
+
+Put the printer somewhere you can **reach all the way around it**, not in its usual corner. In
+[Step 6](#step-6) you open the toolhead to press two buttons on its board. That is fiddly with the
+machine against a wall, and it is not something you want to do twice.
+
+> **Running a PentaShield or other add-on panels?** Take at least the **rear panel off before you start**
+> — it is in the way of both the toolhead covers and your hands. Doing it now saves interrupting the
+> flash halfway through. See [the toolhead button step](#the-toolhead-f103-button-step).
+
+### What goes on the stick
+
+Extract [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) to the **top
+level** of the stick. That covers everything marked *release zip* below. Then add the one file only you
+can make.
 
 | File | | Where from |
 |---|:---:|---|
@@ -118,30 +125,24 @@ files only you can supply.
 | `…img.gz.sha256` **+** `…img.gz.rawsize` | required | the release zip |
 | `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | required | the release zip |
 | **`arco-phrozen-ams.tar.gz`** | **required** | **you make it** in [Step 1](#step-1) |
-| `Arco_FW_V*.zip` | optional — see below | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip), you download it |
-| `wifi-seed.txt` *or* `no_wifi.txt` | optional | you write it (see [`selfflash/`](selfflash/README.md)) |
+| `Arco_FW_V*.zip` | optional | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip) — see below |
+| `wifi-seed.txt` *or* `no_wifi.txt` | optional | you write it — see [Step 3](#step-3) |
 
-> **When do you need `Arco_FW_V*.zip`?** Normally you don't. Phrozen publishes the display module in
-> their own public repository, and the printer offers to fetch it from there — you confirm once, it
-> downloads, and the checksum is verified before anything is installed. Bring the zip if **either** of
-> these applies to you:
-> - **the printer will have no internet while you set it up** (a stick with the zip is the offline route), or
-> - **you want the PhrozenGo cloud app** — it is only in Phrozen's own package, not in the repository.
->
-> Display and AMS firmware are *not* a reason: those are updated through Phrozen's own USB firmware
-> update, not from this stick.
->
-> The zip always wins: if one is on the stick, nothing is downloaded at all. Added, it looks like this
-> — the same stick as in Step 1, with Phrozen's package beside the AMS backup:
->
-> <p align="center"><img src="assets/manual/usb-files-with-fw.png" alt="The same USB stick with Arco_FW_V199.zip added" width="760"></p>
+**Do you need Phrozen's `Arco_FW_V*.zip`? Usually not.** Phrozen publish the display module in their own
+public repository, and the printer offers to fetch it from there: you confirm once, it downloads, and the
+checksum is verified before anything is installed. Bring the zip only if the printer will have **no
+internet** while you set it up, or if you want the **PhrozenGo** cloud app, which is in Phrozen's package
+and not in the repository. Display and AMS firmware are *not* a reason — those come through Phrozen's own
+USB firmware update, not from this stick.
+
+If a zip is on the stick it always wins and nothing is downloaded. On the stick it sits beside the AMS
+backup from Step 1:
+
+<p align="center"><img src="assets/manual/usb-files-with-fw.png" alt="The same USB stick with Arco_FW_V199.zip added" width="760"></p>
 
 *Nothing proprietary is bundled with this project. Phrozen's module is either read from the zip you
 supply, or — only after you confirm — downloaded from **Phrozen's own** public repository onto your
 printer. Nothing of Phrozen's is hosted, mirrored or redistributed here.*
-
-*(Only [Appendix A](#appendix-a) additionally needs [balenaEtcher](https://etcher.balena.io/) on a PC,
-plus the adapter and the Phillips screwdriver.)*
 
 ---
 
@@ -473,37 +474,83 @@ sudo bash ~/selfflash/install-unleashed.sh --disarm
 
 ## Step 4 — First boot: WiFi portal + USB install
 
-The public image ships **without** Phrozen's software, so the first boot brings up a **WiFi setup
-portal**, then installs Phrozen's module — from your stick if a zip is on it, otherwise by fetching it
-from Phrozen's own repository after you have confirmed.
+The image ships **without** Phrozen's software. So the first boot does two things: it asks you for a WiFi
+network from your phone, and then installs Phrozen's module — from the zip on your stick if there is one,
+otherwise by downloading it from Phrozen's own repository once you confirm.
 
-**3.1 — Prepare the USB stick.** On the FAT32 stick you need the **`arco-phrozen-ams.tar.gz`** from
-Step 1 (see the picture there). Add **Phrozen's `Arco_FW_V*.zip`** beside it only if the printer will
-have **no internet** during setup, or if you want PhrozenGo — see the note under
-[What you need](#before-you-begin).
+The stick needs `arco-phrozen-ams.tar.gz` from [Step 1](#step-1) on it. Everything else it might use is
+already there from [Before you begin](#before-you-begin).
 
-**3.2 — Plug the stick in, *then* connect.** Power the printer on and **insert the prepared USB stick into
-the printer's USB port now — before you press Connect.** On your **phone**, join the
-**`Arco-Unleashed-Setup`** Wi-Fi; the captive portal pops up (`192.168.4.1`). Pick your network, enter the
-password, **select your country (WiFi region)**, **tick the consent box**, and press **Connect**. The printer
-reboots onto your WiFi.
+### 1. Stick in first, then connect
+
+Power the printer on and **put the stick in before you press Connect** in the portal.
+
+On your **phone**, join the WiFi network **`Arco-Unleashed-Setup`**. The captive portal opens by itself
+(or go to `192.168.4.1`). Pick your network, enter the password, **choose your country**, **tick the
+consent box**, and press **Connect**. The printer reboots onto your WiFi.
 
 <p align="center"><img src="assets/manual/wifi-portal.jpg" alt="WiFi setup portal on phone" width="360"></p>
 
-> **No hotspot showing?** Give it **~90 seconds** first — that is how long the printer tries any seeded
-> WiFi before it gives up and raises the hotspot. If neither the printer nor the hotspot appears, you can
-> hand it the network from the USB stick: create **`wifi-seed.txt`** in the stick's top-level folder with
-> the three lines `SSID=` / `PSK=` / `COUNTRY=`, put the stick back in and **power-cycle**. This stage runs
-> again on every boot until the Phrozen install finishes, so it picks the file up and joins your network.
-> (Beware Notepad saving it as `wifi-seed.txt.txt`; the network must be **2.4 GHz**.)
->
-> Each `wifi-seed.txt` is applied **once** on purpose — a later boot must not overwrite a network you set
-> through the portal in the meantime — and is renamed `wifi-seed.txt.applied` so you can see it was picked
-> up. "Once" is judged by the file's **contents**, recorded on the printer, not by its timestamp: FAT
-> sticks record local time and Linux reads it as UTC, so timestamps were unusable. To try again the
-> details must genuinely differ (a corrected password); rewriting the identical file changes nothing.
+### 2. The install runs by itself
 
-<details><summary>Flashed a release from before this one? (the two-file rescue)</summary>
+After that reboot the install starts from the stick, and the display shows its progress —
+*Reading → Installing → Patching*:
+
+<p align="center"><img src="assets/manual/usb-install-progress.jpg" alt="Display: installing display + module" width="720"></p>
+
+At 100 % it shows **"Update complete — wait for restart…"** and **reboots on its own** a few seconds
+later. Let it.
+
+> **Do not switch it off here.** The filesystem batches writes for up to two minutes, so pulling the power
+> at this point can cost you most of the install.
+
+Once it is back up you can remove the stick. The rootfs is resized to the full card during this boot, and
+the SSH host keys are generated.
+
+### 3. What you see afterwards — an error screen, and that is correct
+
+The display settles on **"Notice — Error occurred"**.
+
+**The install did not fail.** Klipper cannot start yet because the MCUs still carry Phrozen's old
+firmware, so the display has nothing to talk to. Restarting or power-cycling will not clear it, and it
+clears by itself once you flash the MCUs in [Step 6](#step-6). Wait until that screen has settled — that
+is how you know the automatic restart is done — then continue with [Step 5](#step-5).
+
+Two things you may be offered here, and should decline:
+
+- **Any built-in "print test"** from the first run or a factory reset. The bundled test file was compiled
+  for the old Klipper and cannot run on v0.13. Your first print comes from OrcaSlicer in
+  [Step 10](#step-10).
+- **Phrozen's setup wizard** (language → name → chute calibration → homing). It is switched off
+  deliberately, because it ends in a homing move that cannot finish before Step 6. If one appears anyway,
+  do not work through it — power-cycle once or twice and it clears.
+
+### If the hotspot never appears
+
+Give it **about 90 seconds** first: that is how long the printer tries any WiFi you seeded before it gives
+up and raises the hotspot.
+
+If neither the printer nor the hotspot turns up, hand it the network from the stick instead. Create
+**`wifi-seed.txt`** in the stick's top-level folder:
+
+```
+SSID=YourNetworkName
+PSK=YourWiFiPassword
+COUNTRY=US
+```
+
+Put the stick back in and **power-cycle**. This stage runs again on every boot until the Phrozen install
+has finished, so it will pick the file up. The network must be **2.4 GHz**, and watch out for Notepad
+saving the file as `wifi-seed.txt.txt`.
+
+> **Each seed file is used once, on purpose.** A later boot must not overwrite a network you set through
+> the portal in the meantime. Once applied it is renamed `wifi-seed.txt.applied` so you can see it was
+> picked up. "Once" is judged by the file's **contents**, recorded on the printer — not by its timestamp,
+> because FAT sticks record local time and Linux reads it as UTC, which made timestamps useless. To try
+> again the details have to genuinely differ, for example a corrected password; rewriting the identical
+> file changes nothing.
+
+<details><summary>Flashed a release from before this one? The two-file rescue</summary>
 
 Older images do not read `wifi-seed.txt` yet. There the rescue takes **two** files on the stick — note the
 leading dots:
@@ -524,39 +571,15 @@ leading dots:
 Then power-cycle. This route still works on current images too.
 </details>
 
-**3.3 — USB install.** After the reboot the install runs from that stick and the **display** shows a
-progress bar (Reading → Installing → Patching):
+### A note on the touch panel
 
-<p align="center"><img src="assets/manual/usb-install-progress.jpg" alt="Display: installing display + module" width="720"></p>
+This project never updates the display firmware. If you install from Phrozen's zip, that package happens
+to carry panel firmware and Phrozen's own updater may flash it when the versions differ; the download
+route carries none, and nothing about the display changes.
 
-**3.4 — It restarts itself.** At 100 % the display shows **"Update complete — wait for restart…"** and the
-printer **reboots on its own** a few seconds later. Let it. **Don't switch it off:** the filesystem batches
-writes for up to two minutes, so pulling the power here can cost you most of the install.
-
-> **Phrozen's own "Update Complete — restart printer manually" screen no longer appears**, and that is
-> deliberate. It is the same screen that arms a one-time setup wizard, and on a printer whose MCUs aren't
-> flashed yet that wizard ends in a homing move that never finishes — a dead end you can't click out of.
-> Both are switched off; the screen above replaces them, and the reboot is automatic.
-
-After the restart you can remove the stick. *(The full-card rootfs resize also happens here; SSH host keys
-are generated on the first boot.)* Once the MCUs are flashed in [Step 6](#step-6),
-the normal Phrozen display WiFi screen handles future network changes.
-
-> **What you see now is "Notice — Error occurred", and that is expected.** Klipper cannot start yet,
-> because the MCUs still carry the old firmware — so the display settles on an error popup. The install
-> did **not** fail, and restarting or power-cycling will not clear it. **Wait for that settled screen**
-> (it means the automatic restart has finished), then go on to Step 5 and flash the MCUs in Step 6.
-
-> **Skip any built-in "print test"** the first-run or a factory reset offers — the bundled test file was
-> compiled for the old Klipper and can't run on v0.13. Your first print comes from OrcaSlicer later.
-
-> **Display firmware (.tft).** This project never updates the touch panel. If you install from Phrozen's
-> zip, that package happens to carry the panel firmware and Phrozen's own updater may flash it when the
-> versions differ; the download route carries none, and nothing about the display changes. **If your
-> printer was on an older Phrozen firmware** and the display looks off, **run one official Phrozen USB
-> firmware update once** — that is how panel firmware is meant to be updated, and it is safe here: the
-> self-heal guards re-apply the v0.13 Klipper patches automatically on the next boot. *(This applies to
-> both install paths.)*
+If your printer was on an older Phrozen firmware and the display looks wrong, **run one official Phrozen
+USB firmware update**. That is how panel firmware is meant to be updated, and it is safe here — the
+self-heal guards re-apply the v0.13 Klipper patches by themselves on the next boot.
 
 ---
 
@@ -1080,32 +1103,35 @@ on **Klipper v0.13**, OS **armbian … bookworm**:
 
 ## Step 10 — First print: OrcaSlicer Machine G-code
 
-Stock OrcaSlicer already ships the **Phrozen Arco** profile (vendor `Phrozen`). The easiest path is to
-**import a kit profile** via *File → Import → Import Configs…* — it inherits from that official preset
-and changes only what this kit needs. Two to choose from, in [`orca/`](orca/):
+Stock OrcaSlicer already ships the **Phrozen Arco** profile (vendor `Phrozen`). This kit does not replace
+it — it adds a preset that inherits from it and changes only what is needed here.
+
+### The quick way: import a profile
+
+*File → Import → Import Configs…*, and pick one from [`orca/`](orca/):
 
 | Profile | Bed mesh at print start |
 |---|---|
 | `Phrozen Arco 0.4 (Unleashed).json` | **`G30`** — loads the mesh you saved as `phrozen`. Instant. |
 | `Phrozen Arco 0.4 (Unleashed, adaptive mesh).json` | **probes the print area** each print (~30–60 s), leaving your saved mesh untouched |
 
-Import whichever you want; both fill in all four fields below. *Label objects*, which adaptive meshing
-needs, is already on in the official Arco print profiles — nothing to tick.
+Either one fills in all four G-code fields for you, and you can stop reading here. *Label objects*, which
+adaptive meshing needs, is already on in the official Arco print profiles.
 
-To set the fields by hand instead, open the printer preset with the **edit (pencil)** icon next to the
-printer name:
+### Or set the four fields by hand
+
+Open the printer preset with the **pencil** icon next to the printer name:
 
 <p align="center"><img src="assets/manual/orca-1-edit-preset.png" alt="OrcaSlicer — click the pencil to edit the printer preset" width="900"></p>
 
-In **Printer settings**, open the **Machine G-code** tab — all four fields live here:
+In **Printer settings → Machine G-code**, all four live on one tab:
 
 <p align="center"><img src="assets/manual/orca-2-machine-gcode-tab.png" alt="Printer settings — Machine G-code tab" width="820"></p>
 
-Each field below is given in full, ready to copy. If you imported the kit profile they are already set —
-this is for setting them by hand, or checking an existing profile against the current version.
+Each is given in full below, ready to copy — useful too for checking an older profile against the current
+version.
 
-**Machine start G-code** — the kit's start sequence. Its last lines are the **AMS auto-mode**
-(`PHROZEN_AMS_START` picks single / multi / AMS by itself):
+#### Machine start G-code
 
 ```gcode
 M107
@@ -1129,34 +1155,39 @@ T0
 
 <p align="center"><img src="assets/manual/orca-3-start-gcode.png" alt="Machine start G-code" width="820"></p>
 
-> The screenshot shows the optional **adaptive bed-mesh** variant (probes the print area each print,
-> ~30–60 s). The default block printed here uses `G30`, which loads the saved mesh instantly. To switch,
-> replace the `G30` line with:
-> ```gcode
-> M106 S255
-> BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
-> M106 S0
-> ```
-> The fan lines keep the nozzle tip clean while probing. **Also tick OrcaSlicer's *Label objects*
-> checkbox** (*Others → Label objects*) — adaptive meshing reads the object bounding boxes from the
-> `EXCLUDE_OBJECT_DEFINE` lines that checkbox emits, and **without it Klipper silently probes the whole
-> bed**, which looks like adaptive meshing not working. Full detail: *Adaptive bed mesh* in the
-> [README](README.md#adaptive-bed-mesh-optional).
+The last lines are the **AMS auto-mode**: `PHROZEN_AMS_START` picks single-colour, multi-colour or AMS by
+itself.
 
-> **`PHROZEN_AMS_START` also arms the filament runout sensor.** The toolhead sensor is watched by
-> Phrozen's own module, but only once a print mode has been set (`P0 M1`/`M2`/`M3` — the macro picks
-> the right one). A start G-code **without** that line prints with **no runout protection at all**,
-> and the stock firmware says nothing about it. Unleashed does: you get a console warning a few
-> minutes into such a print, and `FILA_STATUS` shows the state at any time —
+> **That line also arms the filament runout sensor**, which is easy to lose by accident. The toolhead
+> sensor is watched by Phrozen's module, but only once a print mode has been set (`P0 M1`/`M2`/`M3` — the
+> macro picks the right one). A start G-code **without** it prints with **no runout protection at all**,
+> and the stock firmware never mentions this. Unleashed does: a console warning appears a few minutes
+> into such a print, and `FILA_STATUS` tells you where you stand at any time:
+>
 > ```
 > Filament: LOADED (adc 0.2134, threshold 0.3630 — below threshold = loaded)
 > Mode: standalone runout
 > Runout protection: ACTIVE
 > ```
-> The same values are in `printer['arco_fila_status']`, so your own macros can check
-> `protection_active` and `filament_present` too.
+>
+> The same values sit in `printer['arco_fila_status']`, so your own macros can read `protection_active`
+> and `filament_present`.
 
-**Machine end G-code**:
+> **Want the adaptive mesh instead?** That is what the screenshot above shows. Replace the `G30` line
+> with:
+>
+> ```gcode
+> M106 S255
+> BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
+> M106 S0
+> ```
+>
+> The fan lines keep the nozzle tip clean while probing. **Tick *Label objects*** as well (below) —
+> adaptive meshing reads object bounding boxes from the `EXCLUDE_OBJECT_DEFINE` lines that checkbox
+> emits, and without it Klipper silently probes the whole bed, which looks exactly like adaptive meshing
+> not working. Full detail: *Adaptive bed mesh* in the [README](README.md#adaptive-bed-mesh-optional).
+
+#### Machine end G-code
 
 ```gcode
 PRINT_END
@@ -1164,8 +1195,10 @@ PRINT_END
 
 <p align="center"><img src="assets/manual/orca-4-end-gcode.png" alt="Machine end G-code = PRINT_END" width="820"></p>
 
-**Change filament G-code** — the AMS-aware colour change: with an AMS it retracts and purges the flush
-volume (a sized `P10` spit); without one it runs the manual `M600` change:
+#### Change filament G-code
+
+The AMS-aware colour change: with an AMS it retracts and purges the flush volume (a sized `P10` spit);
+without one it runs the manual `M600` change.
 
 ```gcode
 PHROZEN_TOOLCHANGE FLUSH=[flush_length]
@@ -1173,24 +1206,25 @@ PHROZEN_TOOLCHANGE FLUSH=[flush_length]
 
 <p align="center"><img src="assets/manual/orca-5-change-filament.png" alt="Change filament G-code = PHROZEN_TOOLCHANGE FLUSH=[flush_length]" width="820"></p>
 
-> **Printing multi-*material* with an AMS?** Add one more parameter:
+> **Printing multi-*material* with an AMS?** Add one parameter:
 >
-> ```
+> ```gcode
 > PHROZEN_TOOLCHANGE FLUSH=[flush_length] TEMP=[new_filament_temp]
 > ```
 >
-> `TEMP` passes the **incoming** tool's nozzle temperature. Without it every colour change after the
-> first re-heats and purges at the temperature the print *started* with — invisible when all your
-> spools are the same material, but wrong the moment you mix (PETG purged at PLA temperature jams;
-> PLA held at PETG temperature strings and cooks).
+> `TEMP` passes the **incoming** tool's nozzle temperature. Without it, every colour change after the
+> first re-heats and purges at the temperature the print *started* with — invisible while all your spools
+> are the same material, and wrong the moment you mix. PETG purged at PLA temperature jams; PLA held at
+> PETG temperature strings and cooks.
 >
-> It is **safe to add permanently**: with a single material it changes nothing, and it is simply
-> ignored unless the optional [Unleashed × KAOS](#step-11) add-on is
-> installed. So one profile covers every case and you never need to re-slice when switching.
->
-> Give your filament presets their real nozzle temperatures — that is what `TEMP` reads.
+> It is safe to add permanently: with a single material it changes nothing, and it is ignored unless the
+> optional [Unleashed × KAOS](#step-11) add-on is installed. One profile then covers every case and you
+> never re-slice when switching. Give your filament presets their real nozzle temperatures — that is what
+> `TEMP` reads.
 
-**Pause G-code** — the kit maps `M601` to Klipper's `PAUSE` alias:
+#### Pause G-code
+
+The kit maps `M601` to Klipper's `PAUSE`.
 
 ```gcode
 M601
@@ -1198,17 +1232,20 @@ M601
 
 <p align="center"><img src="assets/manual/orca-6-pause.png" alt="Pause G-code = M601" width="820"></p>
 
-Finally, under **Others → G-code output**, tick **Label objects** — required for the adaptive bed mesh
-(per-object bounding boxes) and Mainsail per-object exclusion:
+### Two settings outside that tab
+
+**Others → G-code output → Label objects.** Required for the adaptive bed mesh (per-object bounding
+boxes) and for Mainsail's per-object exclusion:
 
 <p align="center"><img src="assets/manual/orca-7-label-objects.png" alt="OrcaSlicer Others tab — tick Label objects" width="640"></p>
 
-Finally, set the AMS flag **on/off once** to match whether an AMS is attached — either from the **SSH setup
-menu**, or with **one click in Mainsail's Macros panel** (`AMS ON` / `AMS OFF`, and `AMS STATUS` to check):
+**The AMS flag, once, on the printer** — not in the slicer. Set it to match whether an AMS is physically
+attached, either from the SSH setup menu or with one click in Mainsail's Macros panel (`AMS ON` /
+`AMS OFF`, and `AMS STATUS` to check):
 
 <p align="center"><img src="assets/manual/mainsail-ams-macros.png" alt="Mainsail Macros panel — AMS ON / AMS OFF / AMS STATUS buttons" width="820"></p>
 
-Orca then prints in the right mode automatically.
+With that set, Orca prints in the right mode automatically.
 
 ---
 
