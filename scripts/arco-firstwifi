@@ -1,0 +1,72 @@
+#!/bin/bash
+# arco-firstwifi — bring up Wi-Fi from /boot/arco-wifi.txt, whichever network stack is running.
+#
+# Replaces the base image's /usr/local/sbin/arco-base-firstwifi, which drove nmcli exclusively. That was
+# right for the BASE image and wrong for the FULL one: the full build disables NetworkManager on purpose
+# (one owner for wlan0, no contention with systemd-networkd) and every nmcli call there answers
+#     Error: NetworkManager is not running.
+# So the boot-partition file -- the last way in when a printer has lost its Wi-Fi, and the only one that
+# needs no shell -- did nothing at all on the image people actually run. Found 2026-08-06 while a tester
+# was locked out after a factory reset.
+#
+# This detects the stack instead of assuming one, so the same file is correct on base and full images:
+#   NetworkManager running  -> nmcli, exactly as before
+#   otherwise               -> write wpa_supplicant-wlan0.conf and restart wpa_supplicant@wlan0
+#
+# Installed by optimize-boot.sh over the base image's copy, and run by arco-base-firstwifi.service.
+set -uo pipefail
+
+C=/boot/arco-wifi.txt; [ -f "$C" ] || C=/boot/firmware/arco-wifi.txt
+[ -f "$C" ] || exit 0
+
+# The file lives on the FAT boot partition and is almost always edited on Windows -> strip CR.
+CR=$(mktemp); tr -d '\r' < "$C" > "$CR"; trap 'rm -f "$CR"' EXIT
+trim(){ sed -n "s/^$1=//p" "$CR" | head -1 | sed 's/[[:space:]]*$//'; }
+SSID=$(trim SSID)
+PSK=$(trim PSK)
+CC=$(trim COUNTRY)
+
+[ -n "$SSID" ] && [ "$SSID" != "YourNetworkName" ] || { echo "arco-firstwifi: SSID not set yet"; exit 0; }
+[ -n "${CC:-}" ] && iw reg set "$CC" 2>/dev/null || true
+
+done_ok(){
+  echo "arco-firstwifi: connected to $SSID"
+  # Only ever disable on SUCCESS -- a printer whose credentials are wrong must keep trying every boot,
+  # because editing that file is the owner's only remaining lever.
+  systemctl disable arco-base-firstwifi.service 2>/dev/null || true
+  exit 0
+}
+
+if systemctl is-active --quiet NetworkManager 2>/dev/null; then
+  for _ in $(seq 1 20); do nmcli -t -f RUNNING general status 2>/dev/null | grep -q running && break; sleep 2; done
+  nmcli radio wifi on 2>/dev/null || true
+  nmcli dev wifi rescan 2>/dev/null || true; sleep 3
+  nmcli dev wifi connect "$SSID" password "$PSK" 2>/dev/null && done_ok
+  echo "arco-firstwifi: nmcli connect failed — will retry next boot"
+  exit 0
+fi
+
+# ---- systemd-networkd + wpa_supplicant@wlan0 (the full image) -------------------------------------
+WPA=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+# Escape for a quoted wpa_supplicant string: backslash first, then the quote.
+esc(){ printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+umask 077
+{
+  # GROUP=netdev, so wpa_cli works for the non-root display process. Without it voronFDM's network page
+  # is empty on every printer -- see the ctrl-interface guard in optimize-boot.sh.
+  printf 'ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev\nupdate_config=1\n'
+  [ -n "${CC:-}" ] && printf 'country=%s\n' "$CC"
+  printf 'network={\n    ssid="%s"\n' "$(esc "$SSID")"
+  if [ -n "${PSK:-}" ]; then printf '    psk="%s"\n' "$(esc "$PSK")"; else printf '    key_mgmt=NONE\n'; fi
+  printf '}\n'
+} > "$WPA.new" && mv "$WPA.new" "$WPA"
+chmod 600 "$WPA"
+
+systemctl restart wpa_supplicant@wlan0.service 2>/dev/null || true
+# Give DHCP a chance before deciding. networkd owns the address; nothing to do but wait for it.
+for _ in $(seq 1 20); do
+  ip -4 addr show wlan0 2>/dev/null | grep -q 'inet ' && done_ok
+  sleep 2
+done
+echo "arco-firstwifi: no address after writing $WPA — will retry next boot"
+exit 0

@@ -99,7 +99,7 @@ onto it depends on the path — the key difference is that **path A carries the 
 |---|:---:|:---:|---|
 | `Arco-Unleashed_bookworm_6.18.30.img.gz` | ✅ | — → onto the eMMC | inside [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) |
 | `…img.gz.sha256` **+** `…img.gz.rawsize` | ✅ | — | Releases |
-| `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | ✅ | — | Releases |
+| `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | ✅ | ( ✅ ) — **needed for [Step 0b](#step-0b--optional-image-the-whole-printer-first)** | Releases |
 | `Arco_FW_V*.zip` — **optional**, see below | ( ✅ ) | ( ✅ ) | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip) — *you download it* |
 | **`arco-phrozen-ams.tar.gz`** | ✅ | ✅ | Step 0 (`collect_data_arco.sh`) |
 | *optional* `wifi-seed.txt` / `no_wifi.txt` | ✅ | — | you create it (see [`selfflash/`](selfflash/README.md)) |
@@ -125,6 +125,8 @@ printer. Nothing of Phrozen's is hosted, mirrored or redistributed here.*
 **Path B additionally needs [balenaEtcher](https://etcher.balena.io/) on a PC** plus the tools pictured above.
 
 ---
+
+<a id="step-0"></a>
 
 ## Step 0 — Collect data from your still-running printer · **do this first**
 
@@ -189,8 +191,30 @@ teardown: no screws, no eMMC removal, no PC.
 
 It is entirely optional. Skip it if you have no intention of ever going back.
 
-**You need** a USB stick with room for the image — **8 GB or larger**, plugged **straight into the
-printer, never through a USB hub**. On the printer:
+**You need two things on that stick.** First, room for the image — **8 GB or larger**, plugged
+**straight into the printer, never through a USB hub**. Second, the self-flash tool itself:
+
+| On the stick | From |
+|---|---|
+| `unleashed-selfflash.tar.gz` | inside [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) |
+| `prepare_unleashed_self_flash.sh` | the same zip |
+
+> **Why these, when you are flashing the eMMC externally?** Because right now your printer is still
+> running Phrozen's original system, and none of this project's files are on it yet. The backup tool has
+> to come from the stick — that is the whole reason it ships as a standalone package that needs no
+> installation. Path A users have both files on the stick anyway; on path B they are the one thing you
+> have to add for this step.
+
+> ⚠️ **A FAT32 stick is probably not enough for this one.** The backup is a single file, and FAT32 cannot
+> hold a file of 4 GiB or more — a factory Arco typically lands around 5 GB. **Format the stick as
+> exFAT.** Not NTFS: the flasher cannot mount it. The tool measures first and tells you the estimate
+> before anything happens, and it refuses to start on a stick it would not be able to write to — so you
+> will not find this out halfway through.
+>
+> This is the one place the backup stick differs from every other stick in this manual, which are all
+> FAT32. If you would rather not reformat, image the eMMC on a PC instead (path B, step 1).
+
+On the printer:
 
 ```bash
 sh ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh
@@ -783,6 +807,31 @@ the AddOn macros, Fluidd, the theme, the WiFi portal and this backup feature its
 that the chosen image really predates Unleashed, and finally asked to type **`REMOVE UNLEASHED`** in
 full. Your prints, Orca profiles and AMS are unaffected: this is about the printer's system, not your
 files. Nothing is undone by pressing ENTER at the wrong moment.
+
+<a id="ams-ships-switched-off"></a>
+
+**`a` — AMS / Chroma Kit on·off. If you own an AMS, this is not optional.** Every image ships with the
+AMS **switched off**, and that is deliberate: most printers do not have one, and a printer that opens an
+AMS serial port with nothing on the other end waits, retries and reports errors for something the owner
+never attached. So `printer.cfg` ships `[phrozen_dev] auto_connect: false`, and the tool commands `T1`
+to `T15` are removed from Klipper's command table until you say otherwise.
+
+The consequence is easy to misread as a fault: **with the AMS physically connected but never switched
+on, the spools simply do not turn.** Nothing is broken and nothing needs repairing — the printer has not
+been told the unit is there. Switch it on once, from the menu or from the Mainsail console:
+
+```
+AMS_ON
+```
+
+It homes first (deliberately — the following move goes to the spit area), sets `auto_connect: true`,
+raises the `ams` flag that the Orca start G-code reads, brings `T1`–`T15` back without a restart, and
+connects. `AMS_OFF` reverses all of it. `AMS_STATUS` shows where you stand. Do this **once**, whenever
+you physically attach or remove the unit — not per print.
+
+> If the spools still do not move afterwards, the missing piece is almost always **`phrozen_master`**
+> from [Step 0](#step-0). It exists only on the original printer, no download contains it, and without
+> it AMS detection hangs. `AMS_STATUS` says whether it is installed.
 
 **3 — Check self-heal guards** answers a question you would otherwise have no way to ask: the guards are
 installed when the image is built, so a printer that has been running for a while may be missing ones the

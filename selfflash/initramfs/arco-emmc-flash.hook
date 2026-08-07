@@ -57,7 +57,14 @@ manual_add_modules cpufreq_dt cpufreq-dt rockchip_cpufreq 2>/dev/null || true
 force_load usb_storage 2>/dev/null || true
 manual_add_modules sd_mod 2>/dev/null || true
 manual_add_modules vfat   2>/dev/null || true   # FAT32 USB stick
-manual_add_modules nls_cp437 nls_iso8859-1 2>/dev/null || true
+# exFAT, because FAT32 cannot hold a file of 4 GiB or more and a whole-eMMC backup passes that on any
+# printer whose flash is reasonably full -- a stock Buster Arco estimates around 5 GB. install-unleashed
+# tells the owner to reformat as exFAT at that point, and until this line existed that advice led into a
+# stick the initramfs could not mount: arming succeeded (full Debian mounts exFAT), the reboot happened,
+# and the flasher then fell through to a normal boot with no log, because the log lives on that very
+# stick. Silent, and indistinguishable from "it just did nothing". exfat needs nls_utf8 for its names.
+manual_add_modules exfat  2>/dev/null || true   # >4 GiB backups
+manual_add_modules nls_cp437 nls_iso8859-1 nls_utf8 2>/dev/null || true
 
 # embed the armed flash parameters (so the flasher reads them from RAM, never from the eMMC being wiped)
 if [ -f /etc/arco-selfflash/flash.conf ]; then
