@@ -75,6 +75,27 @@ note(){ echo "  · $*"; }
 warn(){ echo "  ! $*" >&2; }
 hr(){ printf '%s\n' "----------------------------------------------------------------------"; }
 ask_yn(){ local a; read -rp "  $1 [y/n] " a; [ "$a" = y ] || [ "$a" = Y ] || [ "$a" = yes ]; }
+
+# ---- which filesystems the INITRAMFS flasher can mount -------------------------------------------
+# This shell can mount far more than the initramfs can, so "the stick mounted fine" proves nothing about
+# what happens after the reboot. These two answer the only question that matters at arm time.
+# Keep in step with initramfs/arco-emmc-flash{,.hook}: vfat and exfat are added there by name; ext* rides
+# along because initramfs-tools always carries the root filesystem's driver.
+fs_available(){   # can THIS kernel mount <fstype> at all — built-in, already loaded, or a module on disk?
+  grep -qE "[[:space:]]$1\$" /proc/filesystems 2>/dev/null && return 0
+  modinfo "$1" >/dev/null 2>&1
+}
+fs_flashable(){
+  case "$1" in
+    vfat|exfat|ext2|ext3|ext4) fs_available "$1" ;;
+    *)                         return 1 ;;
+  esac
+}
+fs_flashable_list(){
+  local out= f
+  for f in vfat exfat ext4; do fs_flashable "$f" && out="${out:+$out, }$f"; done
+  echo "${out:-vfat}"
+}
 # Empty/declined Wi-Fi -> confirm we fall through to the first-boot setup portal (set from a phone), or abort
 # BEFORE anything is armed. Never silently flash with no Wi-Fi: from Buster that would strand the printer
 # (MCUs unflashed -> Klipper error blocks the display; no Wi-Fi -> no SSH).
@@ -254,6 +275,16 @@ detect_emmc() {
 plan() {
   IMG="$(find_image)"; note "image : $IMG"
   local imgdev; imgdev="$(usb_device_of "$IMG")"; note "source USB device: ${imgdev:-?}"
+  # The initramfs must be able to mount the stick this image sits on, and it can mount far less than this
+  # shell can. Buster in particular mounts exFAT through FUSE in userspace, which does not exist in an
+  # initramfs at all -- so the stick reads perfectly here and is simply absent after the reboot. Refuse
+  # now, where it is a sentence, rather than after a reboot into a flasher that finds nothing.
+  local imgfs; imgfs=$(findmnt -no FSTYPE --target "$(dirname "$IMG")" 2>/dev/null)
+  if [ -n "$imgfs" ] && ! fs_flashable "$imgfs"; then
+    warn "the image is on a $imgfs filesystem, which the initramfs flasher cannot mount"
+    warn "(it can do: $(fs_flashable_list))."
+    die "move the image to a stick it can read, then re-run — nothing was changed."
+  fi
   EMMC="$(detect_emmc)" || die "could not identify the internal eMMC (see the message above)."
   note "target eMMC     : $EMMC  ($(cat "/sys/block/$(basename "$EMMC")/size" 2>/dev/null | awk '{printf "%.1f GB", $1*512/1e9}'))"
   [ -n "$imgdev" ] && [ "$imgdev" = "$EMMC" ] && die "source and target are the SAME device — the image must live on the external USB, not the eMMC."
@@ -809,10 +840,28 @@ backup_emmc() {
   fi
   # FAT32 cannot hold a file of 4 GiB or more. It is the limit that bites first -- long before capacity --
   # and it would surface as a write error minutes in, so say it here where it is still just a sentence.
+  #
+  # WHICH filesystem to send the owner to is not a free choice: whatever they format, the INITRAMFS has to
+  # mount it, and that is a much smaller world than this shell. exFAT is a kernel module (mainline since
+  # 5.7), so on an older stock kernel it may not exist at all -- and then "just use exFAT" produces a stick
+  # that arms perfectly here and cannot be mounted after the reboot. That failure is invisible: the flasher
+  # falls through to a normal boot, and the log it would have complained in lives on the stick it could not
+  # mount. So test for the driver before naming it, and never arm onto a filesystem we cannot mount.
   local fstype; fstype=$(findmnt -no FSTYPE --target "$usb" 2>/dev/null)
+  if [ -n "$fstype" ] && ! fs_flashable "$fstype"; then
+    warn "this stick is formatted $fstype, which the initramfs flasher cannot mount"
+    warn "(it can do: $(fs_flashable_list)). It would arm here and then do nothing after the reboot."
+    die "aborting — nothing was changed. Reformat the stick, or image the eMMC on a PC instead."
+  fi
   if [ "$fstype" = vfat ] && [ "$need" -ge 4294967296 ]; then
     warn "this stick is FAT32: it cannot hold a single file of 4 GiB or more,"
-    warn "estimated at $(( need / 1000000000 )) GB. Format a stick as exFAT or NTFS and re-run."
+    warn "estimated at $(( need / 1000000000 )) GB."
+    if fs_flashable exfat; then
+      warn "Format the stick as exFAT and re-run — NOT NTFS, the flasher cannot mount that."
+    else
+      warn "This kernel has no exFAT driver either, so no single file on a USB stick can hold it."
+      warn "Image the eMMC on a PC instead: remove the module and copy it there."
+    fi
     die "aborting — nothing was changed."
   fi
 

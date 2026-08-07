@@ -171,10 +171,12 @@ tft_nobar(){ [ -e "$TFT" ] || return 0; tft "fill 0,180,800,110,$C_BG"; }   # ph
 # --- make sure the USB storage + FAT drivers are actually LOADED and the bus has settled. MODULES=most
 # ships them in the initramfs, but at init-premount time coldplug may not have bound the stick yet — so the
 # modern UAS stick (uas), the SCSI disk layer (sd_mod) and the FAT driver (vfat) must be modprobed here or
-# /dev/sda1 never appears / 'mount -t vfat' fails. ---
+# /dev/sda1 never appears / 'mount -t vfat' fails.
+# exfat is here for the same reason vfat is: a whole-eMMC backup is regularly larger than FAT32's 4 GiB
+# per-file ceiling, and install-unleashed sends the owner to exFAT when it is. See the hook. ---
 say "want image: $ARCO_IMG_NAME (read this log later from the USB stick: arco-selfflash.log)"
-say "loading USB storage + FAT drivers, settling the bus ..."
-for m in uas usb_storage sd_mod vfat nls_cp437 nls_iso8859_1 nls_iso8859-1; do modprobe "$m" 2>/dev/null || true; done
+say "loading USB storage + FAT/exFAT drivers, settling the bus ..."
+for m in uas usb_storage sd_mod vfat exfat nls_cp437 nls_iso8859_1 nls_iso8859-1 nls_utf8; do modprobe "$m" 2>/dev/null || true; done
 udevadm trigger 2>/dev/null || true
 udevadm settle --timeout=25 2>/dev/null || true
 
@@ -201,7 +203,11 @@ while [ $i -lt 30 ]; do                        # USB can be slow to enumerate in
     # not even disarm itself. Source and destination must be different devices; that was checked for the
     # flash at arm time and nowhere at all in here.
     case "$part" in "$TARGET"*) continue;; esac
-    if mount -o rw "$part" /arco_usb 2>/dev/null || mount -t vfat -o rw "$part" /arco_usb 2>/dev/null; then
+    # The typeless mount comes first and handles whatever the kernel can identify; the explicit ones are
+    # the fallback for when it cannot. exfat is listed for the >4 GiB backup case (see the modprobe above).
+    if mount -o rw "$part" /arco_usb 2>/dev/null \
+       || mount -t vfat  -o rw "$part" /arco_usb 2>/dev/null \
+       || mount -t exfat -o rw "$part" /arco_usb 2>/dev/null; then
       if [ "$JOB" = backup ]; then
         # Prove it is writable rather than assuming: a read-only mount (dirty FAT, hardware lock switch)
         # succeeds silently and only shows up when the first byte is written.

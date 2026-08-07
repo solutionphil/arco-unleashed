@@ -36,6 +36,11 @@ SD="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}"
 KITDIR="$(cd "$(dirname "$0")/.." && pwd)"          # <home>/arco-unleashed
 AHOME="$(dirname "$KITDIR")"
 AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
+# SELFDIR is assigned in seven places further down, every one of them INSIDE an `if`. Under `set -u`
+# that makes it a variable which exists only when some earlier branch happened to run -- fine while the
+# users all sat inside those same branches, and a trap for anything added later at top level. That is
+# the identical shape as the $HOME failure above, so: set it once, here, where it cannot be skipped.
+SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 changed=0
 for unit in klipper.service moonraker.service; do
   f="$SD/$unit"
@@ -420,6 +425,77 @@ else
   # over WiFi would drop the very connection the operator is using to run this.
   networkctl reload 2>/dev/null || true
   echo "  wired/USB-Ethernet DHCP installed (25-wired.network) — a dongle now gets an address"
+fi
+
+# ── Wi-Fi: four things the move from NetworkManager to systemd-networkd left behind ────────────────
+# The full image runs systemd-networkd + systemd-resolved + wpa_supplicant@wlan0 and keeps
+# NetworkManager disabled on purpose. Everything Wi-Fi-facing that still assumed NetworkManager, or that
+# assumed a root-owned control socket was fine, quietly stopped working. All four found 2026-08-06.
+
+# 1. wpa_supplicant's control socket is root:root 0750, and voronFDM runs as the printer user. So
+#    `wpa_cli -i wlan0 scan_results` answers "Permission denied" and the display's network page is EMPTY
+#    on EVERY Unleashed printer -- not a tester's fault, ours. The user is already in netdev; only the
+#    directory never carried the group. Done as ExecStartPost rather than GROUP= in the .conf so the
+#    file holding the credentials is never rewritten: getting that wrong costs the printer its network,
+#    and we now know there is no easy way back.
+if [ -f /lib/systemd/system/wpa_supplicant@.service ] || [ -f "$SD/wpa_supplicant@.service" ]; then
+  install -Dm644 /dev/stdin "$SD/wpa_supplicant@wlan0.service.d/10-arco-netdev.conf" <<'EOF'
+[Service]
+ExecStartPost=/bin/sh -c 'sleep 1; chgrp -R netdev /run/wpa_supplicant 2>/dev/null; chmod 750 /run/wpa_supplicant 2>/dev/null; chmod g+rw /run/wpa_supplicant/* 2>/dev/null; true'
+EOF
+  # Apply it to the RUNNING supplicant too. Restarting it would drop the very connection an owner is
+  # most likely running this over, and these are permissions on a runtime directory -- nothing to lose.
+  if [ -d /run/wpa_supplicant ]; then
+    chgrp -R netdev /run/wpa_supplicant 2>/dev/null || true
+    chmod 750 /run/wpa_supplicant 2>/dev/null || true
+    chmod g+rw /run/wpa_supplicant/* 2>/dev/null || true
+  fi
+  echo "  wpa_supplicant: ctrl-interface group netdev (display can list networks now, no restart needed)"
+fi
+
+# 2. No fallback nameserver. A router that hands out DHCP without a DNS server takes the printer off the
+#    internet completely -- update manager "INVALID", no module download, and `apt` cannot fetch
+#    stm32flash for the MCU flash, which is the one step nobody can skip. FallbackDNS, not DNS: it is
+#    consulted only when nothing else is configured, so a working router still wins.
+if [ -d /etc/systemd ] && systemctl list-unit-files systemd-resolved.service >/dev/null 2>&1; then
+  install -Dm644 /dev/stdin /etc/systemd/resolved.conf.d/arco-fallback-dns.conf <<'EOF'
+[Resolve]
+FallbackDNS=1.1.1.1 9.9.9.9 8.8.8.8
+EOF
+  systemctl try-restart systemd-resolved 2>/dev/null || true
+  echo "  systemd-resolved: FallbackDNS installed (DHCP without a nameserver no longer kills the network)"
+fi
+
+# 3. /boot/arco-wifi.txt -- the PC-editable last way in -- was driven by nmcli only, so on the full image
+#    it did nothing whatsoever. The kit's replacement detects the stack and is correct on both.
+_FW="$SELFDIR/arco-firstwifi"
+if [ -f "$_FW" ]; then
+  if ! cmp -s "$_FW" /usr/local/sbin/arco-base-firstwifi; then
+    install -Dm755 "$_FW" /usr/local/sbin/arco-base-firstwifi
+    echo "  /boot/arco-wifi.txt: helper replaced with the stack-aware one (nmcli-only version was a no-op here)"
+  fi
+fi
+
+# 4. Nothing ever re-armed the setup portal. See arco-wifi-rearm.sh for what it does and, just as
+#    important, what it deliberately refuses to do.
+if [ -f "$SELFDIR/arco-wifi-rearm.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/arco-wifi-rearm.service" <<EOF
+[Unit]
+Description=Arco Unleashed - re-arm the Wi-Fi setup portal when no network is configured
+After=network.target wpa_supplicant@wlan0.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/bash $SELFDIR/arco-wifi-rearm.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable arco-wifi-rearm.service 2>/dev/null || true
+  echo "  wifi-rearm service installed + enabled (setup portal returns if the config is ever lost)"
 fi
 
 systemctl daemon-reload 2>/dev/null || true
