@@ -37,7 +37,11 @@ for _g in /bin/gzip /usr/bin/gzip; do
   [ -x "$_g" ] && copy_exec "$_g" /usr/bin/gzip.real >/dev/null 2>&1 && break
 done
 
-for t in dd sha256sum blkid gzip stty cut tr head wc rm tail; do
+# zerofree is what makes a backup fit FAT32's 4 GiB per-file ceiling. A dd image carries deleted files
+# byte for byte until their blocks are zeroed, and the initramfs -- filesystem unmounted -- is the only
+# place that can be done. If it is not installed on the building system the backup still runs, just
+# larger, and the flasher says so rather than pretending.
+for t in dd sha256sum blkid gzip stty cut tr head wc rm tail zerofree; do
   b="$(command -v "$t" 2>/dev/null)"; [ -n "$b" ] && copy_exec "$b" >/dev/null 2>&1 || true
 done
 # printf is a SHELL BUILTIN in this hook's shell, so `command -v printf` returns the word "printf"

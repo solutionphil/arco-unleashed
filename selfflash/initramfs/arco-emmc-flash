@@ -326,6 +326,28 @@ if [ "$JOB" = backup ]; then
     fi
   fi
 
+  # ---- zero the free space first ---------------------------------------------------------------
+  # A dd image carries deleted files byte for byte: their blocks are marked free but still hold the old
+  # contents, which look like noise to gzip. On a printer that has been used for a while this, not the
+  # data, is what pushes a backup past FAT32's 4 GiB per-file ceiling -- and FAT32 is the only medium
+  # this project asks anyone to use. Here in the initramfs the filesystem is not mounted, which is the
+  # one moment zerofree can run at all. It writes ONLY to blocks the filesystem already considers free:
+  # no file changes, and it refuses outright on an unclean filesystem.
+  if [ "${ARCO_BACKUP_ZEROFREE:-1}" = 1 ] && command -v zerofree >/dev/null 2>&1; then
+    tft_chrome; tft_nobar
+    tft_phase "Preparing the backup (zeroing free space)" \
+              "This makes the backup fit - no files are changed" "$C_MUT" \
+              "Only blocks that are already empty are touched. Please wait."
+    for _zp in "${TARGET}p2" "${TARGET}p1"; do
+      [ -b "$_zp" ] || continue
+      say "zerofree $_zp ..."
+      if zerofree "$_zp" 2>>"$LOGF"; then say "  zerofree ok: $_zp"
+      else say "  zerofree skipped $_zp (not ext, or not cleanly unmounted) — backup continues"; fi
+    done
+  else
+    say "zerofree not run (disabled, or not in this initramfs) — backup may be considerably larger"
+  fi
+
   tft_chrome; tft_nobar
   tft_phase "Backing up the internal eMMC to the USB stick" \
             "Safe to interrupt - nothing on the printer is changed" "$C_MUT" \
@@ -336,7 +358,13 @@ if [ "$JOB" = backup ]; then
   # with sectors written. Pure shell, no tools this initramfs might lack.
   read _ _ R0 _ < "/sys/block/$BN/stat" 2>/dev/null || R0=0
   CDONE=/run/arco-backupdone; del "$CDONE" /run/arco-backuperr
-  ( dd if="$TARGET" bs=4194304 2>/run/arco-backuperr | "$GZBIN" -1 > "$OUT" 2>>/run/arco-backuperr; echo $? > "$CDONE" ) &
+  # Compression level is the owner's second lever against the 4 GiB ceiling. -1 stays the default: this
+  # runs on a printer the owner must not power off, and -6 costs a multiple of the CPU time for roughly
+  # 10-15% of size. Anything outside 1-9 falls back to 1 rather than handing gzip a bad flag mid-backup.
+  GZL="${ARCO_BACKUP_GZIP:-1}"
+  case "$GZL" in [1-9]) : ;; *) GZL=1 ;; esac
+  say "compressing with gzip -$GZL"
+  ( dd if="$TARGET" bs=4194304 2>/run/arco-backuperr | "$GZBIN" "-$GZL" > "$OUT" 2>>/run/arco-backuperr; echo $? > "$CDONE" ) &
   # 1% steps, not 5%. On a 32 GB eMMC a 5% step is 1.5 GB of reading, which at initramfs speed can be
   # several minutes with the bar frozen on 0 -- indistinguishable from a hang, and a user watching that
   # will pull the plug on a healthy backup. Seen on the first real run: 3 minutes at 0%.

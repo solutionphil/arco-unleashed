@@ -679,29 +679,32 @@ A users have both files on the stick anyway; on path B they are the one
 thing you have to add for this step.</p>
 </blockquote>
 <blockquote>
-<p>⚠️ <strong>A FAT32 stick is not enough for this one.</strong> The
-backup is a single file, and FAT32 cannot hold a file of 4 GiB or more —
-a factory Arco typically lands around 5 GB. <strong>Format the stick as
-<code>ext4</code>.</strong></p>
-<p>Not exFAT: your printer is still running Phrozen’s original system at
-this point, and that kernel is older than mainline exFAT support, so the
-flasher cannot mount such a stick after the reboot. Not NTFS either, for
-the same reason. <code>ext4</code> is the one that always works here —
-it is what the printer boots from, so the driver is guaranteed to be
-present. On the printer, with the stick plugged in:</p>
+<p>⚠️ <strong>The backup is one single file, and FAT32 cannot hold a
+file of 4 GiB or more.</strong> Everything in this manual uses FAT32,
+and so does this — but it does mean the backup has to stay under that
+ceiling. The tool measures first and tells you the estimate before
+anything happens, so you find this out in a sentence rather than half an
+hour in.</p>
+<p>If it says the backup is too large, <strong>deleting files will not
+help.</strong> This is an image of the whole eMMC, not a copy of its
+files: everything you delete stays in the freed blocks byte for byte,
+and compresses no better than noise. Two things do help, in the order
+worth trying:</p>
+<p><strong>1. Zero the free space, then run the backup again.</strong>
+Usually decisive on a printer that has seen a lot of prints. It fills
+the disk for a few minutes and then releases it again:</p>
 <div class="sourceCode" id="cb3"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">lsblk</span> <span class="at">-o</span> NAME,FSTYPE,SIZE,MOUNTPOINT</span></code></pre></div>
-<p>Find your stick in that list — then, replacing <code>sdX1</code> with
-<strong>its</strong> name, and reading it twice, because this erases the
-device completely:</p>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dd if=/dev/zero of=/zero.tmp bs=1M <span class="dv">2</span><span class="op">&gt;</span>/dev/null<span class="kw">;</span> <span class="fu">sync</span><span class="kw">;</span> <span class="fu">sudo</span> rm <span class="at">-f</span> /zero.tmp<span class="kw">;</span> <span class="fu">sync</span></span></code></pre></div>
+<p>Do not print while that runs, and reboot afterwards. The backup
+itself also zeroes free space on its own, in the moment the filesystem
+is unmounted — this is the same trick, done early enough to be visible
+in the estimate.</p>
+<p><strong>2. Compress harder.</strong> Slower, and buys roughly 10–15
+%:</p>
 <div class="sourceCode" id="cb4"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> umount /dev/sdX1<span class="kw">;</span> <span class="fu">sudo</span> mkfs.ext4 <span class="at">-L</span> ARCOBK /dev/sdX1</span></code></pre></div>
-<p>Windows cannot write ext4, so use a <strong>second</strong> stick for
-this and keep your FAT32 one for the files in Step 0. The tool measures
-first, tells you the estimate, and refuses to start on a stick it could
-not write to afterwards — you will not find this out halfway through. If
-you would rather not reformat anything, image the eMMC on a PC instead
-(path B, step 1).</p>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
+<p>If it still will not fit, image the eMMC on a PC instead (path B,
+step 1) — that has no size limit at all.</p>
 </blockquote>
 <p>On the printer:</p>
 <div class="sourceCode" id="cb5"><pre
@@ -872,8 +875,7 @@ you mean:</p>
 </p>
 <p>Then it asks you to type <code>yes</code>, and after that the device
 name in full. Two separate confirmations, on purpose: once the write
-starts it cannot be stopped or reversed, and the system being
-overwritten is the one you would need to notice the mistake:</p>
+starts it cannot be stopped or reversed:</p>
 <p align="center">
 <img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760">
 </p>

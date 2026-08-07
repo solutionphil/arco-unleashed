@@ -854,24 +854,23 @@ backup_emmc() {
     die "aborting — nothing was changed. Reformat the stick, or image the eMMC on a PC instead."
   fi
   if [ "$fstype" = vfat ] && [ "$need" -ge 4294967296 ]; then
+    # FAT32 is the only medium this project asks anyone to use, so the answer to "too big" is to make
+    # the IMAGE smaller, not to send the owner off to reformat. Two levers, in the order that costs
+    # least: zeroing the free space (usually decisive, because a dd image carries deleted files byte for
+    # byte until their blocks are zeroed) and a stronger compression level (slower, ~10-15%).
     warn "this stick is FAT32: it cannot hold a single file of 4 GiB or more,"
-    warn "estimated at $(( need / 1000000000 )) GB."
-    # Name only what THIS kernel can actually mount. exFAT is the obvious answer and the wrong one on a
-    # stock Buster Arco: mainline exfat arrives in 5.7, and that kernel predates it -- confirmed by a
-    # tester on 2026-08-06. ext4 is the one that always works there, because it is what the printer
-    # boots from, so the driver is in the initramfs by construction. NTFS is never offered: the
-    # initramfs cannot mount it at all.
-    _alt=""
-    fs_flashable exfat && _alt="exFAT"
-    fs_flashable ext4  && _alt="${_alt:+$_alt or }ext4"
-    if [ -n "$_alt" ]; then
-      warn "Format the stick as $_alt and re-run — not NTFS, the flasher cannot mount that."
-      fs_flashable exfat || warn "(exFAT is not an option on this kernel; ext4 is. Windows cannot write"
-      fs_flashable exfat || warn " ext4, so format it here on the printer, or use a second stick.)"
-    else
-      warn "This kernel can mount nothing larger-file-capable than FAT32 on a stick."
-      warn "Image the eMMC on a PC instead: remove the module and copy it there."
-    fi
+    warn "and the backup is estimated at $(( need / 1000000000 )).$(( need / 100000000 % 10 )) GB."
+    echo
+    echo "  This is an image of the whole eMMC, so DELETING FILES DOES NOT SHRINK IT — their"
+    echo "  contents stay in the freed blocks and compress no better than noise. Two things do:"
+    echo
+    echo "    1. Zero the free space first, then run this again. Usually the decisive one:"
+    echo "         sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync"
+    echo "       (fills the disk for a few minutes — do not print meanwhile, and reboot afterwards)"
+    echo
+    echo "    2. Compress harder — slower, buys roughly 10-15%:"
+    echo "         sudo ARCO_BACKUP_GZIP=6 bash \$0 --backup"
+    echo
     die "aborting — nothing was changed."
   fi
 
@@ -895,10 +894,15 @@ backup_emmc() {
   # A pending flash and a pending backup must never coexist: whichever the initramfs picked, the other
   # would still be sitting there armed for the boot after.
   rm -f "$STATE_DIR/flash.conf"
+  # ZEROFREE and GZIP are the two levers that decide whether a backup fits FAT32's 4 GiB per-file
+  # ceiling, which is the only medium this project asks for. Both are carried into the initramfs here
+  # rather than decided there, so what the owner agreed to on screen is exactly what runs.
   cat > "$STATE_DIR/backup.conf" <<EOF
 ARCO_BACKUP_ARMED=1
 ARCO_BACKUP_NAME=$BACKUP_NAME
 ARCO_BACKUP_TOKEN=$token
+ARCO_BACKUP_GZIP=${ARCO_BACKUP_GZIP:-1}
+ARCO_BACKUP_ZEROFREE=${ARCO_BACKUP_ZEROFREE:-1}
 ARCO_TARGET=$EMMC
 EOF
   install -D -m0755 "$HOOK_SRC"     "$ITOOLS/hooks/arco-emmc-flash"
@@ -957,21 +961,33 @@ EOF
 # one would run out of space minutes into the read. So sample the device and measure, which costs about a
 # minute of reading and nothing else. Read-only.
 estimate_backup_size() {
-  local dev="$1" devsz="$2" chunk=$((8*1024*1024)) i off raw out tin=0 tout=0
-  for i in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-    off=$(( devsz / 16 * i / chunk ))
+  # SPREAD beats VOLUME. This used to take 16 samples of 8 MiB and then simply DOUBLE the result, and
+  # the doubling was not caution, it was compensation: 16 points cannot see a device whose compressible
+  # and incompressible regions are unevenly spread, so the first real run sampled 4.8% and finished at
+  # 7.2%. Same 128 MiB of reading, 64 points instead of 16, is four times the spatial coverage for the
+  # same minute of I/O -- so the estimate can stand closer to the truth without becoming a gamble.
+  #
+  # This matters more than it looks: everything on a FAT32 stick is measured against a hard 4 GiB
+  # per-file ceiling, and a doubled estimate refuses backups that would in fact have fitted. A tester saw
+  # 5.3 GB predicted where the honest figure was closer to 3.
+  local dev="$1" devsz="$2" chunk=$((2*1024*1024)) i off raw out tin=0 tout=0
+  i=0
+  while [ "$i" -lt 64 ]; do
+    off=$(( devsz / 64 * i / chunk ))
     raw=$(dd if="$dev" bs=$chunk count=1 skip=$off 2>/dev/null | wc -c)
-    [ "${raw:-0}" -gt 0 ] || continue
-    out=$(dd if="$dev" bs=$chunk count=1 skip=$off 2>/dev/null | gzip -1 | wc -c)
-    tin=$(( tin + raw )); tout=$(( tout + out ))
+    if [ "${raw:-0}" -gt 0 ]; then
+      out=$(dd if="$dev" bs=$chunk count=1 skip=$off 2>/dev/null | gzip -1 | wc -c)
+      tin=$(( tin + raw )); tout=$(( tout + out ))
+    fi
+    i=$(( i + 1 ))
   done
   # Fall back to the pessimistic figure if the sampling could not read anything at all.
   if [ "$tin" -le 0 ]; then echo $(( devsz / 100 * 35 )); return; fi
-  # DOUBLE the sampled figure. 128 MiB of samples out of 31 GB is a thin basis, and the first real run
-  # showed exactly how thin: sampling said 4.8% and the finished backup was 7.2% -- half again as large
-  # as predicted. The two errors are not symmetric. Asking for more room than needed costs a sentence on
-  # screen; asking for too little costs half an hour of reading and ends in a failed backup.
-  echo $(( devsz / tin * tout * 2 ))
+  # A 35% margin, not 100%. The errors stay asymmetric -- too little room ends in a failed backup after
+  # half an hour of reading, too much only costs a sentence on screen -- so this keeps a real margin. It
+  # also still matches the sampler to the writer: both use gzip -1, so no compression level is being
+  # assumed here that the backup will not actually use.
+  echo $(( devsz / tin * tout * 135 / 100 ))
 }
 
 find_usb_dir() {
