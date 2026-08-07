@@ -673,6 +673,16 @@ before you touch a button.
   <img src="assets/manual/toolhead-back-cover-right-screw.jpg" alt="The right screw at the bottom of the back cover" width="400">
 </p>
 
+> ⚠️ **Two things that catch people here.**
+>
+> **The two screws on top drop backwards.** As the last thread lets go they tip away from you — straight
+> down the purge chute, where you will not get them back without taking more of the printer apart. Hold
+> a finger behind each one as you loosen it, or lay a rag over the chute opening before you start.
+>
+> **The back cover is still attached on the right.** A ribbon cable runs to it, and it is short. Ease the
+> cover away from the left first and swing it open like a door rather than pulling it straight back —
+> pulling is what tears the cable or its connector, and that is not a five-minute repair.
+
 **3) Power back up and get the script waiting.** Plug in, switch on, wait for the boot, connect with
 PuTTY again ([Step 4](#step-4--connect-via-ssh-putty)) and run:
 
