@@ -205,14 +205,29 @@ It is entirely optional. Skip it if you have no intention of ever going back.
 > installation. Path A users have both files on the stick anyway; on path B they are the one thing you
 > have to add for this step.
 
-> ⚠️ **A FAT32 stick is probably not enough for this one.** The backup is a single file, and FAT32 cannot
-> hold a file of 4 GiB or more — a factory Arco typically lands around 5 GB. **Format the stick as
-> exFAT.** Not NTFS: the flasher cannot mount it. The tool measures first and tells you the estimate
-> before anything happens, and it refuses to start on a stick it would not be able to write to — so you
-> will not find this out halfway through.
+> ⚠️ **A FAT32 stick is not enough for this one.** The backup is a single file, and FAT32 cannot hold a
+> file of 4 GiB or more — a factory Arco typically lands around 5 GB. **Format the stick as `ext4`.**
 >
-> This is the one place the backup stick differs from every other stick in this manual, which are all
-> FAT32. If you would rather not reformat, image the eMMC on a PC instead (path B, step 1).
+> Not exFAT: your printer is still running Phrozen's original system at this point, and that kernel is
+> older than mainline exFAT support, so the flasher cannot mount such a stick after the reboot. Not
+> NTFS either, for the same reason. `ext4` is the one that always works here — it is what the printer
+> boots from, so the driver is guaranteed to be present. On the printer, with the stick plugged in:
+>
+> ```bash
+> lsblk -o NAME,FSTYPE,SIZE,MOUNTPOINT
+> ```
+>
+> Find your stick in that list — then, replacing `sdX1` with **its** name, and reading it twice, because
+> this erases the device completely:
+>
+> ```bash
+> sudo umount /dev/sdX1; sudo mkfs.ext4 -L ARCOBK /dev/sdX1
+> ```
+>
+> Windows cannot write ext4, so use a **second** stick for this and keep your FAT32 one for the files in
+> Step 0. The tool measures first, tells you the estimate, and refuses to start on a stick it could not
+> write to afterwards — you will not find this out halfway through. If you would rather not reformat
+> anything, image the eMMC on a PC instead (path B, step 1).
 
 On the printer:
 
