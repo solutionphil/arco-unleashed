@@ -864,6 +864,11 @@ you physically attach or remove the unit — not per print.
 > from [Step 0](#step-0). It exists only on the original printer, no download contains it, and without
 > it AMS detection hangs. `AMS_STATUS` says whether it is installed.
 
+**The waste conveyor hangs off the AMS, not the printer.** It connects to the **AMS** with a DC barrel
+plug, and the AMS switches it on and off by itself as it works. There is therefore no setting for it
+anywhere on the printer, and nothing to configure: with the AMS switched off it simply never gets
+powered, and with the AMS connected it runs on its own.
+
 **3 — Check self-heal guards** answers a question you would otherwise have no way to ask: the guards are
 installed when the image is built, so a printer that has been running for a while may be missing ones the
 kit has gained since. It compares what is wired against what the kit expects, and offers to fix it.
