@@ -797,170 +797,175 @@ failed attempt, where the marker is spent either way.</p>
 <h2 id="step-3-flash-the-printer-from-the-usb-stick">Step 3 — Flash the
 printer from the USB stick</h2>
 <p>The printer overwrites its <strong>own</strong> eMMC, streaming the
-image from the USB stick. No teardown, no PC, nothing to unplug. ✅
-Proven on hardware. Full detail, if you want it: <a
-href="selfflash/README.md"><code>selfflash/README.md</code></a>.</p>
+image from the USB stick. No teardown, no PC, nothing to unplug.</p>
 <blockquote>
-<p>🛑 <strong>One shot, no net.</strong> Once the write begins it cannot
-be stopped, and a failure part-way through leaves a printer that will
-not boot. Recovering from that means opening the machine and flashing
-the eMMC on a PC — <a href="#appendix-a">Appendix A</a>. <strong>Before
-the write starts</strong>, pulling the USB stick and power-cycling makes
-the flasher stand down safely.</p>
-<p>🛑 <strong>This step is also the point of no return for the factory
-system.</strong> It overwrites Phrozen’s install in place, so it cannot
-be copied afterwards. If you may ever want to go back, <a
-href="#step-2">Step 2</a> is where that copy is made — or use a
-<strong>spare eMMC module</strong> and keep the original untouched (<a
-href="#appendix-a">Appendix A</a>).</p>
+<p>🛑 <strong>One shot.</strong> Once the write begins it cannot be
+stopped, and a failure part-way through leaves a printer that will not
+boot — recovering from that means opening the machine (<a
+href="#appendix-a">Appendix A</a>). <strong>Before</strong> the write
+starts, pulling the stick and power-cycling stands the flasher down
+safely.</p>
+<p>This is also the last moment the factory system exists. If you may
+ever want it back, make the copy in <a href="#step-2">Step 2</a> first —
+or flash a <strong>spare eMMC module</strong> and keep the original
+untouched.</p>
 </blockquote>
-<p><strong>Prepare the stick.</strong> On the same FAT32 stick as Step
-1, also put: the <strong>image</strong> (<code>.img.gz</code> +
-<code>.sha256</code> + <code>.rawsize</code>),
-<strong><code>unleashed-selfflash.tar.gz</code></strong> and
-<strong><code>prepare_unleashed_self_flash.sh</code></strong> — all from
-the release. Phrozen’s <code>Arco_FW_V*.zip</code> only if one of the
-two cases above applies to you; the flasher says which files it found
-before it arms anything.</p>
-<p><strong>WiFi</strong> <em>(recommended — the printer must come online
-for the SSH MCU-flash in Step 6)</em>: add <strong>nothing</strong> and
-it <strong>live-captures</strong> the network the printer already uses
-(known-good, keeps its country), <strong>or</strong> create a
-<code>wifi-seed.txt</code>:</p>
+<h3 id="first-decide-how-the-printer-gets-onto-wifi">First decide how
+the printer gets onto WiFi</h3>
+<p>It has to be online afterwards, because <a href="#step-6">Step 6</a>
+is done over SSH. You have three choices, and doing nothing is a
+perfectly good one:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th></th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Add nothing</strong> <em>(recommended)</em></td>
+<td>The flasher copies the network this printer is already using —
+known-good, keeps its region setting.</td>
+</tr>
+<tr>
+<td><strong><code>wifi-seed.txt</code> on the stick</strong></td>
+<td>Your own network, useful if the printer is not online right
+now.</td>
+</tr>
+<tr>
+<td><strong><code>no_wifi.txt</code> on the stick</strong></td>
+<td>Deliberately none: the new system raises its own setup hotspot on
+first boot.</td>
+</tr>
+</tbody>
+</table>
+<p>If you write a <code>wifi-seed.txt</code>, it is plain text with no
+quotes:</p>
 <pre><code>SSID=YourNetworkName
 PSK=YourWiFiPassword
 COUNTRY=US</code></pre>
-<p>(plain text, no quotes, a <strong>2.4 GHz</strong> network.
-<strong><code>COUNTRY</code></strong> is your <strong>2-letter WiFi
-region code</strong> — US, CA, GB, AU, …; <strong>set it to
-yours</strong>, the region must match your router or the printer may not
-join.) A wrong or missing WiFi falls through to the first-boot phone
-portal (where you pick your network <strong>and your country</strong>
-from dropdowns). With WiFi details seeded it allows <strong>about 90
-seconds</strong> for the radio to come up, associate and get an address
-before falling back to the portal; with none configured it goes to the
-portal almost at once. A network that connects returns in a second or
-two, so a correct WiFi costs no real delay. If the portal does not
-appear either, you can still hand the printer your network from the USB
-stick afterwards — see Step 4.</p>
-<p><strong>1) Unpack the tool, then look before you leap.</strong> SSH
-in as <code>mks</code> (<a href="#step-5">Step 5</a> shows how). The
-stick auto-mounts at <code>~/printer_data/gcodes/USB</code> (on a stock
-printer and on Unleashed); unpack the tool from there and run the
-inspect pass, which <strong>changes nothing</strong>:</p>
+<p>The network must be <strong>2.4 GHz</strong> — the Arco has no 5 GHz
+radio — and <code>COUNTRY</code> is <strong>your</strong> two-letter
+region code. Get the region wrong and the printer may refuse to
+join.</p>
+<p>Nothing here is a dead end. If the WiFi does not connect, the first
+boot falls back to a setup portal you reach from your phone, and if even
+that fails you can still hand the printer a network from the stick
+afterwards (<a href="#step-4">Step 4</a>).</p>
+<h3 id="unpack-the-tool-and-look-before-you-leap">1. Unpack the tool and
+look before you leap</h3>
+<p>SSH in as <code>mks</code> — <a href="#step-5">Step 5</a> shows how
+if you have not done that before. The stick mounts itself at
+<code>~/printer_data/gcodes/USB</code>, on Phrozen’s system and on this
+one alike.</p>
 <div class="sourceCode" id="cb11"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB          <span class="co"># where the USB stick auto-mounts</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh    <span class="co"># unpacks the tool to ~/selfflash</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh   <span class="co"># inspect only</span></span></code></pre></div>
-<blockquote>
-<p>If <code>~/printer_data/gcodes/USB</code> is empty, the stick didn’t
-auto-mount. Mount it <strong>to that same path</strong> — then the
-commands above work unchanged (<code>lsblk</code> tells you the
-partition):</p>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh</span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh</span></code></pre></div>
+<p>That second command is the <strong>inspect pass. It changes
+nothing.</strong> It finds the image, checks it against its
+<code>.sha256</code>, names the eMMC it would write to, and stops. Read
+that line and make sure it is the device you mean.</p>
+<blockquote>
+<p><strong>Nothing under
+<code>~/printer_data/gcodes/USB</code>?</strong> Then the stick did not
+mount itself. Mount it to that same path and the commands above work
+unchanged — <code>lsblk</code> tells you which partition it is:</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 </blockquote>
-<p><strong>2) Arm it.</strong> <code>--arm</code> prints the disclaimer,
-verifies the image’s checksum against its <code>.sha256</code>, and
-names the target eMMC — read that line and make sure it is the device
-you mean:</p>
+<h3 id="arm-it">2. Arm it</h3>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span></span></code></pre></div>
 <p align="center">
 <img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760">
 </p>
-<p>Then it asks you to type <code>yes</code>, and after that the device
-name in full. Two separate confirmations, on purpose: once the write
-starts it cannot be stopped or reversed:</p>
+<p>It asks you to type <code>yes</code>, and then the device name in
+full. Two separate confirmations, on purpose: once the write starts it
+cannot be stopped or reversed.</p>
 <p align="center">
 <img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760">
 </p>
-<p>It checks the stick for the files the <strong>first boot</strong>
-needs, then <strong>shows the WiFi it will use</strong> (live-captured
-from the running system, or from your <code>wifi-seed.txt</code>) and
-asks you to <strong>confirm</strong> it — decline, and it offers the
-first-boot portal instead. Then it rebuilds the initramfs and arms the
-flash:</p>
+<p>Then it checks the stick for the files the first boot will need,
+shows you <strong>the WiFi it is going to use</strong> and asks you to
+confirm that too — decline, and it sets up the phone portal instead.
+Finally it rebuilds the initramfs and arms the flash.</p>
 <p align="center">
 <img src="assets/manual/selfflash-3-armed.png" alt="USB payload OK, WiFi captured, initramfs rebuilt, ARMED" width="760">
 </p>
 <blockquote>
-<p>The screenshot predates the WiFi-confirm prompt; current builds print
-the captured/seeded SSID and ask you to confirm it (or fall back to the
-portal) right before arming.</p>
+<p>Two things in that screenshot are older than the current build: it
+predates the WiFi confirmation prompt, and the two
+<code>ln: … Operation not permitted</code> lines are gone now. Those
+were harmless anyway — <code>/boot</code> is FAT32, which has no links,
+so <code>update-initramfs</code> just copies instead. Current builds
+filter them out.</p>
 </blockquote>
-<blockquote>
-<p>The two <code>ln: failed to create … Operation not permitted</code>
-lines in that screenshot were <strong>harmless</strong>:
-<code>/boot</code> is FAT32, which has neither hard links nor symlinks,
-so <code>update-initramfs</code> simply falls back to copying. Current
-builds filter those lines out — the screenshot predates that.</p>
-</blockquote>
-<p><strong>3) Reboot.</strong> Answer <code>y</code>. Your SSH session
-drops immediately. <strong>That is the reboot, not a fault:</strong></p>
+<h3 id="reboot-and-watch-the-display">3. Reboot and watch the
+display</h3>
+<p>Answer <code>y</code>. <strong>Your SSH session drops immediately —
+that is the reboot, not a fault.</strong></p>
 <p align="center">
 <img src="assets/manual/selfflash-4-reboot.png" alt="Reboot now? y — PuTTY reports the connection closed, which is expected" width="760">
 </p>
-<p><strong>4) Watch the display.</strong> Three named steps run in order
-— <em>check → write → verify</em>. Only the write phase tells you not to
-power off, because only then is anything actually being overwritten:</p>
+<p>Three named phases run in order: <strong>check → write →
+verify</strong>. Only the write phase tells you not to power off,
+because only then is anything actually being overwritten.</p>
 <p align="center">
-<img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Appendix A2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620">
+<img src="assets/manual/selfflash-display-writing.jpg" alt="Display: step 2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620">
 </p>
-<p>When the write and verify finish, the display shows <strong>“Done —
-Restarting now”</strong> and reminds you to keep the stick plugged in
-while the printer finishes setup:</p>
 <p align="center">
 <img src="assets/manual/selfflash-display-done.jpg" alt="Display: Done - Restarting now. Please wait until the next step proceeds. Keep the USB stick plugged in." width="620">
 </p>
-<p><strong>Leave the USB stick plugged in.</strong> The printer reboots
-itself, brings up the WiFi you seeded and installs Phrozen’s parts from
-it, rebooting once more. Then continue at <strong><a href="#step-5">Step
-5</a></strong> — Appendix A do not apply to you.</p>
+<p><strong>Leave the stick plugged in.</strong> The printer restarts by
+itself, brings up the WiFi, installs Phrozen’s parts from the stick and
+restarts once more. Then carry on at <a href="#step-4">Step 4</a>.</p>
+<h3 id="what-the-first-boot-looks-like">What the first boot looks
+like</h3>
+<p>After the Phrozen install the display shows <strong>“Update complete
+— wait for restart…”</strong>, restarts itself a few seconds later, and
+then settles on a <strong>“Notice — Error occurred”</strong> screen.</p>
+<p><strong>That error is expected.</strong> Klipper cannot start until
+the MCUs are flashed in <a href="#step-6">Step 6</a>, so the display has
+nothing to connect to. Restarting or power-cycling will not clear it.
+Wait for that screen to settle — that is how you know the automatic
+restart is finished — and only then connect over SSH. Connecting earlier
+just means the restart drops your session.</p>
+<p>You should <strong>not</strong> see Phrozen’s first-time setup wizard
+(language → name → chute calibration → homing). It is switched off on
+purpose, because it ends in a homing move that cannot complete before
+Step 6. If one does appear, do not work through it — power-cycle once or
+twice and it clears itself.</p>
 <blockquote>
-<p><strong>What the display shows on that first boot</strong> — after
-the Phrozen install it shows <strong>“Update complete — wait for
-restart…”</strong>, <strong>restarts itself once</strong> a few seconds
-later, and then settles on a <strong>“Notice — Error occurred”</strong>
-screen. <strong>That last one is expected, not a fault</strong> —
-Klipper can’t start until the MCUs are flashed, and <em>no amount of
-restarting/power-cycling clears it</em>. <strong>Wait for the settled
-“Error occurred” screen</strong> — that means the automatic restart is
-done — <strong>then</strong> connect over SSH for <strong>Step 6 (Flash
-the MCUs)</strong>. Don’t SSH <em>before</em> that (the auto-restart
-would drop the session), and don’t try to set up on the display.</p>
-<p>You should <strong>not</strong> see a Phrozen <em>first-time setup
-wizard</em> (language → name → chute calibration → homing). It is
-switched off deliberately: it ends in a homing move, which cannot finish
-before Step 6, so it is a dead end. If one ever does appear, don’t work
-through it — <strong>power-cycle once or twice</strong> and it clears
-itself.</p>
+<p><strong>If the WiFi does not connect</strong> — wrong password, a
+changed or 5 GHz network, or you chose <code>no_wifi.txt</code> — the
+printer raises its own hotspot instead. Join
+<strong><code>Arco-Unleashed-Setup</code></strong> from a phone, open
+<code>192.168.4.1</code> and enter your network. It waits about 90
+seconds for the seeded WiFi before giving up, so do not pull the plug
+before then.</p>
 </blockquote>
-<blockquote>
-<p><strong>If that WiFi doesn’t connect</strong> (wrong password,
-changed/5 GHz network, or you chose <code>no_wifi.txt</code>), the
-printer falls back to its <strong>setup portal</strong> on the first
-boot — join <strong><code>Arco-Unleashed-Setup</code></strong> from a
-phone (<code>192.168.4.1</code>) and enter your network — it gives up on
-the seeded WiFi after about 90 seconds, so do not pull the plug before
-that. This matters here because until the MCUs are flashed (Step 6) the
-display shows an MCU error and cannot set WiFi itself. If even the
-portal fails to come up, the <code>wifi-seed.txt</code> rescue in Step 4
-still gets the printer onto your network.</p>
-</blockquote>
-<blockquote>
-<p>🚪 <strong>If it goes wrong <em>before</em> the write begins</strong>
-— image missing, checksum mismatch, or the flasher hangs — <strong>pull
+<h3 id="if-something-goes-wrong-before-the-write-begins">If something
+goes wrong before the write begins</h3>
+<p>Image missing, checksum mismatch, the flasher hanging — <strong>pull
 the USB stick and power-cycle.</strong> With no image on the stick the
-flasher stands down and your existing system boots normally. Once the
-write has begun, only Appendix A can recover the printer.</p>
+flasher stands down and your existing system boots normally. (Once the
+write has begun, only <a href="#appendix-a">Appendix A</a> can recover
+the printer.)</p>
 <p><strong>The flash stays armed, and that is how you retry:</strong>
-put a good image back on the stick, power-cycle, and it simply tries
-again. But if you stop here and carry on using the old system,
-<strong>cancel it first</strong> — otherwise the next boot with that
-image on a plugged-in stick overwrites the eMMC without asking:</p>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
-</blockquote>
+put a good image back on the stick, power-cycle, and it tries again.</p>
+<p>But if you stop here and go on using the old system, <strong>cancel
+it first</strong> — otherwise the next boot with that image on a
+plugged-in stick overwrites the eMMC without asking:</p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
 <hr />
 <p><a id="step-4"></a></p>
 <h2 id="step-4-first-boot-wifi-portal-usb-install">Step 4 — First boot:
@@ -1107,8 +1112,8 @@ Unleashed banner:</li>
 <h2 id="step-6-flash-the-mcus-essential">Step 6 — Flash the MCUs ⚠️
 essential</h2>
 <p>Open the setup menu — everything from here on runs from it:</p>
-<div class="sourceCode" id="cb15"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p align="center">
 <img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820">
 </p>
@@ -1207,8 +1212,8 @@ a five-minute repair.</p>
 <p><strong>3) Power back up and get the script waiting.</strong> Plug
 in, switch on, wait for the boot, connect with PuTTY again (<a
 href="#step-5">Step 5</a>) and run:</p>
-<div class="sourceCode" id="cb16"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>→ <code>1</code> (Flash MCUs) → the toolhead F103. The toolhead stays
 open from here: the flasher stops Klipper, so nothing homes and nothing
 heats — just leave the part-cooling fan unplugged until the covers go
@@ -1311,9 +1316,9 @@ when you started (you pressed BOOT0, or an earlier attempt left it
 there) — a DFU device doesn’t announce a Klipper serial. Then the
 placeholder is still in the config. Fix it in one command, with the
 printer powered on and running its new firmware:</p>
-<div class="sourceCode" id="cb17"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 </details>
 <hr />
 <p><a id="step-7"></a></p>
@@ -1324,8 +1329,8 @@ optional. The power-cycle at the end of Step 6 ended your SSH session.
 Give the printer a minute to finish booting, connect again as in <a
 href="#step-5">Step 5</a>, and re-open the menu — you can do this at any
 time, from now on:</p>
-<div class="sourceCode" id="cb18"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>This is what it has to offer.</p>
 <p>The menu groups it: <strong>ESSENTIAL</strong> (1 — Flash MCUs,
 done), <strong>MAINTENANCE</strong> (2 — backup / restore your settings
@@ -1480,8 +1485,8 @@ bites.)</em></p>
 <p><strong>Now back up what you just measured.</strong> Open the setup
 menu and take <strong>2 — Backup / restore settings</strong>, then
 <strong>copy the backup to a USB stick</strong>:</p>
-<div class="sourceCode" id="cb21"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>The menu calls it <em>“do this once, right after setup”</em> — this
 is that moment. Your calibration numbers exist from here on, nothing can
 guess them back, and the local copy lives on the very eMMC it is meant
@@ -1757,9 +1762,9 @@ printer, from your own installation.</p>
 repairs everything it can without needing to know what broke, and tells
 you what was actually wrong.</p>
 <p><strong>To update Klipper</strong> — safe, for the same reason:</p>
-<div class="sourceCode" id="cb22"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
 <p>Nothing is lost: every patch is re-applied before klippy loads. Be
 aware you are then off the version this build was tested against.</p>
 <h3 id="verify-the-migration">Verify the migration</h3>
@@ -2273,9 +2278,9 @@ backup on the stick is unaffected.</p>
 auto-mounts at <code>~/printer_data/gcodes/USB</code>. If that folder is
 empty, find the partition with <code>lsblk</code> and mount it
 <strong>to that same path</strong> — the tools look there by name:</p>
-<div class="sourceCode" id="cb32"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb34"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 <p><strong>More than one image on the stick</strong> The tools match by
 pattern (<code>Arco-Unleashed*.img.gz</code>,
 <code>Arco_FW_V*.zip</code>) and take the <strong>first</strong> match,
@@ -2327,8 +2332,8 @@ website</li>
 level</strong> of a FAT32 stick (do not extract it)</li>
 <li>plug the stick into the printer and power-cycle — or, over SSH:</li>
 </ol>
-<div class="sourceCode" id="cb33"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
+<div class="sourceCode" id="cb35"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
 <p>The zip always takes priority over the download, so this also works
 on a printer that does have internet — and it is the only route that
 brings PhrozenGo.</p>
@@ -2356,14 +2361,14 @@ effect</strong> Config repairs are applied by a guard that runs when the
 klipper <strong>service</strong> starts. Klipper’s own
 <code>RESTART</code> and <code>FIRMWARE_RESTART</code> do
 <strong>not</strong> run it:</p>
-<div class="sourceCode" id="cb34"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p><strong>A new self-heal guard is not active</strong> Guards are
 systemd drop-ins, and a kit update ships the scripts without rewiring
 them. Menu <strong>3 — Check self-heal guards</strong> compares what is
 wired against what the kit expects and offers to fix it, or:</p>
-<div class="sourceCode" id="cb35"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
+<div class="sourceCode" id="cb37"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
 <p>It is idempotent — on an up-to-date printer it changes nothing.</p>
 <p><strong>Obico disappeared after a Phrozen firmware update</strong>
 Phrozen’s own start scripts delete <code>moonraker-obico</code> on every
@@ -2379,8 +2384,8 @@ was started from a copy outside the kit (<code>/tmp/scripts/…</code>)
 and tried to work in the wrong place. Current versions detect this and
 update the installed kit anyway; if yours does not, run it from the kit
 itself:</p>
-<div class="sourceCode" id="cb36"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
+<div class="sourceCode" id="cb38"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
 <h3 id="backup-and-restore">Backup and restore</h3>
 <p><strong>The printer starts a backup by itself after a
 restore</strong> A backup image contains whatever was armed when it was
@@ -2388,8 +2393,8 @@ taken, and restoring it brings that back. Current versions make the
 arming one-shot, so it lands harmlessly. An image taken before that fix
 still expects a marker file — create it on the stick before restoring
 such an image:</p>
-<div class="sourceCode" id="cb37"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
 <p><strong>Which backup file is the good one</strong> The name tells you
 which system it holds — <code>-stock</code> is Phrozen’s,
 <code>-unleashed</code> is this one — and the restore menu spells that
@@ -2398,8 +2403,8 @@ on purpose: a <code>.img.gz</code> <strong>without</strong> its
 <code>.sha256</code> and <code>.rawsize</code> is an interrupted run,
 whatever its size. To check a complete one in a second, without reading
 the whole file:</p>
-<div class="sourceCode" id="cb38"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb40"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
 <p><strong>“This image does not fit the eMMC in this printer”</strong>
 The backup came from a machine with a larger eMMC — a 32 GB image cannot
 be written to an 8 GB one. The comparison is against the image’s
@@ -2472,10 +2477,10 @@ names the repair when neither is. That state arises on printers set up
 before the bridge could install it, or after a Phrozen firmware update
 replaces <code>printer.cfg</code>. Bringing the bridge up to date and
 restarting the klipper <strong>service</strong> repairs it:</p>
-<div class="sourceCode" id="cb40"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
-<div class="sourceCode" id="cb41"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb42"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb43"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
 not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
@@ -2539,17 +2544,17 @@ keeps a later Unleashed backup from rotating it away, and what the menu
 reads to label it for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb43"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb45"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the

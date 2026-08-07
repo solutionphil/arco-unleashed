@@ -331,128 +331,141 @@ attempt, where the marker is spent either way.
 ## Step 3 — Flash the printer from the USB stick
 
 The printer overwrites its **own** eMMC, streaming the image from the USB stick. No teardown, no PC,
-nothing to unplug. ✅ Proven on hardware. Full detail, if you want it:
-[`selfflash/README.md`](selfflash/README.md).
+nothing to unplug.
 
-> 🛑 **One shot, no net.** Once the write begins it cannot be stopped, and a failure part-way through
-> leaves a printer that will not boot. Recovering from that means opening the machine and flashing the
-> eMMC on a PC — [Appendix A](#appendix-a). **Before the write starts**, pulling the USB stick and
-> power-cycling makes the flasher stand down safely.
+> 🛑 **One shot.** Once the write begins it cannot be stopped, and a failure part-way through leaves a
+> printer that will not boot — recovering from that means opening the machine ([Appendix A](#appendix-a)).
+> **Before** the write starts, pulling the stick and power-cycling stands the flasher down safely.
 >
-> 🛑 **This step is also the point of no return for the factory system.** It overwrites Phrozen's
-> install in place, so it cannot be copied afterwards. If you may ever want to go back,
-> [Step 2](#step-2) is where that copy is made — or use a **spare eMMC module** and keep the original
-> untouched ([Appendix A](#appendix-a)).
+> This is also the last moment the factory system exists. If you may ever want it back, make the copy in
+> [Step 2](#step-2) first — or flash a **spare eMMC module** and keep the original untouched.
 
-**Prepare the stick.** On the same FAT32 stick as Step 1, also put: the **image** (`.img.gz` + `.sha256` +
-`.rawsize`), **`unleashed-selfflash.tar.gz`** and **`prepare_unleashed_self_flash.sh`** — all from the
-release. Phrozen's `Arco_FW_V*.zip` only if one of the two cases above applies to you; the flasher says
-which files it found before it arms anything.
+### First decide how the printer gets onto WiFi
 
-**WiFi** *(recommended — the printer must come online for the SSH MCU-flash in Step 6)*: add **nothing** and
-it **live-captures** the network the printer already uses (known-good, keeps its country), **or** create a
-`wifi-seed.txt`:
+It has to be online afterwards, because [Step 6](#step-6) is done over SSH. You have three choices, and
+doing nothing is a perfectly good one:
+
+| | What happens |
+|---|---|
+| **Add nothing** *(recommended)* | The flasher copies the network this printer is already using — known-good, keeps its region setting. |
+| **`wifi-seed.txt` on the stick** | Your own network, useful if the printer is not online right now. |
+| **`no_wifi.txt` on the stick** | Deliberately none: the new system raises its own setup hotspot on first boot. |
+
+If you write a `wifi-seed.txt`, it is plain text with no quotes:
+
 ```
 SSID=YourNetworkName
 PSK=YourWiFiPassword
 COUNTRY=US
 ```
-(plain text, no quotes, a **2.4 GHz** network. **`COUNTRY`** is your **2-letter WiFi region code** — US, CA,
-GB, AU, …; **set it to yours**, the region must match your router or the printer may not join.)
-A wrong or missing WiFi falls through to the first-boot phone portal (where you pick your network **and
-your country** from dropdowns). With WiFi details seeded it allows **about 90 seconds** for the radio to
-come up, associate and get an address before falling back to the portal; with none configured it goes to
-the portal almost at once. A network that connects returns in a second or two, so a correct WiFi costs no
-real delay. If the portal does not appear either, you can still hand the printer your network from the USB
-stick afterwards — see Step 4.
 
-**1) Unpack the tool, then look before you leap.** SSH in as `mks` ([Step 5](#step-5)
-shows how). The stick auto-mounts at `~/printer_data/gcodes/USB` (on a stock printer and on Unleashed);
-unpack the tool from there and run the inspect pass, which **changes nothing**:
+The network must be **2.4 GHz** — the Arco has no 5 GHz radio — and `COUNTRY` is **your** two-letter
+region code. Get the region wrong and the printer may refuse to join.
+
+Nothing here is a dead end. If the WiFi does not connect, the first boot falls back to a setup portal you
+reach from your phone, and if even that fails you can still hand the printer a network from the stick
+afterwards ([Step 4](#step-4)).
+
+### 1. Unpack the tool and look before you leap
+
+SSH in as `mks` — [Step 5](#step-5) shows how if you have not done that before. The stick mounts itself
+at `~/printer_data/gcodes/USB`, on Phrozen's system and on this one alike.
 
 ```bash
-cd ~/printer_data/gcodes/USB          # where the USB stick auto-mounts
-sh prepare_unleashed_self_flash.sh    # unpacks the tool to ~/selfflash
-sudo bash ~/selfflash/install-unleashed.sh   # inspect only
+cd ~/printer_data/gcodes/USB
+sh prepare_unleashed_self_flash.sh
 ```
 
-> If `~/printer_data/gcodes/USB` is empty, the stick didn't auto-mount. Mount it **to that same path** —
-> then the commands above work unchanged (`lsblk` tells you the partition):
+```bash
+sudo bash ~/selfflash/install-unleashed.sh
+```
+
+That second command is the **inspect pass. It changes nothing.** It finds the image, checks it against
+its `.sha256`, names the eMMC it would write to, and stops. Read that line and make sure it is the
+device you mean.
+
+> **Nothing under `~/printer_data/gcodes/USB`?** Then the stick did not mount itself. Mount it to that
+> same path and the commands above work unchanged — `lsblk` tells you which partition it is:
+>
 > ```bash
 > sudo mkdir -p /home/mks/printer_data/gcodes/USB
 > sudo mount /dev/sda1 /home/mks/printer_data/gcodes/USB
 > ```
 
-**2) Arm it.** `--arm` prints the disclaimer, verifies the image's checksum against its `.sha256`, and names
-the target eMMC — read that line and make sure it is the device you mean:
+### 2. Arm it
+
+```bash
+sudo bash ~/selfflash/install-unleashed.sh --arm
+```
 
 <p align="center"><img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760"></p>
 
-Then it asks you to type `yes`, and after that the device name in full. Two separate confirmations, on
-purpose: once the write starts it cannot be stopped or reversed:
+It asks you to type `yes`, and then the device name in full. Two separate confirmations, on purpose:
+once the write starts it cannot be stopped or reversed.
 
 <p align="center"><img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760"></p>
 
-It checks the stick for the files the **first boot** needs, then **shows the WiFi it will use** (live-captured
-from the running system, or from your `wifi-seed.txt`) and asks you to **confirm** it — decline, and it offers
-the first-boot portal instead. Then it rebuilds the initramfs and arms the flash:
+Then it checks the stick for the files the first boot will need, shows you **the WiFi it is going to
+use** and asks you to confirm that too — decline, and it sets up the phone portal instead. Finally it
+rebuilds the initramfs and arms the flash.
 
 <p align="center"><img src="assets/manual/selfflash-3-armed.png" alt="USB payload OK, WiFi captured, initramfs rebuilt, ARMED" width="760"></p>
 
-> The screenshot predates the WiFi-confirm prompt; current builds print the captured/seeded SSID and ask you
-> to confirm it (or fall back to the portal) right before arming.
+> Two things in that screenshot are older than the current build: it predates the WiFi confirmation
+> prompt, and the two `ln: … Operation not permitted` lines are gone now. Those were harmless anyway —
+> `/boot` is FAT32, which has no links, so `update-initramfs` just copies instead. Current builds filter
+> them out.
 
-> The two `ln: failed to create … Operation not permitted` lines in that screenshot were **harmless**:
-> `/boot` is FAT32, which has neither hard links nor symlinks, so `update-initramfs` simply falls back to
-> copying. Current builds filter those lines out — the screenshot predates that.
+### 3. Reboot and watch the display
 
-**3) Reboot.** Answer `y`. Your SSH session drops immediately. **That is the reboot, not a fault:**
+Answer `y`. **Your SSH session drops immediately — that is the reboot, not a fault.**
 
 <p align="center"><img src="assets/manual/selfflash-4-reboot.png" alt="Reboot now? y — PuTTY reports the connection closed, which is expected" width="760"></p>
 
-**4) Watch the display.** Three named steps run in order — *check → write → verify*. Only the write phase
-tells you not to power off, because only then is anything actually being overwritten:
+Three named phases run in order: **check → write → verify**. Only the write phase tells you not to power
+off, because only then is anything actually being overwritten.
 
-<p align="center"><img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Appendix A2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620"></p>
-
-When the write and verify finish, the display shows **"Done — Restarting now"** and reminds you to keep the stick plugged in while the printer finishes setup:
+<p align="center"><img src="assets/manual/selfflash-display-writing.jpg" alt="Display: step 2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620"></p>
 
 <p align="center"><img src="assets/manual/selfflash-display-done.jpg" alt="Display: Done - Restarting now. Please wait until the next step proceeds. Keep the USB stick plugged in." width="620"></p>
 
-**Leave the USB stick plugged in.** The printer reboots itself, brings up the WiFi you seeded and installs
-Phrozen's parts from it, rebooting once more. Then continue at
-**[Step 5](#step-5)** — Appendix A do not apply to you.
+**Leave the stick plugged in.** The printer restarts by itself, brings up the WiFi, installs Phrozen's
+parts from the stick and restarts once more. Then carry on at [Step 4](#step-4).
 
-> **What the display shows on that first boot** — after the Phrozen install it shows **"Update complete —
-> wait for restart…"**, **restarts itself once** a few seconds later, and then settles on a
-> **"Notice — Error occurred"** screen. **That last one is expected, not a fault** — Klipper can't start until
-> the MCUs are flashed, and *no amount of restarting/power-cycling clears it*. **Wait for the settled
-> "Error occurred" screen** — that means the automatic restart is done — **then** connect over SSH for
-> **Step 6 (Flash the MCUs)**. Don't SSH *before* that (the auto-restart would drop the session), and don't
-> try to set up on the display.
->
-> You should **not** see a Phrozen *first-time setup wizard* (language → name → chute calibration → homing).
-> It is switched off deliberately: it ends in a homing move, which cannot finish before Step 6, so it is a
-> dead end. If one ever does appear, don't work through it — **power-cycle once or twice** and it clears
-> itself.
+### What the first boot looks like
 
-> **If that WiFi doesn't connect** (wrong password, changed/5 GHz network, or you chose `no_wifi.txt`), the
-> printer falls back to its **setup portal** on the first boot — join **`Arco-Unleashed-Setup`** from a phone
-> (`192.168.4.1`) and enter your network — it gives up on the seeded WiFi after about 90 seconds, so do not pull
-> the plug before that. This matters here because until the MCUs are flashed (Step 6) the display shows an MCU
-> error and cannot set WiFi itself. If even the portal fails to come up, the `wifi-seed.txt` rescue in Step 4
-> still gets the printer onto your network.
+After the Phrozen install the display shows **"Update complete — wait for restart…"**, restarts itself a
+few seconds later, and then settles on a **"Notice — Error occurred"** screen.
 
-> 🚪 **If it goes wrong *before* the write begins** — image missing, checksum mismatch, or the flasher
-> hangs — **pull the USB stick and power-cycle.** With no image on the stick the flasher stands down and
-> your existing system boots normally. Once the write has begun, only Appendix A can recover the printer.
->
-> **The flash stays armed, and that is how you retry:** put a good image back on the stick, power-cycle,
-> and it simply tries again. But if you stop here and carry on using the old system, **cancel it first** —
-> otherwise the next boot with that image on a plugged-in stick overwrites the eMMC without asking:
-> ```bash
-> sudo bash ~/selfflash/install-unleashed.sh --disarm
-> ```
+**That error is expected.** Klipper cannot start until the MCUs are flashed in [Step 6](#step-6), so the
+display has nothing to connect to. Restarting or power-cycling will not clear it. Wait for that screen
+to settle — that is how you know the automatic restart is finished — and only then connect over SSH.
+Connecting earlier just means the restart drops your session.
+
+You should **not** see Phrozen's first-time setup wizard (language → name → chute calibration → homing).
+It is switched off on purpose, because it ends in a homing move that cannot complete before Step 6. If
+one does appear, do not work through it — power-cycle once or twice and it clears itself.
+
+> **If the WiFi does not connect** — wrong password, a changed or 5 GHz network, or you chose
+> `no_wifi.txt` — the printer raises its own hotspot instead. Join **`Arco-Unleashed-Setup`** from a
+> phone, open `192.168.4.1` and enter your network. It waits about 90 seconds for the seeded WiFi before
+> giving up, so do not pull the plug before then.
+
+### If something goes wrong before the write begins
+
+Image missing, checksum mismatch, the flasher hanging — **pull the USB stick and power-cycle.** With no
+image on the stick the flasher stands down and your existing system boots normally. (Once the write has
+begun, only [Appendix A](#appendix-a) can recover the printer.)
+
+**The flash stays armed, and that is how you retry:** put a good image back on the stick, power-cycle,
+and it tries again.
+
+But if you stop here and go on using the old system, **cancel it first** — otherwise the next boot with
+that image on a plugged-in stick overwrites the eMMC without asking:
+
+```bash
+sudo bash ~/selfflash/install-unleashed.sh --disarm
+```
 
 ---
 
