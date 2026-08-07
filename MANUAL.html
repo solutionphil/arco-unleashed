@@ -299,24 +299,18 @@ Step-by-Step Install Manual</h1>
 <strong>🟢 Flash &amp; Run</strong> section. It takes a stock
 <strong>Phrozen Arco</strong> and moves it onto <strong>armbian-mkspi
 (Debian Bookworm, kernel 6.18) · Klipper v0.13</strong> using the
-pre-built image. Follow it top to bottom — every screen you’ll see is
-pictured.</p>
-<blockquote>
-<p><strong>Two routes onto the printer, and this manual walks
-both.</strong> Steps 0 and 4–10 are shared; only the flashing differs: *
-<strong><a
-href="#path-a--easy-direct-flash-self-flash--alternative-to-steps-13">Path
-A — direct self-flash</a></strong> <em>(no teardown, no PC)</em> — the
-running printer overwrites its own eMMC. ✅ Proven on hardware, but
-<strong>one shot, no net</strong>, and it gives you no chance to save
-the factory system. It <strong>replaces</strong> steps 1–3. *
-<strong>Path B — eMMC replacement / recovery</strong> <em>(steps 1–3,
-below)</em> — pull the eMMC and flash it on a PC. The proven path, the
-way to recover a bricked unit, and the only one that lets you keep a way
-back to stock.</p>
-<p>Whichever you take, both meet again at <a
-href="#step-4--connect-via-ssh-putty">Step 4</a>.</p>
-</blockquote>
+pre-built image.</p>
+<p><strong>Work through Steps 1 to 6 in order.</strong> Nothing is
+optional there except Step 2, and every screen you will see along the
+way is pictured. Steps 7 to 11 are things you do once the printer
+already runs.</p>
+<p>The printer flashes <strong>itself</strong>, from a USB stick — no
+PC, no disassembly, nothing to unplug. You only open the machine once,
+in <strong>Step 6</strong>, to press two buttons inside the toolhead.
+Taking the eMMC module out is <strong>not</strong> part of the normal
+route; it lives in <a href="#appendix-a">Appendix A</a> for recovery,
+for a spare module, and for keeping a way back to the factory
+system.</p>
 <blockquote>
 <p>⚠️ <strong>Hardware-specific:</strong> Phrozen Arco with MKS board
 (RK3328, STM32F407 + MKS_THR STM32F103), AP6212 WiFi. Not a generic
@@ -325,12 +319,11 @@ power the machine <strong>off and unplug it</strong> before you open the
 housing. Use at your own risk (see the README disclaimer).</p>
 <p>⚠️ <strong>Warranty:</strong> replacing the factory OS/firmware and
 opening the printer will very likely <strong>void your Phrozen
-warranty</strong>. Keep the original eMMC (or a backup image) so you can
-restore stock if you ever need to — <a
-href="#step-1--remove-the-emmc-module">Step 1</a> is the only moment
-that image can be made. Note that the eMMC alone is not the whole way
-back: Step 5 also reflashes both MCUs, so a full return to stock needs
-their v0.11 firmware too. That is what <a
+warranty</strong>. If you may ever want to go back, make the backup in
+<a href="#step-2">Step 2</a> — it is the only moment that copy can be
+made without opening anything. Note that the eMMC alone is not the whole
+way back: Step 6 also reflashes both MCUs, so a full return to stock
+needs their v0.11 firmware too. That is what <a
 href="revert-to-buster/PACKAGE-START-HERE.txt"><code>revert-to-buster/</code></a>
 is for.</p>
 <p>ℹ️ <strong>This project is not affiliated with Phrozen.</strong> Arco
@@ -341,103 +334,151 @@ ask here, not them. <em>Phrozen</em> and <em>Arco</em> are the
 manufacturer’s trademarks and are used only to say which machine this
 fits.</p>
 </blockquote>
-<p>At a glance:</p>
+<blockquote>
+<p>🛑 <strong>Do <a href="#step-1">Step 1</a> before you flash
+anything.</strong> The new system needs data — the AMS server
+<code>phrozen_master</code> and <code>~/hdlDat</code> — that exists
+<strong>only on your original, still-running printer</strong>. It is in
+no download and in none of Phrozen’s packages, and the flash erases it
+for good. Collect it now, while the old system still boots. Skip it and
+AMS detection hangs and the display will not return home after
+calibration.</p>
+</blockquote>
+<hr />
+<h2 id="contents">Contents</h2>
+<p><strong>Install</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr>
+<td><a href="#before-you-begin">Before you begin</a></td>
+<td>tools, space, what goes on the USB stick</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#step-1">Step 1</a></td>
+<td><strong>Rescue your AMS data</strong></td>
+<td>required, and only possible <em>before</em> flashing</td>
+</tr>
+<tr>
+<td><a href="#step-2">Step 2</a></td>
+<td>Back up the whole printer</td>
+<td>optional, your way back to stock</td>
+</tr>
+<tr>
+<td><a href="#step-3">Step 3</a></td>
+<td><strong>Flash the printer from the USB stick</strong></td>
+<td>the printer overwrites its own eMMC</td>
+</tr>
+<tr>
+<td><a href="#step-4">Step 4</a></td>
+<td>First boot: WiFi portal + USB install</td>
+<td>from your phone</td>
+</tr>
+<tr>
+<td><a href="#step-5">Step 5</a></td>
+<td>Connect via SSH</td>
+<td>PuTTY</td>
+</tr>
+<tr>
+<td><a href="#step-6">Step 6</a></td>
+<td><strong>Flash the MCUs</strong> ⚠️</td>
+<td>the one step that opens the printer</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Once it runs</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr>
+<td><a href="#step-7">Step 7</a></td>
+<td>The rest of the setup menu</td>
+<td>backup/restore, guards, repair</td>
+</tr>
+<tr>
+<td><a href="#step-8">Step 8</a></td>
+<td>Calibrate</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#step-9">Step 9</a></td>
+<td>AddOn features, theme, verify</td>
+<td>optional</td>
+</tr>
+<tr>
+<td><a href="#step-10">Step 10</a></td>
+<td>First print</td>
+<td>OrcaSlicer machine G-code</td>
+</tr>
+<tr>
+<td><a href="#step-11">Step 11</a></td>
+<td>Unleashed × KAOS</td>
+<td>optional add-on</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reference</strong></p>
 <table>
 <colgroup>
 <col style="width: 50%" />
 <col style="width: 50%" />
 </colgroup>
-<thead>
-<tr>
-<th>Step</th>
-<th>What you do</th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td><strong>0</strong></td>
-<td>Rescue the AMS server from the <em>running</em> printer (one SSH
-command) — <strong>not a full backup</strong></td>
+<td><a href="#appendix-a">Appendix A</a></td>
+<td><strong>Removing the eMMC</strong> — recovery, spare module, way
+back to stock</td>
 </tr>
 <tr>
-<td><strong>A</strong></td>
-<td><em>Path A only</em> — self-flash from the printer, then jump to 4
-(<strong>replaces 1–3</strong>)</td>
+<td><a href="#appendix-b">Appendix B</a></td>
+<td>Troubleshooting</td>
 </tr>
 <tr>
-<td><strong>1</strong></td>
-<td><em>Path B</em> — remove the eMMC module (<strong>and image it, if
-you want a way back</strong>)</td>
-</tr>
-<tr>
-<td><strong>2</strong></td>
-<td><em>Path B</em> — flash the image to the eMMC (balenaEtcher)</td>
-</tr>
-<tr>
-<td><strong>3</strong></td>
-<td><em>Path B</em> — first boot: WiFi portal + USB install (from your
-phone)</td>
-</tr>
-<tr>
-<td><strong>4</strong></td>
-<td>SSH in with PuTTY</td>
-</tr>
-<tr>
-<td><strong>5</strong></td>
-<td><strong>Flash the MCUs</strong> (the one essential manual step)</td>
-</tr>
-<tr>
-<td><strong>6</strong></td>
-<td>The rest of the setup menu — backup/restore, guards, repair</td>
-</tr>
-<tr>
-<td><strong>7</strong></td>
-<td>Calibrate</td>
-</tr>
-<tr>
-<td><strong>8</strong></td>
-<td>Optional — AddOn features, Mainsail theme, verify</td>
-</tr>
-<tr>
-<td><strong>9</strong></td>
-<td>First print — OrcaSlicer Machine G-code</td>
-</tr>
-<tr>
-<td><strong>10</strong></td>
-<td>Optional — Unleashed × KAOS add-on</td>
+<td><a href="#appendix-c">Appendix C</a></td>
+<td>FAQ</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p>🛑 <strong>Do Step 0 first — before you flash anything.</strong> The
-new system needs data (the AMS server
-<strong><code>phrozen_master</code> + <code>~/hdlDat</code></strong>)
-that lives <strong>only on your original, still-running printer</strong>
-and is <strong>not</strong> in Phrozen’s <code>Arco_FW_V*.zip</code>.
-The flash erases it for good. <strong>Collect it now (Step 0)</strong>
-while the old printer still boots — skip it and AMS detection hangs and
-the display won’t return home after calibration.</p>
+<p><strong>Read this manual before?</strong> The steps were renumbered
+so that the normal route runs 1–11 without detours. Old <strong>Step
+0</strong> is now <a href="#step-1">Step 1</a>, old <strong>0b</strong>
+is <a href="#step-2">Step 2</a>, the old <strong>path A</strong>
+self-flash is <a href="#step-3">Step 3</a>, and old Steps
+<strong>3–10</strong> each moved up by one. The old <strong>path
+B</strong> Steps 1–2 are <a href="#appendix-a">Appendix A</a>.</p>
 </blockquote>
-<hr />
-<h2 id="what-you-need">What you need</h2>
+<p><a id="before-you-begin"></a></p>
+<h2 id="before-you-begin">Before you begin</h2>
 <p align="center">
 <img src="assets/manual/tools.jpg" alt="Tools laid out" width="720">
 </p>
-<p><strong>Tools</strong> (left→right above): a <strong>USB-to-eMMC
-adapter</strong> (the white MKS eMMC case), a <strong>2.5 mm</strong>
-and <strong>2.0 mm hex/Allen key</strong> (rear extruder cover + the
-printer’s lower housing cover), the <strong>FAT32 USB stick</strong>,
-and a <strong>small Phillips screwdriver</strong> (the eMMC’s retaining
-screws on the mainboard).</p>
+<p><strong>What you actually need</strong> — a <strong>FAT32 USB stick
+(≥ 4 GB)</strong> and two hex keys, <strong>2.5 mm</strong> and
+<strong>2.0 mm</strong>. That is the whole list for the normal route.
+The stick carries the image and the printer flashes itself from it; the
+hex keys are for <strong><a href="#step-6">Step 6</a></strong>, where
+the toolhead is opened to reach two buttons.</p>
+<p>The photo above also shows a <strong>USB-to-eMMC adapter</strong>
+(the white MKS case) and a <strong>small Phillips screwdriver</strong>.
+Those are <strong>not</strong> needed here — they belong to <a
+href="#appendix-a">Appendix A</a>, which takes the eMMC module out for
+recovery or for a spare. If everything goes normally you will never
+touch them.</p>
 <blockquote>
-<p><strong>Taking path A?</strong> You still need the <strong>hex
-keys</strong>: path A skips the eMMC teardown, but <em>every</em> route
-ends at Step 5, which opens the toolhead to reach two buttons. Only the
-adapter and the Phillips screwdriver are path B-only.</p>
-<p><strong>A spare eMMC module</strong> (optional, and the same MKS V1.0
-part) is worth considering on either path: flash the spare and the
-original stays a guaranteed way back to stock. See <a
-href="#step-1--remove-the-emmc-module">Step 1</a>.</p>
+<p><strong>A spare eMMC module</strong> (the same MKS V1.0 part) is
+worth considering even so: flash the spare and the original stays a
+guaranteed, untouched way back to stock. See <a
+href="#appendix-a">Appendix A</a>.</p>
 <p><strong>About the stick:</strong> the original Phrozen one is a good
 fit, but <strong>start it empty</strong>. The tools match their inputs
 by pattern (<code>Arco-Unleashed*.img.gz</code>,
@@ -448,84 +489,69 @@ on only what the table below lists.</p>
 </blockquote>
 <p><strong>Space</strong> — for the first install, put the printer
 somewhere you can <strong>work all the way around it</strong>, not in
-its usual corner. You will reach inside for the eMMC on the mainboard
-(underneath) and, in Step 5, open the toolhead itself to press two
-buttons on its board. Both are fiddly with the machine wedged against a
-wall, and neither is something you want to do twice.</p>
+its usual corner. In Step 6 you open the toolhead itself to press two
+buttons on its board, which is fiddly with the machine wedged against a
+wall and not something you want to do twice.</p>
 <blockquote>
 <p><strong>Running a PentaShield (or any add-on panels)?</strong> Take
-<strong>at least the rear panel off before you start.</strong> Step 5
+<strong>at least the rear panel off before you start.</strong> Step 6
 needs the two buttons <em>inside the toolhead</em>, and the panel is in
 the way of both the covers and your hands. Doing it up front saves
 interrupting the flash halfway through — see <a
 href="#the-toolhead-f103-button-step">the toolhead button step</a>.</p>
 </blockquote>
-<p><strong>Media &amp; software</strong> — one <strong>FAT32 USB stick,
-≥ 4 GB</strong> (the original Phrozen one is ideal). What you copy onto
-it depends on the path — the key difference is that <strong>path A
-carries the image on the stick</strong>, while <strong>path B writes the
-image onto the eMMC</strong> with balenaEtcher, so its stick only holds
-the first-boot files:</p>
+<p><strong>What goes on the stick</strong> — extract <a
+href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a>
+to the <strong>top level</strong> of the stick and it brings everything
+in the first block below. Then add the two files only you can
+supply.</p>
 <table>
 <colgroup>
-<col style="width: 18%" />
-<col style="width: 31%" />
-<col style="width: 31%" />
-<col style="width: 18%" />
+<col style="width: 27%" />
+<col style="width: 45%" />
+<col style="width: 27%" />
 </colgroup>
 <thead>
 <tr>
 <th>File</th>
-<th style="text-align: center;">Path A (self-flash)</th>
-<th style="text-align: center;">Path B (this manual)</th>
+<th style="text-align: center;"></th>
 <th>Where from</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">— → onto the eMMC</td>
-<td>inside <a
-href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></td>
+<td style="text-align: center;">required</td>
+<td>the release zip</td>
 </tr>
 <tr>
 <td><code>…img.gz.sha256</code> <strong>+</strong>
 <code>…img.gz.rawsize</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>Releases</td>
+<td style="text-align: center;">required</td>
+<td>the release zip</td>
 </tr>
 <tr>
 <td><code>unleashed-selfflash.tar.gz</code> <strong>+</strong>
 <code>prepare_unleashed_self_flash.sh</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">( ✅ ) — <strong>needed for <a
-href="#step-0b--optional-image-the-whole-printer-first">Step
-0b</a></strong></td>
-<td>Releases</td>
-</tr>
-<tr>
-<td><code>Arco_FW_V*.zip</code> — <strong>optional</strong>, see
-below</td>
-<td style="text-align: center;">( ✅ )</td>
-<td style="text-align: center;">( ✅ )</td>
-<td><a
-href="https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip">Phrozen</a>
-— <em>you download it</em></td>
+<td style="text-align: center;">required</td>
+<td>the release zip</td>
 </tr>
 <tr>
 <td><strong><code>arco-phrozen-ams.tar.gz</code></strong></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅</td>
-<td>Step 0 (<code>collect_data_arco.sh</code>)</td>
+<td style="text-align: center;"><strong>required</strong></td>
+<td><strong>you make it</strong> in <a href="#step-1">Step 1</a></td>
 </tr>
 <tr>
-<td><em>optional</em> <code>wifi-seed.txt</code> /
-<code>no_wifi.txt</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>you create it (see <a
+<td><code>Arco_FW_V*.zip</code></td>
+<td style="text-align: center;">optional — see below</td>
+<td><a
+href="https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip">Phrozen</a>,
+you download it</td>
+</tr>
+<tr>
+<td><code>wifi-seed.txt</code> <em>or</em> <code>no_wifi.txt</code></td>
+<td style="text-align: center;">optional</td>
+<td>you write it (see <a
 href="selfflash/README.md"><code>selfflash/</code></a>)</td>
 </tr>
 </tbody>
@@ -543,7 +569,7 @@ Phrozen’s own package, not in the repository.</p>
 <p>Display and AMS firmware are <em>not</em> a reason: those are updated
 through Phrozen’s own USB firmware update, not from this stick.</p>
 <p>The zip always wins: if one is on the stick, nothing is downloaded at
-all. Added, it looks like this — the same stick as in Step 0, with
+all. Added, it looks like this — the same stick as in Step 1, with
 Phrozen’s package beside the AMS backup:</p>
 <p align="center">
 <img src="assets/manual/usb-files-with-fw.png" alt="The same USB stick with Arco_FW_V199.zip added" width="760">
@@ -553,15 +579,14 @@ Phrozen’s package beside the AMS backup:</p>
 module is either read from the zip you supply, or — only after you
 confirm — downloaded from <strong>Phrozen’s own</strong> public
 repository onto your printer. Nothing of Phrozen’s is hosted, mirrored
-or redistributed here.</em> <strong>Path B additionally needs <a
-href="https://etcher.balena.io/">balenaEtcher</a> on a PC</strong> plus
-the tools pictured above.</p>
+or redistributed here.</em></p>
+<p><em>(Only <a href="#appendix-a">Appendix A</a> additionally needs <a
+href="https://etcher.balena.io/">balenaEtcher</a> on a PC, plus the
+adapter and the Phillips screwdriver.)</em></p>
 <hr />
-<p><a id="step-0"></a></p>
-<h2
-id="step-0-collect-data-from-your-still-running-printer-do-this-first">Step
-0 — Collect data from your still-running printer · <strong>do this
-first</strong></h2>
+<p><a id="step-1"></a></p>
+<h2 id="step-1-rescue-your-ams-data-do-this-first">Step 1 — Rescue your
+AMS data · <strong>do this first</strong></h2>
 <blockquote>
 <p>🛑 <strong>This is not a backup of your printer.</strong> It rescues
 <strong>two files</strong> that exist nowhere else — nothing more.
@@ -569,11 +594,10 @@ Everything else on the printer (your calibration, uploaded G-code,
 settings, Phrozen’s own system) is <strong>erased by the flash and
 cannot be brought back</strong> afterwards.</p>
 <p>💾 <strong>If you want a way back, make one first — see <a
-href="#step-0b--optional-image-the-whole-printer-first">Step
-0b</a>.</strong> It copies the entire eMMC onto your USB stick as one
-file you can write back later, without opening the printer. Phrozen
-publish no stock image, so this is the only way to keep the machine you
-have today.</p>
+href="#step-2">Step 2</a>.</strong> It copies the entire eMMC onto your
+USB stick as one file you can write back later, without opening the
+printer. Phrozen publish no stock image, so this is the only way to keep
+the machine you have today.</p>
 <p><strong>This is also the only moment it can be done.</strong> An
 image taken later, from Unleashed, restores Unleashed. The one that
 takes the printer back to Phrozen’s system has to be a copy of Phrozen’s
@@ -620,20 +644,20 @@ there</strong> — if it’s missing, re-insert the stick and run the
 command again.</p></li>
 </ol>
 <p>When you’re done the stick holds this — keep it, you’ll reuse the
-same stick in Step 3:</p>
+same stick in Step 4:</p>
 <p align="center">
-<img src="assets/manual/usb-files.png" alt="USB stick after Step 0, with arco-phrozen-ams.tar.gz highlighted" width="820">
+<img src="assets/manual/usb-files.png" alt="USB stick after Step 1, with arco-phrozen-ams.tar.gz highlighted" width="820">
 </p>
 <p>Everything above the highlighted line came out of
 <strong><code>Arco-Unleashed-USB.zip</code></strong>, extracted to the
 top level of the stick. The highlighted
-<strong><code>arco-phrozen-ams.tar.gz</code></strong> is what Step 0
+<strong><code>arco-phrozen-ams.tar.gz</code></strong> is what Step 1
 just produced — the one file no download and no Phrozen package can
 replace. The new system re-installs it by itself on first boot.</p>
 <hr />
-<p><a id="step-0b--optional-image-the-whole-printer-first"></a></p>
-<h2 id="step-0b-optional-image-the-whole-printer-first">Step 0b —
-<em>optional:</em> image the whole printer first</h2>
+<p><a id="step-2"></a></p>
+<h2 id="step-2-optional-back-up-the-whole-printer">Step 2 —
+<em>Optional:</em> back up the whole printer</h2>
 <p><strong>This is the way back.</strong> Phrozen do not publish a stock
 image, so once the eMMC is overwritten, the machine you have today is
 gone unless you copied it first. This copies <strong>all of it</strong>
@@ -674,42 +698,52 @@ href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleas
 externally?</strong> Because right now your printer is still running
 Phrozen’s original system, and none of this project’s files are on it
 yet. The backup tool has to come from the stick — that is the whole
-reason it ships as a standalone package that needs no installation. Path
-A users have both files on the stick anyway; on path B they are the one
-thing you have to add for this step.</p>
+reason it ships as a standalone package that needs no installation. The
+release zip puts both on the stick already, so on the normal route you
+have them; only if you have to add for this step.</p>
 </blockquote>
 <blockquote>
-<p>⚠️ <strong>The backup is one single file, and FAT32 cannot hold a
-file of 4 GiB or more.</strong> Everything in this manual uses FAT32,
-and so does this — but it does mean the backup has to stay under that
-ceiling. The tool measures first and tells you the estimate before
-anything happens, so you find this out in a sentence rather than half an
-hour in.</p>
-<p>If it says the backup is too large, <strong>deleting files will not
-help.</strong> This is an image of the whole eMMC, not a copy of its
-files: everything you delete stays in the freed blocks byte for byte,
-and compresses no better than noise. Two things do help, in the order
-worth trying:</p>
-<p><strong>1. Zero the free space, then run the backup again.</strong>
-Usually decisive on a printer that has seen a lot of prints. It fills
-the disk for a few minutes and then releases it again:</p>
+<p>⚠️ <strong>Clear out old prints first — the backup is one single
+file, and FAT32 cannot hold 4 GiB or more.</strong></p>
+<p>On a printer that has been in use for a while, <strong>old G-code
+files and timelapse videos are usually what pushes the backup over that
+ceiling.</strong> Delete them before you start:</p>
 <div class="sourceCode" id="cb3"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dd if=/dev/zero of=/zero.tmp bs=1M <span class="dv">2</span><span class="op">&gt;</span>/dev/null<span class="kw">;</span> <span class="fu">sync</span><span class="kw">;</span> <span class="fu">sudo</span> rm <span class="at">-f</span> /zero.tmp<span class="kw">;</span> <span class="fu">sync</span></span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> ~/printer_data/gcodes/<span class="pp">*</span>.gcode ~/printer_data/timelapse/<span class="pp">*</span> <span class="dv">2</span><span class="op">&gt;</span>/dev/null<span class="kw">;</span> <span class="fu">df</span> <span class="at">-h</span> /</span></code></pre></div>
+<p><em>(Keep anything you still want — this cannot be undone. Check the
+list first with <code>ls -lhS ~/printer_data/gcodes/ | head -20</code>
+to see what is actually large.)</em></p>
+<p><strong>Why deleting works here, when it normally would not:</strong>
+this is an image of the whole eMMC, not a copy of its files, so a
+deleted file’s contents stay in the freed blocks and compress no better
+than noise. The backup therefore <strong>zeroes the free space
+itself</strong>, in the one moment the filesystem is unmounted — and
+only that turns your deleting into a smaller file. Delete without that
+step and nothing shrinks; which is exactly why this used to confuse
+people.</p>
+<p>The tool measures before it does anything and tells you the estimate,
+so you learn this in a sentence rather than half an hour in. If it still
+says too large, two more things help:</p>
+<p><strong>1. Zero the free space by hand as well, then run the backup
+again.</strong> It fills the disk for a few minutes and then releases it
+again:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dd if=/dev/zero of=/zero.tmp bs=1M <span class="dv">2</span><span class="op">&gt;</span>/dev/null<span class="kw">;</span> <span class="fu">sync</span><span class="kw">;</span> <span class="fu">sudo</span> rm <span class="at">-f</span> /zero.tmp<span class="kw">;</span> <span class="fu">sync</span></span></code></pre></div>
 <p>Do not print while that runs, and reboot afterwards. The backup
 itself also zeroes free space on its own, in the moment the filesystem
 is unmounted — this is the same trick, done early enough to be visible
 in the estimate.</p>
 <p><strong>2. Compress harder.</strong> Slower, and buys roughly 10–15
 %:</p>
-<div class="sourceCode" id="cb4"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
-<p>If it still will not fit, image the eMMC on a PC instead (path B,
-step 1) — that has no size limit at all.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
+<p>If it still will not fit, image the eMMC on a PC instead (<a
+href="#appendix-a">Appendix A</a>) — that has no size limit at all.</p>
 </blockquote>
 <p>On the printer:</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
 <p>It measures the eMMC (about a minute, silent), tells you how big the
 backup will be and whether the stick has room, then asks. Say yes and it
 reboots, images the eMMC <strong>before the system starts</strong> — the
@@ -781,8 +815,8 @@ plain USB 2.0 one.</p>
 </blockquote>
 <p><strong>To write it back later</strong> — the ordinary flash, pointed
 at your own file instead of a release:</p>
-<div class="sourceCode" id="cb6"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="at">--image</span> /path/to/arco-emmc-backup-stock.img.gz</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="at">--image</span> /path/to/arco-emmc-backup-stock.img.gz</span></code></pre></div>
 <p>It verifies the checksum, refuses if the image cannot fit this
 printer’s eMMC, and skips the WiFi and first-boot-file steps — a restore
 is not an install, and your image already carries both. Restoring a 32
@@ -797,29 +831,29 @@ way.</p>
 under <strong>i) WHOLE SYSTEM: save / restore</strong>, which lists the
 images on your stick and hands the chosen one to the same flasher.</p>
 <hr />
-<p><a id="path-a--easy-direct-flash-self-flash--alternative-to-steps-13"></a></p>
-<h2
-id="path-a-easy-direct-flash-self-flash-alternative-to-steps-13">Path A
-— Easy direct flash (self-flash) · <em>alternative to Steps
-1–3</em></h2>
-<p>No teardown, no PC: the running printer overwrites its
-<strong>own</strong> eMMC, streaming the image from the USB stick. ✅
-<strong>Proven on hardware</strong> — but <strong>one shot, no
-net</strong>: once the write begins, a failure is recovered with Steps
-1–2 below. If you already own an eMMC adapter, path B stays the safer
-choice. Full detail: <a
-href="selfflash/README.md"><code>selfflash/README.md</code></a>.
-<em>Prefer path B? Skip ahead to Step 1.</em></p>
+<p><a id="step-3"></a></p>
+<h2 id="step-3-flash-the-printer-from-the-usb-stick">Step 3 — Flash the
+printer from the USB stick</h2>
+<p>The printer overwrites its <strong>own</strong> eMMC, streaming the
+image from the USB stick. No teardown, no PC, nothing to unplug. ✅
+Proven on hardware. Full detail, if you want it: <a
+href="selfflash/README.md"><code>selfflash/README.md</code></a>.</p>
 <blockquote>
-<p>🛑 <strong>Path A gives you no chance to save the factory
-system.</strong> It never removes the eMMC and never touches a PC, so
-the stock Buster install is overwritten in place and cannot be imaged
-first. If you may ever want to go back to stock, <strong>take path
-B</strong> and make the dump in <a
-href="#step-1--remove-the-emmc-module">Step 1</a>.</p>
+<p>🛑 <strong>One shot, no net.</strong> Once the write begins it cannot
+be stopped, and a failure part-way through leaves a printer that will
+not boot. Recovering from that means opening the machine and flashing
+the eMMC on a PC — <a href="#appendix-a">Appendix A</a>. <strong>Before
+the write starts</strong>, pulling the USB stick and power-cycling makes
+the flasher stand down safely.</p>
+<p>🛑 <strong>This step is also the point of no return for the factory
+system.</strong> It overwrites Phrozen’s install in place, so it cannot
+be copied afterwards. If you may ever want to go back, <a
+href="#step-2">Step 2</a> is where that copy is made — or use a
+<strong>spare eMMC module</strong> and keep the original untouched (<a
+href="#appendix-a">Appendix A</a>).</p>
 </blockquote>
 <p><strong>Prepare the stick.</strong> On the same FAT32 stick as Step
-0, also put: the <strong>image</strong> (<code>.img.gz</code> +
+1, also put: the <strong>image</strong> (<code>.img.gz</code> +
 <code>.sha256</code> + <code>.rawsize</code>),
 <strong><code>unleashed-selfflash.tar.gz</code></strong> and
 <strong><code>prepare_unleashed_self_flash.sh</code></strong> — all from
@@ -827,7 +861,7 @@ the release. Phrozen’s <code>Arco_FW_V*.zip</code> only if one of the
 two cases above applies to you; the flasher says which files it found
 before it arms anything.</p>
 <p><strong>WiFi</strong> <em>(recommended — the printer must come online
-for the SSH MCU-flash in Step 5)</em>: add <strong>nothing</strong> and
+for the SSH MCU-flash in Step 6)</em>: add <strong>nothing</strong> and
 it <strong>live-captures</strong> the network the printer already uses
 (known-good, keeps its country), <strong>or</strong> create a
 <code>wifi-seed.txt</code>:</p>
@@ -846,25 +880,24 @@ before falling back to the portal; with none configured it goes to the
 portal almost at once. A network that connects returns in a second or
 two, so a correct WiFi costs no real delay. If the portal does not
 appear either, you can still hand the printer your network from the USB
-stick afterwards — see Step 3.</p>
+stick afterwards — see Step 4.</p>
 <p><strong>1) Unpack the tool, then look before you leap.</strong> SSH
-in as <code>mks</code> (<a href="#step-4--connect-via-ssh-putty">Step
-4</a> shows how). The stick auto-mounts at
-<code>~/printer_data/gcodes/USB</code> (on a stock printer and on
-Unleashed); unpack the tool from there and run the inspect pass, which
-<strong>changes nothing</strong>:</p>
-<div class="sourceCode" id="cb8"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB          <span class="co"># where the USB stick auto-mounts</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh    <span class="co"># unpacks the tool to ~/selfflash</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh   <span class="co"># inspect only</span></span></code></pre></div>
+in as <code>mks</code> (<a href="#step-5">Step 5</a> shows how). The
+stick auto-mounts at <code>~/printer_data/gcodes/USB</code> (on a stock
+printer and on Unleashed); unpack the tool from there and run the
+inspect pass, which <strong>changes nothing</strong>:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB          <span class="co"># where the USB stick auto-mounts</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh    <span class="co"># unpacks the tool to ~/selfflash</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh   <span class="co"># inspect only</span></span></code></pre></div>
 <blockquote>
 <p>If <code>~/printer_data/gcodes/USB</code> is empty, the stick didn’t
 auto-mount. Mount it <strong>to that same path</strong> — then the
 commands above work unchanged (<code>lsblk</code> tells you the
 partition):</p>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 </blockquote>
 <p><strong>2) Arm it.</strong> <code>--arm</code> prints the disclaimer,
 verifies the image’s checksum against its <code>.sha256</code>, and
@@ -909,7 +942,7 @@ drops immediately. <strong>That is the reboot, not a fault:</strong></p>
 — <em>check → write → verify</em>. Only the write phase tells you not to
 power off, because only then is anything actually being overwritten:</p>
 <p align="center">
-<img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Step 2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620">
+<img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Appendix A2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620">
 </p>
 <p>When the write and verify finish, the display shows <strong>“Done —
 Restarting now”</strong> and reminds you to keep the stick plugged in
@@ -919,9 +952,8 @@ while the printer finishes setup:</p>
 </p>
 <p><strong>Leave the USB stick plugged in.</strong> The printer reboots
 itself, brings up the WiFi you seeded and installs Phrozen’s parts from
-it, rebooting once more. Then continue at <strong><a
-href="#step-4--connect-via-ssh-putty">Step 4</a></strong> — Steps 1–3 do
-not apply to you.</p>
+it, rebooting once more. Then continue at <strong><a href="#step-5">Step
+5</a></strong> — Appendix A do not apply to you.</p>
 <blockquote>
 <p><strong>What the display shows on that first boot</strong> — after
 the Phrozen install it shows <strong>“Update complete — wait for
@@ -931,13 +963,13 @@ screen. <strong>That last one is expected, not a fault</strong> —
 Klipper can’t start until the MCUs are flashed, and <em>no amount of
 restarting/power-cycling clears it</em>. <strong>Wait for the settled
 “Error occurred” screen</strong> — that means the automatic restart is
-done — <strong>then</strong> connect over SSH for <strong>Step 5 (Flash
+done — <strong>then</strong> connect over SSH for <strong>Step 6 (Flash
 the MCUs)</strong>. Don’t SSH <em>before</em> that (the auto-restart
 would drop the session), and don’t try to set up on the display.</p>
 <p>You should <strong>not</strong> see a Phrozen <em>first-time setup
 wizard</em> (language → name → chute calibration → homing). It is
 switched off deliberately: it ends in a homing move, which cannot finish
-before Step 5, so it is a dead end. If one ever does appear, don’t work
+before Step 6, so it is a dead end. If one ever does appear, don’t work
 through it — <strong>power-cycle once or twice</strong> and it clears
 itself.</p>
 </blockquote>
@@ -948,9 +980,9 @@ printer falls back to its <strong>setup portal</strong> on the first
 boot — join <strong><code>Arco-Unleashed-Setup</code></strong> from a
 phone (<code>192.168.4.1</code>) and enter your network — it gives up on
 the seeded WiFi after about 90 seconds, so do not pull the plug before
-that. This matters here because until the MCUs are flashed (Step 5) the
+that. This matters here because until the MCUs are flashed (Step 6) the
 display shows an MCU error and cannot set WiFi itself. If even the
-portal fails to come up, the <code>wifi-seed.txt</code> rescue in Step 3
+portal fails to come up, the <code>wifi-seed.txt</code> rescue in Step 4
 still gets the printer onto your network.</p>
 </blockquote>
 <blockquote>
@@ -958,124 +990,18 @@ still gets the printer onto your network.</p>
 — image missing, checksum mismatch, or the flasher hangs — <strong>pull
 the USB stick and power-cycle.</strong> With no image on the stick the
 flasher stands down and your existing system boots normally. Once the
-write has begun, only Steps 1–2 can recover the printer.</p>
+write has begun, only Appendix A can recover the printer.</p>
 <p><strong>The flash stays armed, and that is how you retry:</strong>
 put a good image back on the stick, power-cycle, and it simply tries
 again. But if you stop here and carry on using the old system,
 <strong>cancel it first</strong> — otherwise the next boot with that
 image on a plugged-in stick overwrites the eMMC without asking:</p>
-<div class="sourceCode" id="cb10"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
 </blockquote>
 <hr />
-<h2 id="path-b-emmc-replacement-recovery-steps-13">Path B — eMMC
-replacement / recovery · <em>Steps 1–3</em></h2>
-<p>The proven route: pull the eMMC, flash the image onto it with
-<strong>balenaEtcher</strong> on a PC, put it back. This is also how you
-<strong>recover</strong> a printer if a path-A self-flash ever fails.
-Steps 1–3 below are this path; then both paths meet again at <strong><a
-href="#step-4--connect-via-ssh-putty">Step 4</a></strong>.</p>
-<blockquote>
-<p><em>Took <strong>path A</strong> above? The eMMC is already flashed —
-skip straight to <a href="#step-4--connect-via-ssh-putty">Step
-4</a>.</em></p>
-</blockquote>
-<p><a id="step-1--remove-the-emmc-module"></a></p>
-<h2 id="step-1-remove-the-emmc-module">Step 1 — Remove the eMMC
-module</h2>
-<blockquote>
-<p>🛑 <strong>This is your only chance to save the factory
-system.</strong> The printer has <strong>one</strong> eMMC. Step 2
-writes over it, and the stock Buster install on it is gone for good —
-Phrozen do not publish an image of it. Two ways to keep a road back, and
-you must choose now:</p>
-<ul>
-<li><strong>Keep the original module.</strong> Fit a <strong>spare
-eMMC</strong> (they are cheap and the same MKS V1.0 part), flash
-<em>that</em> in Step 2, and put the original in a drawer. Refitting it
-is then a two-minute job.</li>
-<li><strong>Or image it before you overwrite it.</strong> With the
-module in the adapter, take a full dump <em>first</em>:
-<strong>Windows</strong> — <a
-href="https://sourceforge.net/projects/win32diskimager/">Win32DiskImager</a>,
-the <strong>Read</strong> button (balenaEtcher cannot do this; its
-<em>Clone</em> is drive-to-drive and produces no file).
-<strong>Mac/Linux</strong> —
-<code>sudo dd if=/dev/sdX of=buster.img bs=4M</code>, with
-<code>sdX</code> from <code>lsblk</code>. It dumps the whole ~31 GB, so
-have the space free and expect it to take a while.</li>
-</ul>
-<p>This is not precaution for its own sake: the kit’s own way back, <a
-href="revert-to-buster/PACKAGE-START-HERE.txt"><code>revert-to-buster/</code></a>,
-lists as its <strong>first</strong> requirement <em>“YOUR OWN buster.img
-— a 1:1 full-disk dump of a WORKING Buster eMMC”</em>. This step is the
-only moment it can be made.</p>
-</blockquote>
-<p><strong>Power the printer off and unplug it.</strong> Then open the
-<strong>lower housing cover</strong> — undo the circled bottom screws
-with the hex key:</p>
-<p align="center">
-<img src="assets/manual/printer-bottom-screws.jpg" alt="Bottom cover screw positions" width="560">
-</p>
-<p>On the <strong>Phrozen Bumblebee</strong> mainboard, find the
-<strong>MKS eMMC V1.0</strong> module (labelled <em>MKS PI …</em>). It’s
-held by <strong>two Phillips screws</strong> (arrows). Undo them:</p>
-<p align="center">
-<img src="assets/manual/mainboard-emmc.jpg" alt="eMMC location on the mainboard" width="420">
-  
-<img src="assets/manual/emmc-slot-closeup.jpg" alt="eMMC slot close-up" width="420">
-</p>
-<p>Lift the module out and slide it into the <strong>USB-to-eMMC
-adapter</strong>:</p>
-<p align="center">
-<img src="assets/manual/emmc-usb-adapter.jpg" alt="eMMC in USB adapter" width="620">
-</p>
-<hr />
-<h2 id="step-2-flash-the-image-with-balenaetcher">Step 2 — Flash the
-image with balenaEtcher</h2>
-<p>Plug the adapter into your PC and open <strong>balenaEtcher</strong>.
-(Use the GUI — no WSL needed.)</p>
-<p><strong>2.1 — Flash from file:</strong> click <strong>Flash from
-file</strong> and pick the Arco Unleashed <code>.img</code> (unzip the
-<code>.img.gz</code> first if your Etcher can’t read <code>.gz</code>
-directly).</p>
-<p align="center">
-<img src="assets/manual/balena-1-flash-from-file.png" alt="balenaEtcher — Flash from file" width="720">
-</p>
-<p><strong>2.2 — Select target:</strong> click <strong>Select
-target</strong>.</p>
-<p align="center">
-<img src="assets/manual/balena-2-select-target.png" alt="balenaEtcher — Select target" width="720">
-</p>
-<p><strong>2.3 — Pick the <em>right</em> drive:</strong> choose the
-<strong>eMMC</strong> (here the ~<strong>31 GB</strong> “Generic STORAGE
-… USB Device”). ⚠️ <strong>Do not</strong> pick your big system disk
-(the 500 GB “Large drive” is flagged for a reason) — Etcher
-<strong>erases</strong> whatever you select.</p>
-<p align="center">
-<img src="assets/manual/balena-3-pick-drive.png" alt="balenaEtcher — pick the correct drive" width="720">
-</p>
-<p><strong>2.4 — Flash!</strong> Confirm the file and target, then click
-<strong>Flash!</strong></p>
-<p align="center">
-<img src="assets/manual/balena-4-flash.png" alt="balenaEtcher — Flash" width="720">
-</p>
-<p><strong>2.5 — Ignore the Windows “format disk” popup.</strong>
-Windows can’t read the Linux partitions and will offer to format the
-drive — click <strong>Cancel / Abbrechen</strong>.
-<strong>Never</strong> click <em>Format disk</em>.</p>
-<p align="center">
-<img src="assets/manual/balena-5-cancel-format.png" alt="Windows format prompt — click Cancel" width="440">
-</p>
-<p><strong>2.6 — Done.</strong> When Etcher shows <strong>Flash
-Completed!</strong>, safely eject the adapter.</p>
-<p align="center">
-<img src="assets/manual/balena-6-done.png" alt="balenaEtcher — Flash Completed" width="720">
-</p>
-<p>Put the eMMC <strong>back into the mainboard</strong> (re-fit the two
-screws) and <strong>close the housing</strong>.</p>
-<hr />
-<h2 id="step-3-first-boot-wifi-portal-usb-install">Step 3 — First boot:
+<p><a id="step-4"></a></p>
+<h2 id="step-4-first-boot-wifi-portal-usb-install">Step 4 — First boot:
 WiFi portal + USB install</h2>
 <p>The public image ships <strong>without</strong> Phrozen’s software,
 so the first boot brings up a <strong>WiFi setup portal</strong>, then
@@ -1084,10 +1010,10 @@ by fetching it from Phrozen’s own repository after you have
 confirmed.</p>
 <p><strong>3.1 — Prepare the USB stick.</strong> On the FAT32 stick you
 need the <strong><code>arco-phrozen-ams.tar.gz</code></strong> from Step
-0 (see the picture there). Add <strong>Phrozen’s
+1 (see the picture there). Add <strong>Phrozen’s
 <code>Arco_FW_V*.zip</code></strong> beside it only if the printer will
 have <strong>no internet</strong> during setup, or if you want PhrozenGo
-— see the note under <a href="#what-you-need">What you need</a>.</p>
+— see the note under <a href="#before-you-begin">What you need</a>.</p>
 <p><strong>3.2 — Plug the stick in, <em>then</em> connect.</strong>
 Power the printer on and <strong>insert the prepared USB stick into the
 printer’s USB port now — before you press Connect.</strong> On your
@@ -1166,17 +1092,17 @@ screen above replaces them, and the reboot is automatic.</p>
 </blockquote>
 <p>After the restart you can remove the stick. <em>(The full-card rootfs
 resize also happens here; SSH host keys are generated on the first
-boot.)</em> Once the MCUs are flashed in <a
-href="#step-5-flash-the-mcus-essential">Step 5</a>, the normal Phrozen
-display WiFi screen handles future network changes.</p>
+boot.)</em> Once the MCUs are flashed in <a href="#step-6">Step 6</a>,
+the normal Phrozen display WiFi screen handles future network
+changes.</p>
 <blockquote>
 <p><strong>What you see now is “Notice — Error occurred”, and that is
 expected.</strong> Klipper cannot start yet, because the MCUs still
 carry the old firmware — so the display settles on an error popup. The
 install did <strong>not</strong> fail, and restarting or power-cycling
 will not clear it. <strong>Wait for that settled screen</strong> (it
-means the automatic restart has finished), then go on to Step 4 and
-flash the MCUs in Step 5.</p>
+means the automatic restart has finished), then go on to Step 5 and
+flash the MCUs in Step 6.</p>
 </blockquote>
 <blockquote>
 <p><strong>Skip any built-in “print test”</strong> the first-run or a
@@ -1197,8 +1123,8 @@ re-apply the v0.13 Klipper patches automatically on the next boot.
 <em>(This applies to both install paths.)</em></p>
 </blockquote>
 <hr />
-<p><a id="step-4--connect-via-ssh-putty"></a></p>
-<h2 id="step-4-connect-via-ssh-putty">Step 4 — Connect via SSH
+<p><a id="step-5"></a></p>
+<h2 id="step-5-connect-via-ssh-putty">Step 5 — Connect via SSH
 (PuTTY)</h2>
 <ol type="1">
 <li>Find the printer’s <strong>IP</strong> (router device list, or on
@@ -1215,17 +1141,18 @@ Unleashed banner:</li>
 <img src="assets/manual/ssh-login.jpg" alt="PuTTY SSH login — Arco Unleashed banner" width="640">
 </p>
 <hr />
-<h2 id="step-5-flash-the-mcus-essential">Step 5 — Flash the MCUs ⚠️
+<p><a id="step-6"></a></p>
+<h2 id="step-6-flash-the-mcus-essential">Step 6 — Flash the MCUs ⚠️
 essential</h2>
 <p>Open the setup menu — everything from here on runs from it:</p>
-<div class="sourceCode" id="cb12"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p align="center">
 <img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820">
 </p>
 <p>Take <strong>1 — Flash MCUs</strong>. It is the only item that is not
 optional, which is why it does not wait until you have read the rest of
-the menu; the tour of everything else is Step 6.</p>
+the menu; the tour of everything else is Step 7.</p>
 <p>First boot did everything else automatically. The
 <strong>one</strong> thing you must still do by hand: the host now runs
 Klipper <strong>v0.13</strong>, but your printer’s MCUs still carry the
@@ -1273,7 +1200,6 @@ setting was missing or a Katapult update renamed something — the script
 prints which value disagreed and what to set it to.</p>
 </blockquote></li>
 </ul>
-<p><a id="the-toolhead-f103-button-step"></a></p>
 <h3 id="the-toolhead-f103-button-step">The toolhead F103 button
 step</h3>
 <p>The buttons sit <strong>inside</strong> the toolhead, so two covers
@@ -1318,9 +1244,9 @@ a five-minute repair.</p>
 </blockquote>
 <p><strong>3) Power back up and get the script waiting.</strong> Plug
 in, switch on, wait for the boot, connect with PuTTY again (<a
-href="#step-4--connect-via-ssh-putty">Step 4</a>) and run:</p>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+href="#step-5">Step 5</a>) and run:</p>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>→ <code>1</code> (Flash MCUs) → the toolhead F103. The toolhead stays
 open from here: the flasher stops Klipper, so nothing homes and nothing
 heats — just leave the part-cooling fan unplugged until the covers go
@@ -1403,9 +1329,9 @@ up cleanly.</p>
 <p><strong>2) Check.</strong> Open <strong>Mainsail</strong> in a
 browser — <strong><code>http://&lt;printer-ip&gt;/</code></strong> (or
 <strong><code>:81</code></strong>), the same IP you gave PuTTY in Step
-4. It should come up <strong>ready</strong>, with no MCU error, and the
+5. It should come up <strong>ready</strong>, with no MCU error, and the
 display’s <em>Notice — Error occurred</em> popup is gone too. That’s
-Step 5 done.</p>
+Step 6 done.</p>
 <details>
 <summary>
 <b>If Klipper says <code>mcu: Unable to connect</code></b> — the chip id
@@ -1423,20 +1349,21 @@ when you started (you pressed BOOT0, or an earlier attempt left it
 there) — a DFU device doesn’t announce a Klipper serial. Then the
 placeholder is still in the config. Fix it in one command, with the
 printer powered on and running its new firmware:</p>
-<div class="sourceCode" id="cb14"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 </details>
 <hr />
-<h2 id="step-6-the-rest-of-the-setup-menu">Step 6 — The rest of the
+<p><a id="step-7"></a></p>
+<h2 id="step-7-the-rest-of-the-setup-menu">Step 7 — The rest of the
 setup menu</h2>
 <p>With the MCUs flashed, the printer is complete — everything below is
-optional. The power-cycle at the end of Step 5 ended your SSH session.
+optional. The power-cycle at the end of Step 6 ended your SSH session.
 Give the printer a minute to finish booting, connect again as in <a
-href="#step-4--connect-via-ssh-putty">Step 4</a>, and re-open the menu —
-you can do this at any time, from now on:</p>
-<div class="sourceCode" id="cb15"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+href="#step-5">Step 5</a>, and re-open the menu — you can do this at any
+time, from now on:</p>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>This is what it has to offer.</p>
 <p>The menu groups it: <strong>ESSENTIAL</strong> (1 — Flash MCUs,
 done), <strong>MAINTENANCE</strong> (2 — backup / restore your settings
@@ -1446,7 +1373,7 @@ emergency repair), <strong>EXTRAS</strong> (4 — AddOn.cfg + features · 5
 <strong>UPDATE</strong> (6 — check GitHub).</p>
 <p><strong>2 — Backup / restore settings</strong> covers the one thing
 no guard can do for you: guessing back numbers your machine measured —
-worth running <strong>once you have calibrated (Step 7)</strong>, since
+worth running <strong>once you have calibrated (Step 8)</strong>, since
 that is when those numbers first exist. It saves your printer
 configuration and calibration, the web interface’s own settings (theme,
 presets, macro groups, history — none of which live in
@@ -1467,8 +1394,7 @@ can be written back. It reboots to do it, images the eMMC before the
 system starts, and comes back on its own. The same entry restores: it
 lists the images on your stick and hands the chosen one to the flasher,
 which still asks for the target device to be typed out in full. Full
-walk-through in <a
-href="#step-0b--optional-image-the-whole-printer-first">Step 0b</a>.</p>
+walk-through in <a href="#step-2">Step 2</a>.</p>
 <p align="center">
 <img src="assets/manual/menu-image-backup.png" alt="Whole-system save and restore" width="820">
 </p>
@@ -1479,8 +1405,7 @@ back. It needs an image of that original system on the stick,
 firmware zip is not one, that is an update package rather than a system,
 and once Unleashed is running the original can no longer be copied
 because it is gone. If you think you may ever want to go back, that
-image is the thing to make first, in <a
-href="#step-0b--optional-image-the-whole-printer-first">Step 0b</a>.</p>
+image is the thing to make first, in <a href="#step-2">Step 2</a>.</p>
 <p>It is a guided action rather than a note in this manual because of
 the order. Swapping the eMMC back to Buster is only half of it: the MCU
 firmware sits on the chips, and a Buster host running Klipper v0.11 will
@@ -1499,7 +1424,6 @@ type <strong><code>REMOVE UNLEASHED</code></strong> in full. Your
 prints, Orca profiles and AMS are unaffected: this is about the
 printer’s system, not your files. Nothing is undone by pressing ENTER at
 the wrong moment.</p>
-<p><a id="ams-ships-switched-off"></a></p>
 <p><strong><code>a</code> — AMS / Chroma Kit on·off. If you own an AMS,
 this is not optional.</strong> Every image ships with the AMS
 <strong>switched off</strong>, and that is deliberate: most printers do
@@ -1525,7 +1449,7 @@ attach or remove the unit — not per print.</p>
 <blockquote>
 <p>If the spools still do not move afterwards, the missing piece is
 almost always <strong><code>phrozen_master</code></strong> from <a
-href="#step-0">Step 0</a>. It exists only on the original printer, no
+href="#step-1">Step 1</a>. It exists only on the original printer, no
 download contains it, and without it AMS detection hangs.
 <code>AMS_STATUS</code> says whether it is installed.</p>
 </blockquote>
@@ -1552,7 +1476,8 @@ on a healthy printer changes nothing — it is described under
 <img src="assets/manual/menu-emergency-repair.png" alt="Emergency repair — one action when a Phrozen, Klipper or Moonraker update broke something" width="820">
 </p>
 <hr />
-<h2 id="step-7-calibrate">Step 7 — Calibrate</h2>
+<p><a id="step-8"></a></p>
+<h2 id="step-8-calibrate">Step 8 — Calibrate</h2>
 <p>Bed mesh, z-offset, PID, input shaper and purge position are measured
 per printer, and the image ships none of them — another machine’s
 numbers are worthless. <strong>Nothing here is optional if you want to
@@ -1585,23 +1510,24 @@ reference is found automatically.</p>
 <p>🛑 <strong>Skip any “print test” the factory reset offers.</strong>
 The bundled test file was compiled for the old Klipper and cannot run on
 v0.13, so the flow stalls on it. Skipping it costs nothing — your first
-print comes from OrcaSlicer in Step 9. <em>(Path B readers already met
-this warning in Step 3; it is repeated here because path A skips that
-step entirely.)</em></p>
+print comes from OrcaSlicer in Step 10. <em>(The same warning appears in
+Step 4; it is repeated here because this is where it usually
+bites.)</em></p>
 </blockquote>
 <p><strong>Now back up what you just measured.</strong> Open the setup
 menu and take <strong>2 — Backup / restore settings</strong>, then
 <strong>copy the backup to a USB stick</strong>:</p>
-<div class="sourceCode" id="cb18"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>The menu calls it <em>“do this once, right after setup”</em> — this
 is that moment. Your calibration numbers exist from here on, nothing can
 guess them back, and the local copy lives on the very eMMC it is meant
 to protect.</p>
 <p>That’s the essential install done — the printer runs.</p>
 <hr />
-<h2 id="step-8-optional-addon-features-theme-verify">Step 8 — Optional:
-AddOn features, theme &amp; verify</h2>
+<p><a id="step-9"></a></p>
+<h2 id="step-9-optional-addon-features-theme-verify">Step 9 —
+<em>Optional:</em> AddOn features, theme &amp; verify</h2>
 <h3 id="addon.cfg-features">AddOn.cfg + features</h3>
 <p>From the setup menu pick
 <strong><code>4) AddOn.cfg + Features</code></strong>:</p>
@@ -1838,9 +1764,9 @@ printer, from your own installation.</p>
 repairs everything it can without needing to know what broke, and tells
 you what was actually wrong.</p>
 <p><strong>To update Klipper</strong> — safe, for the same reason:</p>
-<div class="sourceCode" id="cb19"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
 <p>Nothing is lost: every patch is re-applied before klippy loads. Be
 aware you are then off the version this build was tested against.</p>
 <h3 id="verify-the-migration">Verify the migration</h3>
@@ -1851,7 +1777,8 @@ v0.13</strong>, OS <strong>armbian … bookworm</strong>:</p>
 <img src="assets/manual/mainsail-versions.png" alt="Mainsail machine page — v0.13 versions" width="900">
 </p>
 <hr />
-<h2 id="step-9-first-print-orcaslicer-machine-g-code">Step 9 — First
+<p><a id="step-10"></a></p>
+<h2 id="step-10-first-print-orcaslicer-machine-g-code">Step 10 — First
 print: OrcaSlicer Machine G-code</h2>
 <p>Stock OrcaSlicer already ships the <strong>Phrozen Arco</strong>
 profile (vendor <code>Phrozen</code>). The easiest path is to
@@ -1982,7 +1909,7 @@ when all your spools are the same material, but wrong the moment you mix
 strings and cooks).</p>
 <p>It is <strong>safe to add permanently</strong>: with a single
 material it changes nothing, and it is simply ignored unless the
-optional <a href="#kaos">Unleashed × KAOS</a> add-on is installed. So
+optional <a href="#step-11">Unleashed × KAOS</a> add-on is installed. So
 one profile covers every case and you never need to re-slice when
 switching.</p>
 <p>Give your filament presets their real nozzle temperatures — that is
@@ -2010,9 +1937,9 @@ panel</strong> (<code>AMS ON</code> / <code>AMS OFF</code>, and
 </p>
 <p>Orca then prints in the right mode automatically.</p>
 <hr />
-<p><a id="kaos"></a></p>
-<h2 id="step-10-optional-unleashed-kaos">Step 10 — Optional: Unleashed ×
-KAOS</h2>
+<p><a id="step-11"></a></p>
+<h2 id="step-11-optional-unleashed-kaos">Step 11 — <em>Optional:</em>
+Unleashed × KAOS</h2>
 <p><strong>KAOS</strong> (<em>Klipper Add-On System</em>) is a separate,
 third-party add-on for the Arco by <em>sanders.chris</em> (<a
 href="https://gitlab.com/sanders.chris/phrozenarco">gitlab.com/sanders.chris/phrozenarco</a>)
@@ -2078,7 +2005,7 @@ registered, and its boot guard is in place. <strong>None of KAOS itself
 is in the image</strong> — only our bridge, which does nothing at all
 until you ask it to. There is no root step, no USB stick and no download
 to prepare.</p>
-<p>So Step 10 is one command, below. (If you ever want to remove even
+<p>So Step 11 is one command, below. (If you ever want to remove even
 the bridge, or need to undo a half-finished switch by hand,
 <code>~/arco-unleashed/unleashed-x-kaos/docs/removal.md</code> is the
 complete list.)</p>
@@ -2144,7 +2071,7 @@ all.</p>
 <p>Two things to know:</p>
 <ul>
 <li><p><strong>Add <code>TEMP=[new_filament_temp]</code></strong> to
-your <em>Change filament G-code</em> (see Step 9) — magic_ams uses it
+your <em>Change filament G-code</em> (see Step 10) — magic_ams uses it
 for per-tool temperature, which is what makes multi-<em>material</em>
 printing correct.</p></li>
 <li><p><strong>You can step back without removing KAOS.</strong> In the
@@ -2184,8 +2111,136 @@ magic_ams stays inert — colour changes fall back to the manual
 <code>M600</code> exactly as without KAOS.</p>
 <hr />
 <hr />
-<p><a id="troubleshooting"></a></p>
-<h2 id="troubleshooting">Troubleshooting</h2>
+<hr />
+<p><a id="appendix-a"></a></p>
+<h2
+id="appendix-a-removing-the-emmc-recovery-spare-module-way-back-to-stock">Appendix
+A — Removing the eMMC (recovery, spare module, way back to stock)</h2>
+<p><strong>You do not need this appendix for a normal install.</strong>
+<a href="#step-3">Step 3</a> flashes the printer without opening it.
+Come here for one of three reasons:</p>
+<ul>
+<li><strong>Recovery.</strong> A self-flash that failed part-way leaves
+a printer that will not boot. Nothing on the machine can fix that,
+because nothing on the machine starts. Taking the eMMC out and writing
+it on a PC is the way back.</li>
+<li><strong>A spare module.</strong> Flash a second eMMC (the same MKS
+V1.0 part) and swap it in. The original stays untouched as a guaranteed
+return to the factory system — the safest arrangement there is.</li>
+<li><strong>Keeping a copy of stock.</strong> With the module in a PC
+you can image it byte for byte, with no size limit and no compression to
+worry about. <a href="#step-2">Step 2</a> does the same thing without
+opening the printer, but it has to fit under 4 GiB.</li>
+</ul>
+<p><strong>In addition to the usual tools you need:</strong> a
+<strong>USB-to-eMMC adapter</strong> (the white MKS case), a
+<strong>small Phillips screwdriver</strong> for the module’s retaining
+screws, and <strong><a
+href="https://etcher.balena.io/">balenaEtcher</a></strong> on a PC.</p>
+<p>When the module is back in and the printer boots, continue at
+<strong><a href="#step-4">Step 4</a></strong>.</p>
+<blockquote>
+<p>⚠️ Power the printer <strong>off and unplug it</strong> before
+opening the lower housing.</p>
+</blockquote>
+<p><a id="appendix-a1"></a></p>
+<h3 id="a1-take-the-emmc-module-out">A1 — Take the eMMC module out</h3>
+<blockquote>
+<p>🛑 <strong>This is your only chance to save the factory
+system.</strong> The printer has <strong>one</strong> eMMC. Appendix A2
+writes over it, and the stock Buster install on it is gone for good —
+Phrozen do not publish an image of it. Two ways to keep a road back, and
+you must choose now:</p>
+<ul>
+<li><strong>Keep the original module.</strong> Fit a <strong>spare
+eMMC</strong> (they are cheap and the same MKS V1.0 part), flash
+<em>that</em> in Appendix A2, and put the original in a drawer.
+Refitting it is then a two-minute job.</li>
+<li><strong>Or image it before you overwrite it.</strong> With the
+module in the adapter, take a full dump <em>first</em>:
+<strong>Windows</strong> — <a
+href="https://sourceforge.net/projects/win32diskimager/">Win32DiskImager</a>,
+the <strong>Read</strong> button (balenaEtcher cannot do this; its
+<em>Clone</em> is drive-to-drive and produces no file).
+<strong>Mac/Linux</strong> —
+<code>sudo dd if=/dev/sdX of=buster.img bs=4M</code>, with
+<code>sdX</code> from <code>lsblk</code>. It dumps the whole ~31 GB, so
+have the space free and expect it to take a while.</li>
+</ul>
+<p>This is not precaution for its own sake: the kit’s own way back, <a
+href="revert-to-buster/PACKAGE-START-HERE.txt"><code>revert-to-buster/</code></a>,
+lists as its <strong>first</strong> requirement <em>“YOUR OWN buster.img
+— a 1:1 full-disk dump of a WORKING Buster eMMC”</em>. This step is the
+only moment it can be made.</p>
+</blockquote>
+<p><strong>Power the printer off and unplug it.</strong> Then open the
+<strong>lower housing cover</strong> — undo the circled bottom screws
+with the hex key:</p>
+<p align="center">
+<img src="assets/manual/printer-bottom-screws.jpg" alt="Bottom cover screw positions" width="560">
+</p>
+<p>On the <strong>Phrozen Bumblebee</strong> mainboard, find the
+<strong>MKS eMMC V1.0</strong> module (labelled <em>MKS PI …</em>). It’s
+held by <strong>two Phillips screws</strong> (arrows). Undo them:</p>
+<p align="center">
+<img src="assets/manual/mainboard-emmc.jpg" alt="eMMC location on the mainboard" width="420">
+  
+<img src="assets/manual/emmc-slot-closeup.jpg" alt="eMMC slot close-up" width="420">
+</p>
+<p>Lift the module out and slide it into the <strong>USB-to-eMMC
+adapter</strong>:</p>
+<p align="center">
+<img src="assets/manual/emmc-usb-adapter.jpg" alt="eMMC in USB adapter" width="620">
+</p>
+<hr />
+<p><a id="appendix-a2"></a></p>
+<h3 id="a2-write-the-image-with-balenaetcher">A2 — Write the image with
+balenaEtcher</h3>
+<p>Plug the adapter into your PC and open <strong>balenaEtcher</strong>.
+(Use the GUI — no WSL needed.)</p>
+<p><strong>2.1 — Flash from file:</strong> click <strong>Flash from
+file</strong> and pick the Arco Unleashed <code>.img</code> (unzip the
+<code>.img.gz</code> first if your Etcher can’t read <code>.gz</code>
+directly).</p>
+<p align="center">
+<img src="assets/manual/balena-1-flash-from-file.png" alt="balenaEtcher — Flash from file" width="720">
+</p>
+<p><strong>2.2 — Select target:</strong> click <strong>Select
+target</strong>.</p>
+<p align="center">
+<img src="assets/manual/balena-2-select-target.png" alt="balenaEtcher — Select target" width="720">
+</p>
+<p><strong>2.3 — Pick the <em>right</em> drive:</strong> choose the
+<strong>eMMC</strong> (here the ~<strong>31 GB</strong> “Generic STORAGE
+… USB Device”). ⚠️ <strong>Do not</strong> pick your big system disk
+(the 500 GB “Large drive” is flagged for a reason) — Etcher
+<strong>erases</strong> whatever you select.</p>
+<p align="center">
+<img src="assets/manual/balena-3-pick-drive.png" alt="balenaEtcher — pick the correct drive" width="720">
+</p>
+<p><strong>2.4 — Flash!</strong> Confirm the file and target, then click
+<strong>Flash!</strong></p>
+<p align="center">
+<img src="assets/manual/balena-4-flash.png" alt="balenaEtcher — Flash" width="720">
+</p>
+<p><strong>2.5 — Ignore the Windows “format disk” popup.</strong>
+Windows can’t read the Linux partitions and will offer to format the
+drive — click <strong>Cancel / Abbrechen</strong>.
+<strong>Never</strong> click <em>Format disk</em>.</p>
+<p align="center">
+<img src="assets/manual/balena-5-cancel-format.png" alt="Windows format prompt — click Cancel" width="440">
+</p>
+<p><strong>2.6 — Done.</strong> When Etcher shows <strong>Flash
+Completed!</strong>, safely eject the adapter.</p>
+<p align="center">
+<img src="assets/manual/balena-6-done.png" alt="balenaEtcher — Flash Completed" width="720">
+</p>
+<p>Put the eMMC <strong>back into the mainboard</strong> (re-fit the two
+screws) and <strong>close the housing</strong>.</p>
+<hr />
+<hr />
+<p><a id="appendix-b"></a></p>
+<h2 id="appendix-b-troubleshooting">Appendix B — Troubleshooting</h2>
 <p>Every entry below is something that actually happened — on the
 development printer or to someone testing this kit. They are grouped by
 <em>when</em> you see them, because the same words on screen mean
@@ -2218,16 +2273,16 @@ stick and power-cycle <strong>once</strong>: - <strong>It boots</strong>
 → the write was fine and a check misfired. Confirm with
 <code>cat ~/arco-unleashed/.kit-commit</code> — if it shows the version
 you flashed, the eMMC has it. - <strong>It does not boot</strong> → the
-write really was incomplete. That needs path B: open the printer, take
-the eMMC out and write it on a PC. Your backup on the stick is
-unaffected.</p>
+write really was incomplete. That needs <a href="#appendix-a">Appendix
+A</a>: open the printer, take the eMMC out and write it on a PC. Your
+backup on the stick is unaffected.</p>
 <p><strong>The stick is in, but the printer does not see it</strong> It
 auto-mounts at <code>~/printer_data/gcodes/USB</code>. If that folder is
 empty, find the partition with <code>lsblk</code> and mount it
 <strong>to that same path</strong> — the tools look there by name:</p>
-<div class="sourceCode" id="cb29"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 <p><strong>More than one image on the stick</strong> The tools match by
 pattern (<code>Arco-Unleashed*.img.gz</code>,
 <code>Arco_FW_V*.zip</code>) and take the <strong>first</strong> match,
@@ -2235,7 +2290,8 @@ so an older firmware zip or a <code>(1)</code> re-download can win
 silently and install something you did not intend. The flasher warns
 when it sees more than one — start from an empty stick and put only the
 listed files on it.</p>
-<h3 id="path-b-emmc-on-a-pc">Path B — eMMC on a PC</h3>
+<h3 id="removing-the-emmc-appendix-a">Removing the eMMC (Appendix
+A)</h3>
 <p><strong>The adapter shows no drive, or Etcher cannot see it</strong>
 Seat the module fully — it is easy to have it in the socket but not
 contacted — and try a different USB port, directly on the PC rather than
@@ -2246,11 +2302,11 @@ the module is the right way round and its retaining screws are in. If
 the printer still does not boot and the eMMC is definitely written, the
 MCUs are the other half — a printer whose host was replaced but whose
 MCUs still carry factory firmware cannot start Klipper. That is Step
-5.</p>
+6.</p>
 <h3 id="first-boot-after-flashing">First boot after flashing</h3>
 <p><strong>“Notice — Error occurred” on the display</strong> Expected,
 and not a fault. Klipper cannot start until the MCUs are flashed (Step
-5), so the display has nothing to show. Restarting or power-cycling will
+6), so the display has nothing to show. Restarting or power-cycling will
 not clear it. Do not set anything up on the display; wait for the screen
 to settle, which is how you know the automatic restarts have
 finished.</p>
@@ -2278,8 +2334,8 @@ website</li>
 level</strong> of a FAT32 stick (do not extract it)</li>
 <li>plug the stick into the printer and power-cycle — or, over SSH:</li>
 </ol>
-<div class="sourceCode" id="cb30"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
 <p>The zip always takes priority over the download, so this also works
 on a printer that does have internet — and it is the only route that
 brings PhrozenGo.</p>
@@ -2307,14 +2363,14 @@ effect</strong> Config repairs are applied by a guard that runs when the
 klipper <strong>service</strong> starts. Klipper’s own
 <code>RESTART</code> and <code>FIRMWARE_RESTART</code> do
 <strong>not</strong> run it:</p>
-<div class="sourceCode" id="cb31"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb32"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p><strong>A new self-heal guard is not active</strong> Guards are
 systemd drop-ins, and a kit update ships the scripts without rewiring
 them. Menu <strong>3 — Check self-heal guards</strong> compares what is
 wired against what the kit expects and offers to fix it, or:</p>
-<div class="sourceCode" id="cb32"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
+<div class="sourceCode" id="cb33"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
 <p>It is idempotent — on an up-to-date printer it changes nothing.</p>
 <p><strong>Obico disappeared after a Phrozen firmware update</strong>
 Phrozen’s own start scripts delete <code>moonraker-obico</code> on every
@@ -2330,8 +2386,8 @@ was started from a copy outside the kit (<code>/tmp/scripts/…</code>)
 and tried to work in the wrong place. Current versions detect this and
 update the installed kit anyway; if yours does not, run it from the kit
 itself:</p>
-<div class="sourceCode" id="cb33"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
+<div class="sourceCode" id="cb34"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
 <h3 id="backup-and-restore">Backup and restore</h3>
 <p><strong>The printer starts a backup by itself after a
 restore</strong> A backup image contains whatever was armed when it was
@@ -2339,8 +2395,8 @@ taken, and restoring it brings that back. Current versions make the
 arming one-shot, so it lands harmlessly. An image taken before that fix
 still expects a marker file — create it on the stick before restoring
 such an image:</p>
-<div class="sourceCode" id="cb34"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
+<div class="sourceCode" id="cb35"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
 <p><strong>Which backup file is the good one</strong> The name tells you
 which system it holds — <code>-stock</code> is Phrozen’s,
 <code>-unleashed</code> is this one — and the restore menu spells that
@@ -2349,8 +2405,8 @@ on purpose: a <code>.img.gz</code> <strong>without</strong> its
 <code>.sha256</code> and <code>.rawsize</code> is an interrupted run,
 whatever its size. To check a complete one in a second, without reading
 the whole file:</p>
-<div class="sourceCode" id="cb35"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
 <p><strong>“This image does not fit the eMMC in this printer”</strong>
 The backup came from a machine with a larger eMMC — a 32 GB image cannot
 be written to an 8 GB one. The comparison is against the image’s
@@ -2423,10 +2479,10 @@ names the repair when neither is. That state arises on printers set up
 before the bridge could install it, or after a Phrozen firmware update
 replaces <code>printer.cfg</code>. Bringing the bridge up to date and
 restarting the klipper <strong>service</strong> repairs it:</p>
-<div class="sourceCode" id="cb37"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <div class="sourceCode" id="cb38"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
 not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
@@ -2439,8 +2495,8 @@ everything after a shutdown is a consequence of it, not a second
 fault.</p>
 <pre class="gcode"><code>FIRMWARE_RESTART</code></pre>
 <hr />
-<p><a id="faq"></a></p>
-<h2 id="faq">FAQ</h2>
+<p><a id="appendix-c"></a></p>
+<h2 id="appendix-c-faq">Appendix C — FAQ</h2>
 <p><strong>How do I update the kit itself?</strong> Type
 <code>ARCO_UPDATE</code> in the Mainsail or Fluidd console.
 <code>ARCO_UPDATE_CHECK</code> looks first and changes nothing. The kit
@@ -2490,17 +2546,17 @@ keeps a later Unleashed backup from rotating it away, and what the menu
 reads to label it for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb40"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb41"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the
@@ -2523,15 +2579,16 @@ the stick at all; compressed it normally lands at 2–2.5 GB, unless the
 eMMC’s free space is full of deleted data, which does not compress.</p>
 <p>Reformatting to exFAT or NTFS does <strong>not</strong> help: the
 small system that performs the flash runs before Linux is up and can
-only mount FAT32. If your image will not go below 4 GiB, use
-<strong>path B</strong> instead — write the raw <code>.img</code>
-straight to the eMMC on your PC, no stick involved.</p>
+only mount FAT32. If your image will not go below 4 GiB, use <strong><a
+href="#appendix-a">Appendix A</a></strong> instead — write the raw
+<code>.img</code> straight to the eMMC on your PC, no stick
+involved.</p>
 <p><strong>balenaEtcher does not create images</strong>, it only writes
 them. To read one off an eMMC use Win32DiskImager’s <em>Read</em>, or
 <code>dd</code> on Linux/macOS. Or skip all of this and let the printer
-do it: <a href="#step-0b--optional-image-the-whole-printer-first">Step
-0b</a> writes the image and both sidecars itself, and reads the result
-back off the stick to prove it is good.</p>
+do it: <a href="#step-2">Step 2</a> writes the image and both sidecars
+itself, and reads the result back off the stick to prove it is good.</p>
+<p><a id="where-to-next"></a></p>
 <h2 id="where-to-next">Where to next</h2>
 <ul>
 <li><strong>Slicing / multicolor / AMS auto-mode</strong> → <a
