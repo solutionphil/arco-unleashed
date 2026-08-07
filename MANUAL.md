@@ -996,6 +996,25 @@ newer versions exactly as it does on any other Klipper machine. The repository i
 greyed out. Earlier images did pin the built commit, and that pin came paired with a detached `HEAD`, which
 is what actually cost the update button. Both are gone.
 
+**Klipper will always report "untracked source files" — that is correct, not a fault.** Open the update
+manager's detail view and it names five of them: `gcode_shell_command.py`, `arco_tool_gate.py`,
+`arco_mcu_timing.py`, `arco_sdcard_select.py` and `arco_fila_status.py`. Those are this project's own
+Klipper extras, and untracked is exactly where they belong — that is what keeps the repository
+**`is_dirty: false`** and the update button working. Moonraker only sets `pristine: false` beside it,
+which means "there is more here than the repository knows about", not "something is wrong". Moonraker's
+and Unleashed's own entries say `pristine: true`; Klipper is the only one with this note, permanently.
+
+> 🛑 **Do not answer that note with "Hard recover".** It is the button Moonraker offers in exactly this
+> situation, and it deletes every untracked file — which is to say, all five of the above plus Phrozen's
+> entire `phrozen_dev` module. See the table below.
+
+**Right after a fresh flash both Klipper and Moonraker may show `INVALID` with version `?`.** That is a
+timing artefact, not damage: Moonraker runs its first update check before the WiFi has associated, the
+check cannot reach GitHub, and Moonraker caches that result rather than retrying. The printer works
+normally throughout; only the update button is missing. The image clears this by itself a minute or two
+after the first boot, and Moonraker is configured to re-check on its own as well. If you ever see it
+linger, one press of the **refresh** icon at the top of the update manager panel is the whole cure.
+
 One thing is worth knowing before you take an update: the phrozen_dev module is patched for the Klipper API
 this build ships, so a jump to a much newer Klipper can need those patches redone. The guards below re-apply
 them on every start, but update deliberately rather than by reflex. If you would rather hold a known-good

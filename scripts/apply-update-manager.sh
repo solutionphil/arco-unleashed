@@ -41,6 +41,46 @@ log() { echo "  update-manager: $*"; }
 has_entry() { grep -qE '^\[update_manager[[:space:]]+arco-unleashed\][[:space:]]*$' "$CFG"; }
 has_ours()  { grep -qF 'arco-unleashed: update manager entry (managed' "$CFG"; }
 
+# ── enable_auto_refresh: Moonraker's own long-term net under the first-boot race ───────────────────
+# Moonraker's first update check runs before the network is up, fails, and caches the result; nothing
+# retries it. arco-update-refresh.service fixes that in seconds, but it is a one-shot -- a printer that
+# was still offline four minutes after boot keeps the stale INVALID until someone presses refresh.
+# This option (default off) registers Moonraker's own hourly timer, which is the supported way to have
+# it re-check itself. Costs are bounded by Moonraker's own code, which is why it is safe to switch on:
+#   * it aborts outright while Klippy is printing (`if self.kconn.is_printing()`), and
+#   * after the first attempt it only runs inside refresh_window, default 00:00-05:00,
+#   * and moonraker is pinned to CPU 0/1 while klippy owns CPU 3 alone -- git inherits that mask.
+# Idempotent, and only ever touches the bare [update_manager] section, never a named one.
+ensure_auto_refresh() {
+    grep -qE '^\[update_manager\][[:space:]]*$' "$CFG" || return 0
+    # Already set either way -> leave the owner's choice alone.
+    awk '
+        /^\[update_manager\][[:space:]]*$/ { inblk = 1; next }
+        /^\[/                              { inblk = 0 }
+        inblk && /^[[:space:]]*enable_auto_refresh[[:space:]]*:/ { found = 1 }
+        END { exit found ? 0 : 1 }
+    ' "$CFG" && return 0
+    local t; t="$(mktemp)" || return 0
+    awk -v line="enable_auto_refresh: True" '
+        { print }
+        /^\[update_manager\][[:space:]]*$/ && !done {
+            print "# Added by Arco Unleashed: Moonraker re-checks itself, so a first boot that came up"
+            print "# without a network does not leave the update manager stuck on INVALID for good."
+            print "# It never refreshes while a print is running, and after the first attempt only"
+            print "# inside refresh_window (default 00:00-05:00)."
+            print line
+            done = 1
+        }
+    ' "$CFG" > "$t" || { rm -f "$t"; return 0; }
+    # Same paranoia as below: a moonraker.conf that will not parse stops the printer's web stack dead.
+    if [ "$(grep -cE '^\[update_manager\][[:space:]]*$' "$t")" -eq 1 ] \
+       && [ "$(grep -c . "$t")" -ge "$(grep -c . "$CFG")" ]; then
+        cat "$t" > "$CFG"; log "enabled Moonraker's own auto-refresh (hourly, never during a print)"
+    fi
+    rm -f "$t"
+}
+ensure_auto_refresh
+
 want=absent
 ORIGIN=""
 if [ -d "$KIT/.git" ]; then
