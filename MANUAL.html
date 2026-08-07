@@ -462,6 +462,22 @@ B</strong> Steps 1–2 are <a href="#appendix-a">Appendix A</a>.</p>
 <p align="center">
 <img src="assets/manual/tools.jpg" alt="Tools laid out" width="720">
 </p>
+<h3 id="first-bring-the-printer-up-to-phrozen-v199">First: bring the
+printer up to Phrozen V199</h3>
+<blockquote>
+<p>🛑 <strong>Do this before anything else, on the printer as it stands
+today.</strong> Install Phrozen’s firmware <strong>V199</strong> the
+ordinary way — their own USB firmware update — and let it finish.</p>
+<p>V199 carries the <strong>touch-panel firmware</strong> this project
+expects. The panel is the one part Arco Unleashed never touches or
+ships: it is Phrozen’s, it is updated only through their updater, and
+nothing here can put it right afterwards. Start from an older version
+and the display can behave oddly or stay dark, on a machine where the
+display is how you follow every remaining step.</p>
+<p>It is also the cleanest starting point for everything else — the
+module, the AMS and the display firmware all match versions that
+way.</p>
+</blockquote>
 <h3 id="what-you-need">What you need</h3>
 <p>A <strong>FAT32 USB stick</strong> and two hex keys, <strong>2.5
 mm</strong> and <strong>2.0 mm</strong>. That is the whole list.</p>
@@ -660,12 +676,15 @@ USB stick. No screws, no eMMC removal, no PC.</p>
 system.</p>
 <h3 id="what-you-need-1">What you need</h3>
 <p>A <strong>USB stick of 8 GB or more</strong>, plugged
-<strong>straight into the printer</strong> — never through a hub. It
-must already hold <code>unleashed-selfflash.tar.gz</code> and
-<code>prepare_unleashed_self_flash.sh</code>; extracting the release zip
-in <a href="#before-you-begin">Before you begin</a> put both there. Your
-printer is still running Phrozen’s system at this point and has none of
-this project’s files on it, so the tool has to come from the stick.</p>
+<strong>straight into the printer</strong> — never through a hub.</p>
+<p>The backup tool runs from that stick:
+<code>unleashed-selfflash.tar.gz</code> and
+<code>prepare_unleashed_self_flash.sh</code>. Both came out of the
+release zip you extracted in <a href="#before-you-begin">Before you
+begin</a>, so they should be there already — worth a glance before you
+start. They have to come from the stick because your printer is still
+running Phrozen’s system and has nothing of this project installed
+yet.</p>
 <p><strong>Delete old prints and timelapses first.</strong> They are the
 usual reason a backup does not fit (see <a
 href="#backup-too-large">below</a>). Look at what is actually large,
@@ -1086,9 +1105,15 @@ patches by themselves on the next boot.</p>
 <p><a id="step-5"></a></p>
 <h2 id="step-5-connect-via-ssh-putty">Step 5 — Connect via SSH
 (PuTTY)</h2>
+<p><strong>Find the printer’s IP in your router’s device list</strong> —
+look for the host name <strong><code>mkspi</code></strong>.</p>
+<p>You cannot read it off the display at this point: the panel is still
+sitting on the “Error occurred” screen from <a href="#step-4">Step 4</a>
+and will stay there until the MCUs are flashed in the next step. The
+router is the way in. (If your network shows host names,
+<code>mkspi</code> is the one; the printer keeps that name.)</p>
+<p>Then:</p>
 <ol type="1">
-<li>Find the printer’s <strong>IP</strong> (router device list, or on
-the display).</li>
 <li>Open <strong>PuTTY</strong> → <em>Host Name</em> = that IP,
 <em>Port</em> <code>22</code>, <em>Connection type</em>
 <strong>SSH</strong> → <strong>Open</strong> (accept the host-key
