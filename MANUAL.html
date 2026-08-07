@@ -1105,19 +1105,12 @@ patches by themselves on the next boot.</p>
 <p><a id="step-5"></a></p>
 <h2 id="step-5-connect-via-ssh-putty">Step 5 — Connect via SSH
 (PuTTY)</h2>
-<p><strong>Find the printer’s IP in your router’s device list</strong> —
-look for the host name <strong><code>mkspi</code></strong>.</p>
-<p>You cannot read it off the display at this point: the panel is still
-sitting on the “Error occurred” screen from <a href="#step-4">Step 4</a>
-and will stay there until the MCUs are flashed in the next step. The
-router is the way in. (If your network shows host names,
-<code>mkspi</code> is the one; the printer keeps that name.)</p>
-<p>Then:</p>
 <ol type="1">
-<li>Open <strong>PuTTY</strong> → <em>Host Name</em> = that IP,
-<em>Port</em> <code>22</code>, <em>Connection type</em>
-<strong>SSH</strong> → <strong>Open</strong> (accept the host-key
-warning on first connect).</li>
+<li>Open <strong>PuTTY</strong> → <em>Host Name</em>
+<strong><code>unleashed.local</code></strong>, <em>Port</em>
+<code>22</code>, <em>Connection type</em> <strong>SSH</strong> →
+<strong>Open</strong> (accept the host-key warning on first
+connect).</li>
 <li>Login <strong><code>mks</code></strong> / password
 <strong><code>makerbase</code></strong>. You’re greeted by the Arco
 Unleashed banner:</li>
@@ -1125,6 +1118,16 @@ Unleashed banner:</li>
 <p align="center">
 <img src="assets/manual/ssh-login.jpg" alt="PuTTY SSH login — Arco Unleashed banner" width="640">
 </p>
+<blockquote>
+<p><strong>If <code>unleashed.local</code> is not found</strong>, your
+network is not passing mDNS — some routers and most guest or corporate
+networks block it. Use the printer’s <strong>IP</strong> instead: find
+it in your router’s device list, under the host name
+<code>unleashed</code>.</p>
+<p>You cannot read the IP off the display here. The panel is still on
+the “Error occurred” screen from <a href="#step-4">Step 4</a> and stays
+there until the MCUs are flashed in the next step.</p>
+</blockquote>
 <hr />
 <p><a id="step-6"></a></p>
 <h2 id="step-6-flash-the-mcus-essential">Step 6 — Flash the MCUs ⚠️
