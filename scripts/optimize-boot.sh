@@ -498,7 +498,44 @@ EOF
   echo "  wifi-rearm service installed + enabled (setup portal returns if the config is ever lost)"
 fi
 
-# 5. The update manager shows INVALID after every fresh flash, and stays that way. Moonraker's first
+# 5. unleashed.local — so nobody has to go hunting in a router's device list.
+#    Finding the printer is the first wall a new owner hits: at that point in the manual the display is
+#    still sitting on the "Error occurred" screen (Klipper cannot start until the MCUs are flashed), so
+#    the IP cannot be read there, and the router's list is all that is left. systemd-resolved already
+#    speaks mDNS -- it is simply switched off per-link, so nothing answers for the host name. Turning it
+#    on makes `ssh mks@unleashed.local` work from Windows, macOS and Linux alike, with no extra package
+#    and no avahi.
+#
+#    The name published is the HOST NAME, and resolved has no notion of an alias -- so the host name is
+#    what changes. Stock is `mkspi`, which is Makerbase's board, not this printer. Renaming is safe here:
+#    nothing in the kit, the Klipper config or phrozen_dev refers to it (checked 2026-08-08); only
+#    /etc/hostname and /etc/hosts do, and they must move together or every sudo waits on a name that no
+#    longer resolves.
+#
+#    🔴 ONLY when it is still the factory name. An owner who named their printer themselves keeps it --
+#    we are replacing a manufacturer default, not claiming the field.
+if [ "$(cat /etc/hostname 2>/dev/null)" = "mkspi" ]; then
+  if hostnamectl set-hostname unleashed 2>/dev/null || printf 'unleashed\n' > /etc/hostname; then
+    # 127.0.1.1 is what sudo and friends resolve; leave 127.0.0.1/localhost alone.
+    sed -i -e 's/^\(127\.0\.1\.1[[:space:]]\+\)mkspi\b/\1unleashed/' \
+           -e 's/\bmkspi\b/unleashed/g' /etc/hosts 2>/dev/null || true
+    hostname unleashed 2>/dev/null || true
+    echo "  host name mkspi -> unleashed (so the printer answers to unleashed.local)"
+  fi
+fi
+
+if [ -f /etc/systemd/network/20-wlan.network ]; then
+  install -Dm644 /dev/stdin /etc/systemd/network/20-wlan.network.d/10-arco-mdns.conf <<'EOF'
+[Network]
+MulticastDNS=yes
+EOF
+  networkctl reload 2>/dev/null || true
+  # resolved reads the per-link setting from networkd, so it needs to be told to look again.
+  systemctl try-restart systemd-resolved 2>/dev/null || true
+  echo "  mDNS on wlan0 (the printer answers to unleashed.local — no router lookup needed)"
+fi
+
+# 6. The update manager shows INVALID after every fresh flash, and stays that way. Moonraker's first
 #    update check runs before Wi-Fi and DNS are up, fails on "Could not resolve host: github.com", and
 #    CACHES that. It never retries by itself. Proven on hardware 2026-08-07: DNS resolving fine while
 #    the panel still said INVALID, one refresh flipping both components to valid with real versions.

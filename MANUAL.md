@@ -602,19 +602,18 @@ self-heal guards re-apply the v0.13 Klipper patches by themselves on the next bo
 
 ## Step 5 — Connect via SSH (PuTTY)
 
-**Find the printer's IP in your router's device list** — look for the host name **`mkspi`**.
-
-You cannot read it off the display at this point: the panel is still sitting on the "Error occurred"
-screen from [Step 4](#step-4) and will stay there until the MCUs are flashed in the next step. The router
-is the way in. (If your network shows host names, `mkspi` is the one; the printer keeps that name.)
-
-Then:
-
-1. Open **PuTTY** → *Host Name* = that IP, *Port* `22`, *Connection type* **SSH** → **Open** (accept the
-   host-key warning on first connect).
+1. Open **PuTTY** → *Host Name* **`unleashed.local`**, *Port* `22`, *Connection type* **SSH** → **Open**
+   (accept the host-key warning on first connect).
 2. Login **`mks`** / password **`makerbase`**. You're greeted by the Arco Unleashed banner:
 
 <p align="center"><img src="assets/manual/ssh-login.jpg" alt="PuTTY SSH login — Arco Unleashed banner" width="640"></p>
+
+> **If `unleashed.local` is not found**, your network is not passing mDNS — some routers and most guest
+> or corporate networks block it. Use the printer's **IP** instead: find it in your router's device list,
+> under the host name `unleashed`.
+>
+> You cannot read the IP off the display here. The panel is still on the "Error occurred" screen from
+> [Step 4](#step-4) and stays there until the MCUs are flashed in the next step.
 
 ---
 
