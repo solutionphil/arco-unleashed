@@ -21,7 +21,21 @@
 set -uo pipefail
 
 WPA="${ARCO_WPA_CONF:-/etc/wpa_supplicant/wpa_supplicant-wlan0.conf}"
-say(){ echo "[wifi-rearm] $*"; }
+
+# A readable log beside Klipper's own, not only the journal. journald is volatile on this image (it
+# lives under /run), so anything a first boot logs is gone at the next reboot -- and while it is there,
+# only root can read it. This unit runs at exactly the moment that matters and for a printer whose
+# owner may have no network at all, so its record has to outlive the boot and be fetchable without a
+# shell. Same reasoning as arco-update-refresh.sh.
+_KITDIR="$(cd "$(dirname "$0")/.." && pwd)"
+_AHOME="$(dirname "$_KITDIR")"
+LOGF="${ARCO_REARM_LOG:-$_AHOME/printer_data/logs/arco-wifi-rearm.log}"
+mkdir -p "$(dirname "$LOGF")" 2>/dev/null || true
+say(){
+  echo "[wifi-rearm] $*"
+  printf '%s  %s\n' "$(date -u +%H:%M:%SZ)" "$*" >> "$LOGF" 2>/dev/null || true
+  chown --reference="$_AHOME" "$LOGF" 2>/dev/null || true
+}
 
 # No wireless interface at all -> nothing this script can help with (and never on a wired-only box).
 [ -d /sys/class/net/wlan0 ] || { say "no wlan0 — nothing to do"; exit 0; }
@@ -31,9 +45,20 @@ if systemctl is-active --quiet NetworkManager 2>/dev/null; then
   say "NetworkManager is in charge — not our stack, nothing to do"; exit 0
 fi
 
+# 🔴 UNREADABLE IS NOT THE SAME AS EMPTY, and getting that wrong costs the printer its network.
+# wpa_supplicant-wlan0.conf is 0600 root, so any run that is not root cannot read it -- and the old
+# test could not tell "the file says there is no network" from "I was not allowed to look". It read the
+# second as the first. Caught on hardware 2026-08-07 by running this as the printer user on a machine
+# that was online at the time: it announced no network configured and went on to raise the setup AP,
+# which would have taken wlan0 away from a perfectly good connection. Only the lack of root privileges
+# stopped it. So: when in doubt, do nothing.
+if [ ! -r "$WPA" ]; then
+  say "cannot read $WPA (needs root) — refusing to guess; nothing changed"; exit 0
+fi
+
 # A configuration counts only if it names a network. An empty credential-less file is exactly what the
 # image ships and what a reset leaves behind, and that is the case we are here for.
-if [ -f "$WPA" ] && grep -qE '^[[:space:]]*ssid=' "$WPA" 2>/dev/null; then
+if grep -qE '^[[:space:]]*ssid=' "$WPA" 2>/dev/null; then
   say "a Wi-Fi network is configured — leaving the portal alone"; exit 0
 fi
 
