@@ -792,6 +792,8 @@ that the chosen image really predates Unleashed, and finally asked to type **`RE
 full. Your prints, Orca profiles and AMS are unaffected: this is about the printer's system, not your
 files. Nothing is undone by pressing ENTER at the wrong moment.
 
+<a id="ams-ships-switched-off"></a>
+
 **`a` — AMS / Chroma Kit on·off. If you own an AMS, this is not optional.** Every image ships with the
 AMS **switched off**, and that is deliberate: most printers do not have one, and a printer that opens an
 AMS serial port with nothing on the other end waits, retries and reports errors for something the owner
