@@ -6,18 +6,15 @@
 
 The illustrated long-form of the [README](README.md)'s **🟢 Flash & Run** section. It takes a stock
 **Phrozen Arco** and moves it onto **armbian-mkspi (Debian Bookworm, kernel 6.18) · Klipper v0.13** using
-the pre-built image. Follow it top to bottom — every screen you'll see is pictured.
+the pre-built image.
 
-> **Two routes onto the printer, and this manual walks both.** Steps 0 and 4–10 are shared; only the
-> flashing differs:
-> * **[Path A — direct self-flash](#path-a--easy-direct-flash-self-flash--alternative-to-steps-13)**
->   *(no teardown, no PC)* — the running printer overwrites its own eMMC. ✅ Proven on hardware, but
->   **one shot, no net**, and it gives you no chance to save the factory system. It **replaces** steps 1–3.
-> * **Path B — eMMC replacement / recovery** *(steps 1–3, below)* — pull the eMMC and flash it on a PC.
->   The proven path, the way to recover a bricked unit, and the only one that lets you keep a way back
->   to stock.
->
-> Whichever you take, both meet again at [Step 4](#step-4--connect-via-ssh-putty).
+**Work through Steps 1 to 6 in order.** Nothing is optional there except Step 2, and every screen you
+will see along the way is pictured. Steps 7 to 11 are things you do once the printer already runs.
+
+The printer flashes **itself**, from a USB stick — no PC, no disassembly, nothing to unplug. You only
+open the machine once, in **Step 6**, to press two buttons inside the toolhead. Taking the eMMC module
+out is **not** part of the normal route; it lives in [Appendix A](#appendix-a) for recovery, for a spare
+module, and for keeping a way back to the factory system.
 
 > ⚠️ **Hardware-specific:** Phrozen Arco with MKS board (RK3328, STM32F407 + MKS_THR STM32F103), AP6212
 > WiFi. Not a generic Klipper kit. Working inside the printer means mains and electronics — power the
@@ -25,56 +22,77 @@ the pre-built image. Follow it top to bottom — every screen you'll see is pict
 > disclaimer).
 >
 > ⚠️ **Warranty:** replacing the factory OS/firmware and opening the printer will very likely **void your
-> Phrozen warranty**. Keep the original eMMC (or a backup image) so you can restore stock if you ever
-> need to — [Step 1](#step-1--remove-the-emmc-module) is the only moment that image can be made. Note
-> that the eMMC alone is not the whole way back: Step 5 also reflashes both MCUs, so a full return to
-> stock needs their v0.11 firmware too. That is what
-> [`revert-to-buster/`](revert-to-buster/PACKAGE-START-HERE.txt) is for.
+> Phrozen warranty**. If you may ever want to go back, make the backup in [Step 2](#step-2) — it is the
+> only moment that copy can be made without opening anything. Note that the eMMC alone is not the whole
+> way back: Step 6 also reflashes both MCUs, so a full return to stock needs their v0.11 firmware too.
+> That is what [`revert-to-buster/`](revert-to-buster/PACKAGE-START-HERE.txt) is for.
 >
 > ℹ️ **This project is not affiliated with Phrozen.** Arco Unleashed is an independent, community-made
 > project. It is not endorsed, supported or distributed by Phrozen, and **Phrozen cannot be asked for
 > support on a printer running it** — if something is wrong, ask here, not them. *Phrozen* and *Arco*
 > are the manufacturer's trademarks and are used only to say which machine this fits.
 
-At a glance:
-
-| Step | What you do |
-|---|---|
-| **0** | Rescue the AMS server from the *running* printer (one SSH command) — **not a full backup** |
-| **A** | *Path A only* — self-flash from the printer, then jump to 4 (**replaces 1–3**) |
-| **1** | *Path B* — remove the eMMC module (**and image it, if you want a way back**) |
-| **2** | *Path B* — flash the image to the eMMC (balenaEtcher) |
-| **3** | *Path B* — first boot: WiFi portal + USB install (from your phone) |
-| **4** | SSH in with PuTTY |
-| **5** | **Flash the MCUs** (the one essential manual step) |
-| **6** | The rest of the setup menu — backup/restore, guards, repair |
-| **7** | Calibrate |
-| **8** | Optional — AddOn features, Mainsail theme, verify |
-| **9** | First print — OrcaSlicer Machine G-code |
-| **10** | Optional — Unleashed × KAOS add-on |
-
-> 🛑 **Do Step 0 first — before you flash anything.** The new system needs data (the AMS server
-> **`phrozen_master` + `~/hdlDat`**) that lives **only on your original, still-running printer** and is
-> **not** in Phrozen's `Arco_FW_V*.zip`. The flash erases it for good. **Collect it now (Step 0)** while the
-> old printer still boots — skip it and AMS detection hangs and the display won't return home after calibration.
+> 🛑 **Do [Step 1](#step-1) before you flash anything.** The new system needs data — the AMS server
+> `phrozen_master` and `~/hdlDat` — that exists **only on your original, still-running printer**. It is
+> in no download and in none of Phrozen's packages, and the flash erases it for good. Collect it now,
+> while the old system still boots. Skip it and AMS detection hangs and the display will not return home
+> after calibration.
 
 ---
 
-## What you need
+## Contents
+
+**Install**
+
+| | | |
+|---|---|---|
+| [Before you begin](#before-you-begin) | tools, space, what goes on the USB stick | |
+| [Step 1](#step-1) | **Rescue your AMS data** | required, and only possible *before* flashing |
+| [Step 2](#step-2) | Back up the whole printer | optional, your way back to stock |
+| [Step 3](#step-3) | **Flash the printer from the USB stick** | the printer overwrites its own eMMC |
+| [Step 4](#step-4) | First boot: WiFi portal + USB install | from your phone |
+| [Step 5](#step-5) | Connect via SSH | PuTTY |
+| [Step 6](#step-6) | **Flash the MCUs** ⚠️ | the one step that opens the printer |
+
+**Once it runs**
+
+| | | |
+|---|---|---|
+| [Step 7](#step-7) | The rest of the setup menu | backup/restore, guards, repair |
+| [Step 8](#step-8) | Calibrate | |
+| [Step 9](#step-9) | AddOn features, theme, verify | optional |
+| [Step 10](#step-10) | First print | OrcaSlicer machine G-code |
+| [Step 11](#step-11) | Unleashed × KAOS | optional add-on |
+
+**Reference**
+
+| | |
+|---|---|
+| [Appendix A](#appendix-a) | **Removing the eMMC** — recovery, spare module, way back to stock |
+| [Appendix B](#appendix-b) | Troubleshooting |
+| [Appendix C](#appendix-c) | FAQ |
+
+> **Read this manual before?** The steps were renumbered so that the normal route runs 1–11 without
+> detours. Old **Step 0** is now [Step 1](#step-1), old **0b** is [Step 2](#step-2), the old **path A**
+> self-flash is [Step 3](#step-3), and old Steps **3–10** each moved up by one. The old **path B**
+> Steps 1–2 are [Appendix A](#appendix-a).
+
+<a id="before-you-begin"></a>
+
+## Before you begin
 
 <p align="center"><img src="assets/manual/tools.jpg" alt="Tools laid out" width="720"></p>
 
-**Tools** (left→right above): a **USB-to-eMMC adapter** (the white MKS eMMC case), a **2.5 mm** and
-**2.0 mm hex/Allen key** (rear extruder cover + the printer's lower housing cover), the **FAT32 USB
-stick**, and a **small Phillips screwdriver** (the eMMC's retaining screws on the mainboard).
+**What you actually need** — a **FAT32 USB stick (≥ 4 GB)** and two hex keys, **2.5 mm** and **2.0 mm**.
+That is the whole list for the normal route. The stick carries the image and the printer flashes itself
+from it; the hex keys are for **[Step 6](#step-6)**, where the toolhead is opened to reach two buttons.
 
-> **Taking path A?** You still need the **hex keys**: path A skips the eMMC teardown, but *every* route
-> ends at Step 5, which opens the toolhead to reach two buttons. Only the adapter and the Phillips
-> screwdriver are path B-only.
->
-> **A spare eMMC module** (optional, and the same MKS V1.0 part) is worth considering on either path:
-> flash the spare and the original stays a guaranteed way back to stock. See
-> [Step 1](#step-1--remove-the-emmc-module).
+The photo above also shows a **USB-to-eMMC adapter** (the white MKS case) and a **small Phillips
+screwdriver**. Those are **not** needed here — they belong to [Appendix A](#appendix-a), which takes the
+eMMC module out for recovery or for a spare. If everything goes normally you will never touch them.
+
+> **A spare eMMC module** (the same MKS V1.0 part) is worth considering even so: flash the spare and the
+> original stays a guaranteed, untouched way back to stock. See [Appendix A](#appendix-a).
 >
 > **About the stick:** the original Phrozen one is a good fit, but **start it empty**. The tools match
 > their inputs by pattern (`Arco-Unleashed*.img.gz`, `Arco_FW_V*.zip`) and take the **first** match, so
@@ -82,27 +100,26 @@ stick**, and a **small Phillips screwdriver** (the eMMC's retaining screws on th
 > intend. Format it, then put on only what the table below lists.
 
 **Space** — for the first install, put the printer somewhere you can **work all the way around it**, not
-in its usual corner. You will reach inside for the eMMC on the mainboard (underneath) and, in Step 5,
-open the toolhead itself to press two buttons on its board. Both are fiddly with the machine wedged
-against a wall, and neither is something you want to do twice.
+in its usual corner. In Step 6 you open the toolhead itself to press two buttons on its board, which is
+fiddly with the machine wedged against a wall and not something you want to do twice.
 
 > **Running a PentaShield (or any add-on panels)?** Take **at least the rear panel off before you
-> start.** Step 5 needs the two buttons *inside the toolhead*, and the panel is in the way of both the
+> start.** Step 6 needs the two buttons *inside the toolhead*, and the panel is in the way of both the
 > covers and your hands. Doing it up front saves interrupting the flash halfway through — see
 > [the toolhead button step](#the-toolhead-f103-button-step).
 
-**Media & software** — one **FAT32 USB stick, ≥ 4 GB** (the original Phrozen one is ideal). What you copy
-onto it depends on the path — the key difference is that **path A carries the image on the stick**, while
-**path B writes the image onto the eMMC** with balenaEtcher, so its stick only holds the first-boot files:
+**What goes on the stick** — extract [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)
+to the **top level** of the stick and it brings everything in the first block below. Then add the two
+files only you can supply.
 
-| File | Path A (self-flash) | Path B (this manual) | Where from |
-|---|:---:|:---:|---|
-| `Arco-Unleashed_bookworm_6.18.30.img.gz` | ✅ | — → onto the eMMC | inside [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) |
-| `…img.gz.sha256` **+** `…img.gz.rawsize` | ✅ | — | Releases |
-| `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | ✅ | ( ✅ ) — **needed for [Step 0b](#step-0b--optional-image-the-whole-printer-first)** | Releases |
-| `Arco_FW_V*.zip` — **optional**, see below | ( ✅ ) | ( ✅ ) | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip) — *you download it* |
-| **`arco-phrozen-ams.tar.gz`** | ✅ | ✅ | Step 0 (`collect_data_arco.sh`) |
-| *optional* `wifi-seed.txt` / `no_wifi.txt` | ✅ | — | you create it (see [`selfflash/`](selfflash/README.md)) |
+| File | | Where from |
+|---|:---:|---|
+| `Arco-Unleashed_bookworm_6.18.30.img.gz` | required | the release zip |
+| `…img.gz.sha256` **+** `…img.gz.rawsize` | required | the release zip |
+| `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | required | the release zip |
+| **`arco-phrozen-ams.tar.gz`** | **required** | **you make it** in [Step 1](#step-1) |
+| `Arco_FW_V*.zip` | optional — see below | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip), you download it |
+| `wifi-seed.txt` *or* `no_wifi.txt` | optional | you write it (see [`selfflash/`](selfflash/README.md)) |
 
 > **When do you need `Arco_FW_V*.zip`?** Normally you don't. Phrozen publishes the display module in
 > their own public repository, and the printer offers to fetch it from there — you confirm once, it
@@ -115,26 +132,28 @@ onto it depends on the path — the key difference is that **path A carries the 
 > update, not from this stick.
 >
 > The zip always wins: if one is on the stick, nothing is downloaded at all. Added, it looks like this
-> — the same stick as in Step 0, with Phrozen's package beside the AMS backup:
+> — the same stick as in Step 1, with Phrozen's package beside the AMS backup:
 >
 > <p align="center"><img src="assets/manual/usb-files-with-fw.png" alt="The same USB stick with Arco_FW_V199.zip added" width="760"></p>
 
 *Nothing proprietary is bundled with this project. Phrozen's module is either read from the zip you
 supply, or — only after you confirm — downloaded from **Phrozen's own** public repository onto your
 printer. Nothing of Phrozen's is hosted, mirrored or redistributed here.*
-**Path B additionally needs [balenaEtcher](https://etcher.balena.io/) on a PC** plus the tools pictured above.
+
+*(Only [Appendix A](#appendix-a) additionally needs [balenaEtcher](https://etcher.balena.io/) on a PC,
+plus the adapter and the Phillips screwdriver.)*
 
 ---
 
-<a id="step-0"></a>
+<a id="step-1"></a>
 
-## Step 0 — Collect data from your still-running printer · **do this first**
+## Step 1 — Rescue your AMS data · **do this first**
 
 > 🛑 **This is not a backup of your printer.** It rescues **two files** that exist nowhere else — nothing
 > more. Everything else on the printer (your calibration, uploaded G-code, settings, Phrozen's own system)
 > is **erased by the flash and cannot be brought back** afterwards.
 >
-> 💾 **If you want a way back, make one first — see [Step 0b](#step-0b--optional-image-the-whole-printer-first).**
+> 💾 **If you want a way back, make one first — see [Step 2](#step-2).**
 > It copies the entire eMMC onto your USB stick as one file you can write back later, without opening the
 > printer. Phrozen publish no stock image, so this is the only way to keep the machine you have today.
 >
@@ -169,20 +188,20 @@ after calibration. There is **no way to recover it later** — so do this **now,
 4. It writes **`arco-phrozen-ams.tar.gz`** onto the stick. **On your PC, confirm the file is really
    there** — if it's missing, re-insert the stick and run the command again.
 
-When you're done the stick holds this — keep it, you'll reuse the same stick in Step 3:
+When you're done the stick holds this — keep it, you'll reuse the same stick in Step 4:
 
-<p align="center"><img src="assets/manual/usb-files.png" alt="USB stick after Step 0, with arco-phrozen-ams.tar.gz highlighted" width="820"></p>
+<p align="center"><img src="assets/manual/usb-files.png" alt="USB stick after Step 1, with arco-phrozen-ams.tar.gz highlighted" width="820"></p>
 
 Everything above the highlighted line came out of **`Arco-Unleashed-USB.zip`**, extracted to the top
-level of the stick. The highlighted **`arco-phrozen-ams.tar.gz`** is what Step 0 just produced — the
+level of the stick. The highlighted **`arco-phrozen-ams.tar.gz`** is what Step 1 just produced — the
 one file no download and no Phrozen package can replace. The new system re-installs it by itself on
 first boot.
 
 ---
 
-<a id="step-0b--optional-image-the-whole-printer-first"></a>
+<a id="step-2"></a>
 
-## Step 0b — *optional:* image the whole printer first
+## Step 2 — *Optional:* back up the whole printer
 
 **This is the way back.** Phrozen do not publish a stock image, so once the eMMC is overwritten, the
 machine you have today is gone unless you copied it first. This copies **all of it** — every file, the
@@ -202,20 +221,32 @@ It is entirely optional. Skip it if you have no intention of ever going back.
 > **Why these, when you are flashing the eMMC externally?** Because right now your printer is still
 > running Phrozen's original system, and none of this project's files are on it yet. The backup tool has
 > to come from the stick — that is the whole reason it ships as a standalone package that needs no
-> installation. Path A users have both files on the stick anyway; on path B they are the one thing you
+> installation. The release zip puts both on the stick already, so on the normal route you have them; only if you
 > have to add for this step.
 
-> ⚠️ **The backup is one single file, and FAT32 cannot hold a file of 4 GiB or more.** Everything in
-> this manual uses FAT32, and so does this — but it does mean the backup has to stay under that ceiling.
-> The tool measures first and tells you the estimate before anything happens, so you find this out in a
-> sentence rather than half an hour in.
+> ⚠️ **Clear out old prints first — the backup is one single file, and FAT32 cannot hold 4 GiB or more.**
 >
-> If it says the backup is too large, **deleting files will not help.** This is an image of the whole
-> eMMC, not a copy of its files: everything you delete stays in the freed blocks byte for byte, and
-> compresses no better than noise. Two things do help, in the order worth trying:
+> On a printer that has been in use for a while, **old G-code files and timelapse videos are usually
+> what pushes the backup over that ceiling.** Delete them before you start:
 >
-> **1. Zero the free space, then run the backup again.** Usually decisive on a printer that has seen a
-> lot of prints. It fills the disk for a few minutes and then releases it again:
+> ```bash
+> rm -f ~/printer_data/gcodes/*.gcode ~/printer_data/timelapse/* 2>/dev/null; df -h /
+> ```
+>
+> *(Keep anything you still want — this cannot be undone. Check the list first with
+> `ls -lhS ~/printer_data/gcodes/ | head -20` to see what is actually large.)*
+>
+> **Why deleting works here, when it normally would not:** this is an image of the whole eMMC, not a copy
+> of its files, so a deleted file's contents stay in the freed blocks and compress no better than noise.
+> The backup therefore **zeroes the free space itself**, in the one moment the filesystem is unmounted —
+> and only that turns your deleting into a smaller file. Delete without that step and nothing shrinks;
+> which is exactly why this used to confuse people.
+>
+> The tool measures before it does anything and tells you the estimate, so you learn this in a sentence
+> rather than half an hour in. If it still says too large, two more things help:
+>
+> **1. Zero the free space by hand as well, then run the backup again.** It fills the disk for a few
+> minutes and then releases it again:
 >
 > ```bash
 > sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync
@@ -231,7 +262,7 @@ It is entirely optional. Skip it if you have no intention of ever going back.
 > sudo ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh --backup
 > ```
 >
-> If it still will not fit, image the eMMC on a PC instead (path B, step 1) — that has no size limit at
+> If it still will not fit, image the eMMC on a PC instead ([Appendix A](#appendix-a)) — that has no size limit at
 > all.
 
 On the printer:
@@ -294,26 +325,30 @@ restore**, which lists the images on your stick and hands the chosen one to the 
 
 ---
 
-<a id="path-a--easy-direct-flash-self-flash--alternative-to-steps-13"></a>
+<a id="step-3"></a>
 
-## Path A — Easy direct flash (self-flash) · *alternative to Steps 1–3*
+## Step 3 — Flash the printer from the USB stick
 
-No teardown, no PC: the running printer overwrites its **own** eMMC, streaming the image from the USB
-stick. ✅ **Proven on hardware** — but **one shot, no net**: once the write begins, a failure is recovered
-with Steps 1–2 below. If you already own an eMMC adapter, path B stays the safer choice.
-Full detail: [`selfflash/README.md`](selfflash/README.md). *Prefer path B? Skip ahead to Step 1.*
+The printer overwrites its **own** eMMC, streaming the image from the USB stick. No teardown, no PC,
+nothing to unplug. ✅ Proven on hardware. Full detail, if you want it:
+[`selfflash/README.md`](selfflash/README.md).
 
-> 🛑 **Path A gives you no chance to save the factory system.** It never removes the eMMC and never
-> touches a PC, so the stock Buster install is overwritten in place and cannot be imaged first. If you
-> may ever want to go back to stock, **take path B** and make the dump in
-> [Step 1](#step-1--remove-the-emmc-module).
+> 🛑 **One shot, no net.** Once the write begins it cannot be stopped, and a failure part-way through
+> leaves a printer that will not boot. Recovering from that means opening the machine and flashing the
+> eMMC on a PC — [Appendix A](#appendix-a). **Before the write starts**, pulling the USB stick and
+> power-cycling makes the flasher stand down safely.
+>
+> 🛑 **This step is also the point of no return for the factory system.** It overwrites Phrozen's
+> install in place, so it cannot be copied afterwards. If you may ever want to go back,
+> [Step 2](#step-2) is where that copy is made — or use a **spare eMMC module** and keep the original
+> untouched ([Appendix A](#appendix-a)).
 
-**Prepare the stick.** On the same FAT32 stick as Step 0, also put: the **image** (`.img.gz` + `.sha256` +
+**Prepare the stick.** On the same FAT32 stick as Step 1, also put: the **image** (`.img.gz` + `.sha256` +
 `.rawsize`), **`unleashed-selfflash.tar.gz`** and **`prepare_unleashed_self_flash.sh`** — all from the
 release. Phrozen's `Arco_FW_V*.zip` only if one of the two cases above applies to you; the flasher says
 which files it found before it arms anything.
 
-**WiFi** *(recommended — the printer must come online for the SSH MCU-flash in Step 5)*: add **nothing** and
+**WiFi** *(recommended — the printer must come online for the SSH MCU-flash in Step 6)*: add **nothing** and
 it **live-captures** the network the printer already uses (known-good, keeps its country), **or** create a
 `wifi-seed.txt`:
 ```
@@ -328,9 +363,9 @@ your country** from dropdowns). With WiFi details seeded it allows **about 90 se
 come up, associate and get an address before falling back to the portal; with none configured it goes to
 the portal almost at once. A network that connects returns in a second or two, so a correct WiFi costs no
 real delay. If the portal does not appear either, you can still hand the printer your network from the USB
-stick afterwards — see Step 3.
+stick afterwards — see Step 4.
 
-**1) Unpack the tool, then look before you leap.** SSH in as `mks` ([Step 4](#step-4--connect-via-ssh-putty)
+**1) Unpack the tool, then look before you leap.** SSH in as `mks` ([Step 5](#step-5)
 shows how). The stick auto-mounts at `~/printer_data/gcodes/USB` (on a stock printer and on Unleashed);
 unpack the tool from there and run the inspect pass, which **changes nothing**:
 
@@ -377,7 +412,7 @@ the first-boot portal instead. Then it rebuilds the initramfs and arms the flash
 **4) Watch the display.** Three named steps run in order — *check → write → verify*. Only the write phase
 tells you not to power off, because only then is anything actually being overwritten:
 
-<p align="center"><img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Step 2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620"></p>
+<p align="center"><img src="assets/manual/selfflash-display-writing.jpg" alt="Display: Appendix A2 of 3, writing the image to the internal eMMC, 60%, DO NOT POWER OFF" width="620"></p>
 
 When the write and verify finish, the display shows **"Done — Restarting now"** and reminds you to keep the stick plugged in while the printer finishes setup:
 
@@ -385,31 +420,31 @@ When the write and verify finish, the display shows **"Done — Restarting now"*
 
 **Leave the USB stick plugged in.** The printer reboots itself, brings up the WiFi you seeded and installs
 Phrozen's parts from it, rebooting once more. Then continue at
-**[Step 4](#step-4--connect-via-ssh-putty)** — Steps 1–3 do not apply to you.
+**[Step 5](#step-5)** — Appendix A do not apply to you.
 
 > **What the display shows on that first boot** — after the Phrozen install it shows **"Update complete —
 > wait for restart…"**, **restarts itself once** a few seconds later, and then settles on a
 > **"Notice — Error occurred"** screen. **That last one is expected, not a fault** — Klipper can't start until
 > the MCUs are flashed, and *no amount of restarting/power-cycling clears it*. **Wait for the settled
 > "Error occurred" screen** — that means the automatic restart is done — **then** connect over SSH for
-> **Step 5 (Flash the MCUs)**. Don't SSH *before* that (the auto-restart would drop the session), and don't
+> **Step 6 (Flash the MCUs)**. Don't SSH *before* that (the auto-restart would drop the session), and don't
 > try to set up on the display.
 >
 > You should **not** see a Phrozen *first-time setup wizard* (language → name → chute calibration → homing).
-> It is switched off deliberately: it ends in a homing move, which cannot finish before Step 5, so it is a
+> It is switched off deliberately: it ends in a homing move, which cannot finish before Step 6, so it is a
 > dead end. If one ever does appear, don't work through it — **power-cycle once or twice** and it clears
 > itself.
 
 > **If that WiFi doesn't connect** (wrong password, changed/5 GHz network, or you chose `no_wifi.txt`), the
 > printer falls back to its **setup portal** on the first boot — join **`Arco-Unleashed-Setup`** from a phone
 > (`192.168.4.1`) and enter your network — it gives up on the seeded WiFi after about 90 seconds, so do not pull
-> the plug before that. This matters here because until the MCUs are flashed (Step 5) the display shows an MCU
-> error and cannot set WiFi itself. If even the portal fails to come up, the `wifi-seed.txt` rescue in Step 3
+> the plug before that. This matters here because until the MCUs are flashed (Step 6) the display shows an MCU
+> error and cannot set WiFi itself. If even the portal fails to come up, the `wifi-seed.txt` rescue in Step 4
 > still gets the printer onto your network.
 
 > 🚪 **If it goes wrong *before* the write begins** — image missing, checksum mismatch, or the flasher
 > hangs — **pull the USB stick and power-cycle.** With no image on the stick the flasher stands down and
-> your existing system boots normally. Once the write has begun, only Steps 1–2 can recover the printer.
+> your existing system boots normally. Once the write has begun, only Appendix A can recover the printer.
 >
 > **The flash stays armed, and that is how you retry:** put a good image back on the stick, power-cycle,
 > and it simply tries again. But if you stop here and carry on using the old system, **cancel it first** —
@@ -420,102 +455,18 @@ Phrozen's parts from it, rebooting once more. Then continue at
 
 ---
 
-## Path B — eMMC replacement / recovery · *Steps 1–3*
+<a id="step-4"></a>
 
-The proven route: pull the eMMC, flash the image onto it with **balenaEtcher** on a PC, put it back. This is
-also how you **recover** a printer if a path-A self-flash ever fails. Steps 1–3 below are this path; then
-both paths meet again at **[Step 4](#step-4--connect-via-ssh-putty)**.
-
-> *Took **path A** above? The eMMC is already flashed — skip straight to
-> [Step 4](#step-4--connect-via-ssh-putty).*
-
-<a id="step-1--remove-the-emmc-module"></a>
-
-## Step 1 — Remove the eMMC module
-
-> 🛑 **This is your only chance to save the factory system.** The printer has **one** eMMC. Step 2 writes
-> over it, and the stock Buster install on it is gone for good — Phrozen do not publish an image of it.
-> Two ways to keep a road back, and you must choose now:
->
-> * **Keep the original module.** Fit a **spare eMMC** (they are cheap and the same MKS V1.0 part), flash
->   *that* in Step 2, and put the original in a drawer. Refitting it is then a two-minute job.
-> * **Or image it before you overwrite it.** With the module in the adapter, take a full dump *first*:
->   **Windows** — [Win32DiskImager](https://sourceforge.net/projects/win32diskimager/), the **Read**
->   button (balenaEtcher cannot do this; its *Clone* is drive-to-drive and produces no file).
->   **Mac/Linux** — `sudo dd if=/dev/sdX of=buster.img bs=4M`, with `sdX` from `lsblk`.
->   It dumps the whole ~31 GB, so have the space free and expect it to take a while.
->
-> This is not precaution for its own sake: the kit's own way back,
-> [`revert-to-buster/`](revert-to-buster/PACKAGE-START-HERE.txt), lists as its **first** requirement
-> *"YOUR OWN buster.img — a 1:1 full-disk dump of a WORKING Buster eMMC"*. This step is the only moment
-> it can be made.
-
-**Power the printer off and unplug it.** Then open the **lower housing cover** — undo the circled bottom
-screws with the hex key:
-
-<p align="center"><img src="assets/manual/printer-bottom-screws.jpg" alt="Bottom cover screw positions" width="560"></p>
-
-On the **Phrozen Bumblebee** mainboard, find the **MKS eMMC V1.0** module (labelled *MKS PI …*). It's
-held by **two Phillips screws** (arrows). Undo them:
-
-<p align="center">
-  <img src="assets/manual/mainboard-emmc.jpg" alt="eMMC location on the mainboard" width="420">
-  &nbsp;&nbsp;
-  <img src="assets/manual/emmc-slot-closeup.jpg" alt="eMMC slot close-up" width="420">
-</p>
-
-Lift the module out and slide it into the **USB-to-eMMC adapter**:
-
-<p align="center"><img src="assets/manual/emmc-usb-adapter.jpg" alt="eMMC in USB adapter" width="620"></p>
-
----
-
-## Step 2 — Flash the image with balenaEtcher
-
-Plug the adapter into your PC and open **balenaEtcher**. (Use the GUI — no WSL needed.)
-
-**2.1 — Flash from file:** click **Flash from file** and pick the Arco Unleashed `.img`
-(unzip the `.img.gz` first if your Etcher can't read `.gz` directly).
-
-<p align="center"><img src="assets/manual/balena-1-flash-from-file.png" alt="balenaEtcher — Flash from file" width="720"></p>
-
-**2.2 — Select target:** click **Select target**.
-
-<p align="center"><img src="assets/manual/balena-2-select-target.png" alt="balenaEtcher — Select target" width="720"></p>
-
-**2.3 — Pick the *right* drive:** choose the **eMMC** (here the ~**31 GB** "Generic STORAGE … USB
-Device"). ⚠️ **Do not** pick your big system disk (the 500 GB "Large drive" is flagged for a reason) —
-Etcher **erases** whatever you select.
-
-<p align="center"><img src="assets/manual/balena-3-pick-drive.png" alt="balenaEtcher — pick the correct drive" width="720"></p>
-
-**2.4 — Flash!** Confirm the file and target, then click **Flash!**
-
-<p align="center"><img src="assets/manual/balena-4-flash.png" alt="balenaEtcher — Flash" width="720"></p>
-
-**2.5 — Ignore the Windows "format disk" popup.** Windows can't read the Linux partitions and will offer
-to format the drive — click **Cancel / Abbrechen**. **Never** click *Format disk*.
-
-<p align="center"><img src="assets/manual/balena-5-cancel-format.png" alt="Windows format prompt — click Cancel" width="440"></p>
-
-**2.6 — Done.** When Etcher shows **Flash Completed!**, safely eject the adapter.
-
-<p align="center"><img src="assets/manual/balena-6-done.png" alt="balenaEtcher — Flash Completed" width="720"></p>
-
-Put the eMMC **back into the mainboard** (re-fit the two screws) and **close the housing**.
-
----
-
-## Step 3 — First boot: WiFi portal + USB install
+## Step 4 — First boot: WiFi portal + USB install
 
 The public image ships **without** Phrozen's software, so the first boot brings up a **WiFi setup
 portal**, then installs Phrozen's module — from your stick if a zip is on it, otherwise by fetching it
 from Phrozen's own repository after you have confirmed.
 
 **3.1 — Prepare the USB stick.** On the FAT32 stick you need the **`arco-phrozen-ams.tar.gz`** from
-Step 0 (see the picture there). Add **Phrozen's `Arco_FW_V*.zip`** beside it only if the printer will
+Step 1 (see the picture there). Add **Phrozen's `Arco_FW_V*.zip`** beside it only if the printer will
 have **no internet** during setup, or if you want PhrozenGo — see the note under
-[What you need](#what-you-need).
+[What you need](#before-you-begin).
 
 **3.2 — Plug the stick in, *then* connect.** Power the printer on and **insert the prepared USB stick into
 the printer's USB port now — before you press Connect.** On your **phone**, join the
@@ -574,13 +525,13 @@ writes for up to two minutes, so pulling the power here can cost you most of the
 > Both are switched off; the screen above replaces them, and the reboot is automatic.
 
 After the restart you can remove the stick. *(The full-card rootfs resize also happens here; SSH host keys
-are generated on the first boot.)* Once the MCUs are flashed in [Step 5](#step-5-flash-the-mcus-essential),
+are generated on the first boot.)* Once the MCUs are flashed in [Step 6](#step-6),
 the normal Phrozen display WiFi screen handles future network changes.
 
 > **What you see now is "Notice — Error occurred", and that is expected.** Klipper cannot start yet,
 > because the MCUs still carry the old firmware — so the display settles on an error popup. The install
 > did **not** fail, and restarting or power-cycling will not clear it. **Wait for that settled screen**
-> (it means the automatic restart has finished), then go on to Step 4 and flash the MCUs in Step 5.
+> (it means the automatic restart has finished), then go on to Step 5 and flash the MCUs in Step 6.
 
 > **Skip any built-in "print test"** the first-run or a factory reset offers — the bundled test file was
 > compiled for the old Klipper and can't run on v0.13. Your first print comes from OrcaSlicer later.
@@ -595,9 +546,9 @@ the normal Phrozen display WiFi screen handles future network changes.
 
 ---
 
-<a id="step-4--connect-via-ssh-putty"></a>
+<a id="step-5"></a>
 
-## Step 4 — Connect via SSH (PuTTY)
+## Step 5 — Connect via SSH (PuTTY)
 
 1. Find the printer's **IP** (router device list, or on the display).
 2. Open **PuTTY** → *Host Name* = that IP, *Port* `22`, *Connection type* **SSH** → **Open** (accept the
@@ -608,7 +559,9 @@ the normal Phrozen display WiFi screen handles future network changes.
 
 ---
 
-## Step 5 — Flash the MCUs  ⚠️ essential
+<a id="step-6"></a>
+
+## Step 6 — Flash the MCUs  ⚠️ essential
 
 Open the setup menu — everything from here on runs from it:
 
@@ -619,7 +572,7 @@ bash ~/arco-unleashed/scripts/unleashed_setup.sh
 <p align="center"><img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820"></p>
 
 Take **1 — Flash MCUs**. It is the only item that is not optional, which is why it does not wait until
-you have read the rest of the menu; the tour of everything else is Step 6.
+you have read the rest of the menu; the tour of everything else is Step 7.
 
 First boot did everything else automatically. The **one** thing you must still do by hand: the host now
 runs Klipper **v0.13**, but your printer's MCUs still carry the old firmware — flash them or Klipper can't
@@ -651,8 +604,6 @@ to end up flashed**:
   > The Katapult build configures itself from a setting the kit carries for this toolhead. If it ever
   > opens a configuration menu instead, that setting was missing or a Katapult update renamed something
   > — the script prints which value disagreed and what to set it to.
-
-<a id="the-toolhead-f103-button-step"></a>
 
 ### The toolhead F103 button step
 
@@ -690,7 +641,7 @@ before you touch a button.
 > pulling is what tears the cable or its connector, and that is not a five-minute repair.
 
 **3) Power back up and get the script waiting.** Plug in, switch on, wait for the boot, connect with
-PuTTY again ([Step 4](#step-4--connect-via-ssh-putty)) and run:
+PuTTY again ([Step 5](#step-5)) and run:
 
 ```bash
 bash ~/arco-unleashed/scripts/unleashed_setup.sh
@@ -758,8 +709,8 @@ only start their new firmware after a real power cut, which is why the flasher d
 stopped: the power-cycle brings it up cleanly.
 
 **2) Check.** Open **Mainsail** in a browser — **`http://<printer-ip>/`** (or **`:81`**), the same IP you
-gave PuTTY in Step 4. It should come up **ready**, with no MCU error, and the display's *Notice — Error
-occurred* popup is gone too. That's Step 5 done.
+gave PuTTY in Step 5. It should come up **ready**, with no MCU error, and the display's *Notice — Error
+occurred* popup is gone too. That's Step 6 done.
 
 <details>
 <summary><b>If Klipper says <code>mcu: Unable to connect</code></b> — the chip id</summary>
@@ -782,11 +733,13 @@ sudo systemctl restart klipper
 
 ---
 
-## Step 6 — The rest of the setup menu
+<a id="step-7"></a>
+
+## Step 7 — The rest of the setup menu
 
 With the MCUs flashed, the printer is complete — everything below is optional. The power-cycle at the end
-of Step 5 ended your SSH session. Give the printer a minute to finish booting, connect again as in
-[Step 4](#step-4--connect-via-ssh-putty), and re-open the menu — you can do this at any time, from now on:
+of Step 6 ended your SSH session. Give the printer a minute to finish booting, connect again as in
+[Step 5](#step-5), and re-open the menu — you can do this at any time, from now on:
 
 ```bash
 bash ~/arco-unleashed/scripts/unleashed_setup.sh
@@ -800,7 +753,7 @@ settings · 3 — check the self-heal guards), **SOMETHING BROKE** (r — emerge
 (6 — check GitHub).
 
 **2 — Backup / restore settings** covers the one thing no guard can do for you: guessing back numbers
-your machine measured — worth running **once you have calibrated (Step 7)**, since that is when those
+your machine measured — worth running **once you have calibrated (Step 8)**, since that is when those
 numbers first exist. It saves your printer configuration and calibration, the web interface's own
 settings (theme, presets, macro groups, history — none of which live in `printer.cfg`), your WiFi and
 the phrozen_dev module, and puts them back on request. It can also write the backup to a **USB stick**,
@@ -814,7 +767,7 @@ cannot be flashed and will not revive a printer that no longer boots. This one w
 image** of the entire eMMC — every file, the partition table, the bootloader — that can be written back.
 It reboots to do it, images the eMMC before the system starts, and comes back on its own. The same entry
 restores: it lists the images on your stick and hands the chosen one to the flasher, which still asks for
-the target device to be typed out in full. Full walk-through in [Step 0b](#step-0b--optional-image-the-whole-printer-first).
+the target device to be typed out in full. Full walk-through in [Step 2](#step-2).
 
 <p align="center"><img src="assets/manual/menu-image-backup.png" alt="Whole-system save and restore" width="820"></p>
 
@@ -823,7 +776,7 @@ Phrozen's original system back. It needs an image of that original system on the
 before Unleashed was installed** — Phrozen's firmware zip is not one, that is an update package rather
 than a system, and once Unleashed is running the original can no longer be copied because it is gone.
 If you think you may ever want to go back, that image is the thing to make first, in
-[Step 0b](#step-0b--optional-image-the-whole-printer-first).
+[Step 2](#step-2).
 
 It is a guided action rather than a note in this manual because of the order. Swapping the eMMC back to
 Buster is only half of it: the MCU firmware sits on the chips, and a Buster host running Klipper v0.11
@@ -838,8 +791,6 @@ the AddOn macros, Fluidd, the theme, the WiFi portal and this backup feature its
 that the chosen image really predates Unleashed, and finally asked to type **`REMOVE UNLEASHED`** in
 full. Your prints, Orca profiles and AMS are unaffected: this is about the printer's system, not your
 files. Nothing is undone by pressing ENTER at the wrong moment.
-
-<a id="ams-ships-switched-off"></a>
 
 **`a` — AMS / Chroma Kit on·off. If you own an AMS, this is not optional.** Every image ships with the
 AMS **switched off**, and that is deliberate: most printers do not have one, and a printer that opens an
@@ -861,7 +812,7 @@ connects. `AMS_OFF` reverses all of it. `AMS_STATUS` shows where you stand. Do t
 you physically attach or remove the unit — not per print.
 
 > If the spools still do not move afterwards, the missing piece is almost always **`phrozen_master`**
-> from [Step 0](#step-0). It exists only on the original printer, no download contains it, and without
+> from [Step 1](#step-1). It exists only on the original printer, no download contains it, and without
 > it AMS detection hangs. `AMS_STATUS` says whether it is installed.
 
 **The waste conveyor hangs off the AMS, not the printer.** It connects to the **AMS** with a DC barrel
@@ -883,7 +834,9 @@ changes nothing — it is described under *Updating Klipper and Moonraker* furth
 
 ---
 
-## Step 7 — Calibrate
+<a id="step-8"></a>
+
+## Step 8 — Calibrate
 
 Bed mesh, z-offset, PID, input shaper and purge position are measured per printer, and the image ships
 none of them — another machine's numbers are worthless. **Nothing here is optional if you want to print.**
@@ -915,8 +868,8 @@ Arco probes with a **load cell**, so the Z reference is found automatically.
 
 > 🛑 **Skip any "print test" the factory reset offers.** The bundled test file was compiled for the old
 > Klipper and cannot run on v0.13, so the flow stalls on it. Skipping it costs nothing — your first print
-> comes from OrcaSlicer in Step 9. *(Path B readers already met this warning in Step 3; it is repeated
-> here because path A skips that step entirely.)*
+> comes from OrcaSlicer in Step 10. *(The same warning appears in Step 4; it is repeated
+> here because this is where it usually bites.)*
 
 **Now back up what you just measured.** Open the setup menu and take **2 — Backup / restore settings**,
 then **copy the backup to a USB stick**:
@@ -933,7 +886,9 @@ That's the essential install done — the printer runs.
 
 ---
 
-## Step 8 — Optional: AddOn features, theme & verify
+<a id="step-9"></a>
+
+## Step 9 — *Optional:* AddOn features, theme & verify
 
 ### AddOn.cfg + features
 From the setup menu pick **`4) AddOn.cfg + Features`**:
@@ -1086,7 +1041,9 @@ on **Klipper v0.13**, OS **armbian … bookworm**:
 
 ---
 
-## Step 9 — First print: OrcaSlicer Machine G-code
+<a id="step-10"></a>
+
+## Step 10 — First print: OrcaSlicer Machine G-code
 
 Stock OrcaSlicer already ships the **Phrozen Arco** profile (vendor `Phrozen`). The easiest path is to
 **import a kit profile** via *File → Import → Import Configs…* — it inherits from that official preset
@@ -1193,7 +1150,7 @@ PHROZEN_TOOLCHANGE FLUSH=[flush_length]
 > PLA held at PETG temperature strings and cooks).
 >
 > It is **safe to add permanently**: with a single material it changes nothing, and it is simply
-> ignored unless the optional [Unleashed × KAOS](#kaos) add-on is
+> ignored unless the optional [Unleashed × KAOS](#step-11) add-on is
 > installed. So one profile covers every case and you never need to re-slice when switching.
 >
 > Give your filament presets their real nozzle temperatures — that is what `TEMP` reads.
@@ -1203,7 +1160,6 @@ PHROZEN_TOOLCHANGE FLUSH=[flush_length]
 ```gcode
 M601
 ```
-
 
 <p align="center"><img src="assets/manual/orca-6-pause.png" alt="Pause G-code = M601" width="820"></p>
 
@@ -1221,9 +1177,9 @@ Orca then prints in the right mode automatically.
 
 ---
 
-<a id="kaos"></a>
+<a id="step-11"></a>
 
-## Step 10 — Optional: Unleashed × KAOS
+## Step 11 — *Optional:* Unleashed × KAOS
 
 **KAOS** (*Klipper Add-On System*) is a separate, third-party add-on for the Arco by *sanders.chris*
 ([gitlab.com/sanders.chris/phrozenarco](https://gitlab.com/sanders.chris/phrozenarco)) — a popup menu,
@@ -1273,7 +1229,7 @@ The image ships it: the bridge lives in `~/arco-unleashed/unleashed-x-kaos`, its
 its boot guard is in place. **None of KAOS itself is in the image** — only our bridge, which does
 nothing at all until you ask it to. There is no root step, no USB stick and no download to prepare.
 
-So Step 10 is one command, below. (If you ever want to remove even the bridge, or need to undo a
+So Step 11 is one command, below. (If you ever want to remove even the bridge, or need to undo a
 half-finished switch by hand, `~/arco-unleashed/unleashed-x-kaos/docs/removal.md` is the complete list.)
 
 ### Switch it on and off
@@ -1317,7 +1273,7 @@ off at all.
 
 Two things to know:
 
-* **Add `TEMP=[new_filament_temp]`** to your *Change filament G-code* (see Step 9) — magic_ams uses it
+* **Add `TEMP=[new_filament_temp]`** to your *Change filament G-code* (see Step 10) — magic_ams uses it
   for per-tool temperature, which is what makes multi-*material* printing correct.
 * **You can step back without removing KAOS.** In the console:
 
@@ -1336,9 +1292,116 @@ With **no AMS attached** (`ams = 0`) magic_ams stays inert — colour changes fa
 
 ---
 
-<a id="troubleshooting"></a>
+---
 
-## Troubleshooting
+<a id="appendix-a"></a>
+
+## Appendix A — Removing the eMMC (recovery, spare module, way back to stock)
+
+**You do not need this appendix for a normal install.** [Step 3](#step-3) flashes the printer without
+opening it. Come here for one of three reasons:
+
+- **Recovery.** A self-flash that failed part-way leaves a printer that will not boot. Nothing on the
+  machine can fix that, because nothing on the machine starts. Taking the eMMC out and writing it on a
+  PC is the way back.
+- **A spare module.** Flash a second eMMC (the same MKS V1.0 part) and swap it in. The original stays
+  untouched as a guaranteed return to the factory system — the safest arrangement there is.
+- **Keeping a copy of stock.** With the module in a PC you can image it byte for byte, with no size
+  limit and no compression to worry about. [Step 2](#step-2) does the same thing without opening the
+  printer, but it has to fit under 4 GiB.
+
+**In addition to the usual tools you need:** a **USB-to-eMMC adapter** (the white MKS case), a **small
+Phillips screwdriver** for the module's retaining screws, and **[balenaEtcher](https://etcher.balena.io/)**
+on a PC.
+
+When the module is back in and the printer boots, continue at **[Step 4](#step-4)**.
+
+> ⚠️ Power the printer **off and unplug it** before opening the lower housing.
+
+<a id="appendix-a1"></a>
+
+### A1 — Take the eMMC module out
+
+> 🛑 **This is your only chance to save the factory system.** The printer has **one** eMMC. Appendix A2 writes
+> over it, and the stock Buster install on it is gone for good — Phrozen do not publish an image of it.
+> Two ways to keep a road back, and you must choose now:
+>
+> * **Keep the original module.** Fit a **spare eMMC** (they are cheap and the same MKS V1.0 part), flash
+>   *that* in Appendix A2, and put the original in a drawer. Refitting it is then a two-minute job.
+> * **Or image it before you overwrite it.** With the module in the adapter, take a full dump *first*:
+>   **Windows** — [Win32DiskImager](https://sourceforge.net/projects/win32diskimager/), the **Read**
+>   button (balenaEtcher cannot do this; its *Clone* is drive-to-drive and produces no file).
+>   **Mac/Linux** — `sudo dd if=/dev/sdX of=buster.img bs=4M`, with `sdX` from `lsblk`.
+>   It dumps the whole ~31 GB, so have the space free and expect it to take a while.
+>
+> This is not precaution for its own sake: the kit's own way back,
+> [`revert-to-buster/`](revert-to-buster/PACKAGE-START-HERE.txt), lists as its **first** requirement
+> *"YOUR OWN buster.img — a 1:1 full-disk dump of a WORKING Buster eMMC"*. This step is the only moment
+> it can be made.
+
+**Power the printer off and unplug it.** Then open the **lower housing cover** — undo the circled bottom
+screws with the hex key:
+
+<p align="center"><img src="assets/manual/printer-bottom-screws.jpg" alt="Bottom cover screw positions" width="560"></p>
+
+On the **Phrozen Bumblebee** mainboard, find the **MKS eMMC V1.0** module (labelled *MKS PI …*). It's
+held by **two Phillips screws** (arrows). Undo them:
+
+<p align="center">
+  <img src="assets/manual/mainboard-emmc.jpg" alt="eMMC location on the mainboard" width="420">
+  &nbsp;&nbsp;
+  <img src="assets/manual/emmc-slot-closeup.jpg" alt="eMMC slot close-up" width="420">
+</p>
+
+Lift the module out and slide it into the **USB-to-eMMC adapter**:
+
+<p align="center"><img src="assets/manual/emmc-usb-adapter.jpg" alt="eMMC in USB adapter" width="620"></p>
+
+---
+
+<a id="appendix-a2"></a>
+
+### A2 — Write the image with balenaEtcher
+
+Plug the adapter into your PC and open **balenaEtcher**. (Use the GUI — no WSL needed.)
+
+**2.1 — Flash from file:** click **Flash from file** and pick the Arco Unleashed `.img`
+(unzip the `.img.gz` first if your Etcher can't read `.gz` directly).
+
+<p align="center"><img src="assets/manual/balena-1-flash-from-file.png" alt="balenaEtcher — Flash from file" width="720"></p>
+
+**2.2 — Select target:** click **Select target**.
+
+<p align="center"><img src="assets/manual/balena-2-select-target.png" alt="balenaEtcher — Select target" width="720"></p>
+
+**2.3 — Pick the *right* drive:** choose the **eMMC** (here the ~**31 GB** "Generic STORAGE … USB
+Device"). ⚠️ **Do not** pick your big system disk (the 500 GB "Large drive" is flagged for a reason) —
+Etcher **erases** whatever you select.
+
+<p align="center"><img src="assets/manual/balena-3-pick-drive.png" alt="balenaEtcher — pick the correct drive" width="720"></p>
+
+**2.4 — Flash!** Confirm the file and target, then click **Flash!**
+
+<p align="center"><img src="assets/manual/balena-4-flash.png" alt="balenaEtcher — Flash" width="720"></p>
+
+**2.5 — Ignore the Windows "format disk" popup.** Windows can't read the Linux partitions and will offer
+to format the drive — click **Cancel / Abbrechen**. **Never** click *Format disk*.
+
+<p align="center"><img src="assets/manual/balena-5-cancel-format.png" alt="Windows format prompt — click Cancel" width="440"></p>
+
+**2.6 — Done.** When Etcher shows **Flash Completed!**, safely eject the adapter.
+
+<p align="center"><img src="assets/manual/balena-6-done.png" alt="balenaEtcher — Flash Completed" width="720"></p>
+
+Put the eMMC **back into the mainboard** (re-fit the two screws) and **close the housing**.
+
+---
+
+---
+
+<a id="appendix-b"></a>
+
+## Appendix B — Troubleshooting
 
 Every entry below is something that actually happened — on the development printer or to someone
 testing this kit. They are grouped by *when* you see them, because the same words on screen mean
@@ -1368,7 +1431,7 @@ looked for.
 Do not power-cycle repeatedly. Pull the stick and power-cycle **once**:
 - **It boots** → the write was fine and a check misfired. Confirm with
   `cat ~/arco-unleashed/.kit-commit` — if it shows the version you flashed, the eMMC has it.
-- **It does not boot** → the write really was incomplete. That needs path B: open the printer, take
+- **It does not boot** → the write really was incomplete. That needs [Appendix A](#appendix-a): open the printer, take
   the eMMC out and write it on a PC. Your backup on the stick is unaffected.
 
 **The stick is in, but the printer does not see it**
@@ -1385,7 +1448,7 @@ an older firmware zip or a `(1)` re-download can win silently and install someth
 The flasher warns when it sees more than one — start from an empty stick and put only the listed files
 on it.
 
-### Path B — eMMC on a PC
+### Removing the eMMC (Appendix A)
 
 **The adapter shows no drive, or Etcher cannot see it**
 Seat the module fully — it is easy to have it in the socket but not contacted — and try a different USB
@@ -1395,12 +1458,12 @@ decompression itself, so do not unpack it first.
 **Flashed fine, but the printer does not come up**
 Check the module is the right way round and its retaining screws are in. If the printer still does not
 boot and the eMMC is definitely written, the MCUs are the other half — a printer whose host was
-replaced but whose MCUs still carry factory firmware cannot start Klipper. That is Step 5.
+replaced but whose MCUs still carry factory firmware cannot start Klipper. That is Step 6.
 
 ### First boot after flashing
 
 **"Notice — Error occurred" on the display**
-Expected, and not a fault. Klipper cannot start until the MCUs are flashed (Step 5), so the display
+Expected, and not a fault. Klipper cannot start until the MCUs are flashed (Step 6), so the display
 has nothing to show. Restarting or power-cycling will not clear it. Do not set anything up on the
 display; wait for the screen to settle, which is how you know the automatic restarts have finished.
 
@@ -1578,9 +1641,9 @@ FIRMWARE_RESTART
 
 ---
 
-<a id="faq"></a>
+<a id="appendix-c"></a>
 
-## FAQ
+## Appendix C — FAQ
 
 **How do I update the kit itself?**
 Type `ARCO_UPDATE` in the Mainsail or Fluidd console. `ARCO_UPDATE_CHECK` looks first and changes
@@ -1640,13 +1703,15 @@ stick at all; compressed it normally lands at 2–2.5 GB, unless the eMMC's free
 deleted data, which does not compress.
 
 Reformatting to exFAT or NTFS does **not** help: the small system that performs the flash runs before
-Linux is up and can only mount FAT32. If your image will not go below 4 GiB, use **path B** instead —
+Linux is up and can only mount FAT32. If your image will not go below 4 GiB, use **[Appendix A](#appendix-a)** instead —
 write the raw `.img` straight to the eMMC on your PC, no stick involved.
 
 **balenaEtcher does not create images**, it only writes them. To read one off an eMMC use
 Win32DiskImager's *Read*, or `dd` on Linux/macOS. Or skip all of this and let the printer do it:
-[Step 0b](#step-0b--optional-image-the-whole-printer-first) writes the image and both sidecars itself,
+[Step 2](#step-2) writes the image and both sidecars itself,
 and reads the result back off the stick to prove it is good.
+
+<a id="where-to-next"></a>
 
 ## Where to next
 - **Slicing / multicolor / AMS auto-mode** → [README › OrcaSlicer](README.md#orcaslicer--multicolor--ams-auto-mode)
