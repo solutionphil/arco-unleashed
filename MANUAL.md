@@ -83,6 +83,19 @@ module, and for keeping a way back to the factory system.
 
 <p align="center"><img src="assets/manual/tools.jpg" alt="Tools laid out" width="720"></p>
 
+### First: bring the printer up to Phrozen V199
+
+> 🛑 **Do this before anything else, on the printer as it stands today.** Install Phrozen's firmware
+> **V199** the ordinary way — their own USB firmware update — and let it finish.
+>
+> V199 carries the **touch-panel firmware** this project expects. The panel is the one part Arco
+> Unleashed never touches or ships: it is Phrozen's, it is updated only through their updater, and
+> nothing here can put it right afterwards. Start from an older version and the display can behave oddly
+> or stay dark, on a machine where the display is how you follow every remaining step.
+>
+> It is also the cleanest starting point for everything else — the module, the AMS and the display
+> firmware all match versions that way.
+
 ### What you need
 
 A **FAT32 USB stick** and two hex keys, **2.5 mm** and **2.0 mm**. That is the whole list.
@@ -212,10 +225,12 @@ Skip it if you have no intention of ever going back to the factory system.
 
 ### What you need
 
-A **USB stick of 8 GB or more**, plugged **straight into the printer** — never through a hub. It must
-already hold `unleashed-selfflash.tar.gz` and `prepare_unleashed_self_flash.sh`; extracting the release
-zip in [Before you begin](#before-you-begin) put both there. Your printer is still running Phrozen's
-system at this point and has none of this project's files on it, so the tool has to come from the stick.
+A **USB stick of 8 GB or more**, plugged **straight into the printer** — never through a hub.
+
+The backup tool runs from that stick: `unleashed-selfflash.tar.gz` and `prepare_unleashed_self_flash.sh`.
+Both came out of the release zip you extracted in [Before you begin](#before-you-begin), so they should
+be there already — worth a glance before you start. They have to come from the stick because your printer
+is still running Phrozen's system and has nothing of this project installed yet.
 
 **Delete old prints and timelapses first.** They are the usual reason a backup does not fit (see
 [below](#backup-too-large)). Look at what is actually large, then remove what you no longer want —
@@ -587,10 +602,17 @@ self-heal guards re-apply the v0.13 Klipper patches by themselves on the next bo
 
 ## Step 5 — Connect via SSH (PuTTY)
 
-1. Find the printer's **IP** (router device list, or on the display).
-2. Open **PuTTY** → *Host Name* = that IP, *Port* `22`, *Connection type* **SSH** → **Open** (accept the
+**Find the printer's IP in your router's device list** — look for the host name **`mkspi`**.
+
+You cannot read it off the display at this point: the panel is still sitting on the "Error occurred"
+screen from [Step 4](#step-4) and will stay there until the MCUs are flashed in the next step. The router
+is the way in. (If your network shows host names, `mkspi` is the one; the printer keeps that name.)
+
+Then:
+
+1. Open **PuTTY** → *Host Name* = that IP, *Port* `22`, *Connection type* **SSH** → **Open** (accept the
    host-key warning on first connect).
-3. Login **`mks`** / password **`makerbase`**. You're greeted by the Arco Unleashed banner:
+2. Login **`mks`** / password **`makerbase`**. You're greeted by the Arco Unleashed banner:
 
 <p align="center"><img src="assets/manual/ssh-login.jpg" alt="PuTTY SSH login — Arco Unleashed banner" width="640"></p>
 
