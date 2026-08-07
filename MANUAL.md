@@ -203,125 +203,126 @@ first boot.
 
 ## Step 2 — *Optional:* back up the whole printer
 
-**This is the way back.** Phrozen do not publish a stock image, so once the eMMC is overwritten, the
-machine you have today is gone unless you copied it first. This copies **all of it** — every file, the
-partition table, the bootloader — onto your USB stick as one `arco-emmc-backup-*.img.gz`, and it needs no
-teardown: no screws, no eMMC removal, no PC.
+**This is your way back.** Phrozen publish no stock image, so once the eMMC is overwritten, the machine
+you have today is gone unless you copied it first. This makes that copy — every file, the partition
+table, the bootloader — as one `.img.gz` on your USB stick. No screws, no eMMC removal, no PC.
 
-It is entirely optional. Skip it if you have no intention of ever going back.
+Skip it if you have no intention of ever going back to the factory system.
 
-**You need two things on that stick.** First, room for the image — **8 GB or larger**, plugged
-**straight into the printer, never through a USB hub**. Second, the self-flash tool itself:
+### What you need
 
-| On the stick | From |
-|---|---|
-| `unleashed-selfflash.tar.gz` | inside [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) |
-| `prepare_unleashed_self_flash.sh` | the same zip |
+A **USB stick of 8 GB or more**, plugged **straight into the printer** — never through a hub. It must
+already hold `unleashed-selfflash.tar.gz` and `prepare_unleashed_self_flash.sh`; extracting the release
+zip in [Before you begin](#before-you-begin) put both there. Your printer is still running Phrozen's
+system at this point and has none of this project's files on it, so the tool has to come from the stick.
 
-> **Why these, when you are flashing the eMMC externally?** Because right now your printer is still
-> running Phrozen's original system, and none of this project's files are on it yet. The backup tool has
-> to come from the stick — that is the whole reason it ships as a standalone package that needs no
-> installation. The release zip puts both on the stick already, so on the normal route you have them; only if you
-> have to add for this step.
+**Delete old prints and timelapses first.** They are the usual reason a backup does not fit (see
+[below](#backup-too-large)). Look at what is actually large, then remove what you no longer want —
+this cannot be undone:
 
-> ⚠️ **Clear out old prints first — the backup is one single file, and FAT32 cannot hold 4 GiB or more.**
->
-> On a printer that has been in use for a while, **old G-code files and timelapse videos are usually
-> what pushes the backup over that ceiling.** Delete them before you start:
->
-> ```bash
-> rm -f ~/printer_data/gcodes/*.gcode ~/printer_data/timelapse/* 2>/dev/null; df -h /
-> ```
->
-> *(Keep anything you still want — this cannot be undone. Check the list first with
-> `ls -lhS ~/printer_data/gcodes/ | head -20` to see what is actually large.)*
->
-> **Why deleting works here, when it normally would not:** this is an image of the whole eMMC, not a copy
-> of its files, so a deleted file's contents stay in the freed blocks and compress no better than noise.
-> The backup therefore **zeroes the free space itself**, in the one moment the filesystem is unmounted —
-> and only that turns your deleting into a smaller file. Delete without that step and nothing shrinks;
-> which is exactly why this used to confuse people.
->
-> The tool measures before it does anything and tells you the estimate, so you learn this in a sentence
-> rather than half an hour in. If it still says too large, two more things help:
->
-> **1. Zero the free space by hand as well, then run the backup again.** It fills the disk for a few
-> minutes and then releases it again:
->
-> ```bash
-> sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync
-> ```
->
-> Do not print while that runs, and reboot afterwards. The backup itself also zeroes free space on its
-> own, in the moment the filesystem is unmounted — this is the same trick, done early enough to be
-> visible in the estimate.
->
-> **2. Compress harder.** Slower, and buys roughly 10–15 %:
->
-> ```bash
-> sudo ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh --backup
-> ```
->
-> If it still will not fit, image the eMMC on a PC instead ([Appendix A](#appendix-a)) — that has no size limit at
-> all.
+```bash
+ls -lhS ~/printer_data/gcodes/ | head -20
+```
 
-On the printer:
+```bash
+rm -f ~/printer_data/gcodes/*.gcode ~/printer_data/timelapse/* 2>/dev/null; df -h /
+```
+
+### Run it
 
 ```bash
 sh ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh
+```
+
+```bash
 sudo bash ~/selfflash/install-unleashed.sh --backup
 ```
 
-It measures the eMMC (about a minute, silent), tells you how big the backup will be and whether the stick
-has room, then asks. Say yes and it reboots, images the eMMC **before the system starts** — the only
-moment nothing is using it, which is what makes the copy trustworthy — and shows its progress on the
-display. **Nothing on the printer is written to or changed**, and pulling the stick cancels it.
+It measures the eMMC first — about a minute with no output, which is normal — then tells you how large
+the backup will be and whether the stick has room, and asks before doing anything.
 
-When it finishes it says so on the display, holds that screen for a moment and then carries on booting on
-its own — no power-cycle, no restart. Nothing on the printer was touched, so there is nothing to restart
-*for*. Take the stick out whenever you like. On it you will find:
+Say yes and the printer reboots and images the eMMC **before the system starts**. That is the only
+moment nothing is using it, and it is what makes the copy trustworthy. The display shows the progress.
+When it is done it says so, waits a moment and carries on booting by itself. Pulling the stick at any
+point cancels it.
+
+> **It writes exactly one thing to your printer:** zeros, into blocks the filesystem already counts as
+> **free**. No file is touched, added or removed, and it refuses outright on a filesystem that was not
+> cleanly unmounted. This is what makes a backup fit — see below.
+
+### What you end up with
 
 | File | What it is |
 |---|---|
-| `arco-emmc-backup-stock.img.gz` | the image itself — **`-stock`** when taken from Phrozen's system, **`-unleashed`** when taken from this one |
-| `…img.gz.sha256` | its checksum — the restore refuses without it |
+| `arco-emmc-backup-stock.img.gz` | the image — **`-stock`** from Phrozen's system, **`-unleashed`** from this one |
+| `…img.gz.sha256` | its checksum; the restore refuses without it |
 | `…img.gz.rawsize` | its uncompressed length, used to reject an image that cannot fit |
 
-> **Why the name says which system it holds.** An image of Phrozen's original system cannot be made
-> again once the printer has been migrated, and Phrozen publish none. With a single name, the next two
-> routine backups would have pushed it aside and then deleted it. Each kind now rotates on its own, so
-> an Unleashed backup can never displace a stock one — and the restore menu can tell you what each file
-> is instead of asking you to remember. Backups made by older versions keep their plain name and still
-> work.
+The two kinds rotate separately on purpose. An image of Phrozen's original system cannot be made again
+once the printer has been migrated, and under a single name the next two routine backups would have
+pushed it aside and then deleted it. Backups from older versions keep their plain name and still work.
 
-**Measured on a printer with a 32 GB eMMC:** about half an hour, and the file came out at 2.3 GB. A stock
-8 GB eMMC is proportionally quicker and smaller.
+> 🔒 **Keep it to yourself.** It is a byte-for-byte copy of your printer: your WiFi password, your SSH
+> keys, any API tokens — and from a factory printer, Phrozen's own software, licensed to you. Never post
+> or share it.
 
-> 🔒 **Keep it to yourself.** It is a byte-for-byte copy of your printer, so it contains your WiFi
-> password, your SSH keys and any API tokens on the machine — and, taken from a factory printer,
-> Phrozen's own software, licensed to you. Never post or share it.
+**Measured on a 32 GB eMMC:** about half an hour, and a 2.3 GB file. A stock 8 GB eMMC is proportionally
+quicker and smaller.
 
-> 🔌 **No USB hub, for this or for flashing.** Put the stick directly in the printer. A hub is the most
-> common reason a file copies fine and then reads back different, which surfaces much later as a
-> checksum mismatch. And if you ever see **CRC or I/O errors** in the log, stop changing settings — that
-> is the stick failing, or one this printer cannot drive. Use another, preferably a plain USB 2.0 one.
+<a id="backup-too-large"></a>
 
-**To write it back later** — the ordinary flash, pointed at your own file instead of a release:
+### If it says the backup is too large
+
+The backup is a **single file**, and FAT32 cannot hold one of 4 GiB or more. The tool tells you before
+it starts, so you lose a sentence rather than half an hour.
+
+**Deleting files is the fix — but only because the backup zeros the freed space for you.** A disk image
+copies blocks, not files, so on its own a deleted file stays in those blocks byte for byte and
+compresses no better than noise. Zeroing turns it into almost nothing. That is why the two commands
+above are worth running before you start, and why deleting alone does nothing on other tools.
+
+If it still does not fit, in order:
+
+**1. Zero the free space by hand as well**, then run the backup again. It fills the disk for a few
+minutes and releases it:
+
+```bash
+sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync
+```
+
+Do not print while that runs, and reboot afterwards.
+
+**2. Compress harder.** Slower, and buys roughly 10–15 %:
+
+```bash
+sudo ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh --backup
+```
+
+**3. Image the eMMC on a PC instead** — [Appendix A](#appendix-a). No size limit at all.
+
+### Writing it back later
+
+The ordinary flash, pointed at your own file:
 
 ```bash
 sudo bash ~/selfflash/install-unleashed.sh --arm --image /path/to/arco-emmc-backup-stock.img.gz
 ```
 
-It verifies the checksum, refuses if the image cannot fit this printer's eMMC, and skips the WiFi and
-first-boot-file steps — a restore is not an install, and your image already carries both. Restoring a
-32 GB image takes appreciably longer than a normal flash, because it writes the whole eMMC.
+It verifies the checksum, refuses an image that cannot fit this printer's eMMC, and skips the WiFi and
+first-boot steps — a restore is not an install, and your image already carries both. A 32 GB image takes
+appreciably longer than a normal flash, because it writes the whole eMMC.
 
-**It runs once per arming.** Arming writes a marker onto that stick and the backup consumes it before it
-starts, so it fires exactly once, for that stick. Run the command again for another one — including after
-a failed attempt, where the marker is spent either way.
-
-Once Arco Unleashed is installed, both halves are in the setup menu under **i) WHOLE SYSTEM: save /
+Once Arco Unleashed is installed, both halves live in the setup menu under **i) WHOLE SYSTEM: save /
 restore**, which lists the images on your stick and hands the chosen one to the same flasher.
+
+> 🔌 **No USB hub — for this or for flashing.** A hub is the most common reason a file copies fine and
+> then reads back different, which surfaces much later as a checksum mismatch. If you see **CRC or I/O
+> errors** in the log, stop changing settings: the stick is failing, or this printer cannot drive it. Use
+> another, preferably a plain USB 2.0 one.
+
+**It runs once per arming.** Arming writes a marker on that stick and the backup consumes it before
+starting, so it fires exactly once. Run the command again for another — including after a failed
+attempt, where the marker is spent either way.
 
 ---
 
