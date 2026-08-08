@@ -387,399 +387,91 @@ restore it if you ever need to return the printer to stock.</p>
 <hr />
 <h1 id="flash-run-the-pre-built-image">🟢 Flash &amp; Run — the
 pre-built image</h1>
-<blockquote>
-<p>📖 <strong>Two guides, same install — pick your style:</strong> -
-<strong><a href="QUICKSTART.md">QUICKSTART</a></strong> <em>(or the <a
-href="https://raw.githack.com/solutionphil/arco-unleashed/main/QUICKSTART.html">printable
-version</a>)</em> — the condensed checklist, both paths, no pictures. -
-<strong><a href="MANUAL.md">Illustrated MANUAL</a></strong> — every
-screen and screwdriver step pictured, both paths end to end. -
-<strong><a href="INSTALL-FLOWCHARTS.md">INSTALL-FLOWCHARTS</a></strong>
-— the same paths as diagrams: every branch, every option, including the
-base-image and revert routes.</p>
-<p>The sections below are the same procedure in reference form.</p>
-</blockquote>
 <p>You get a finished image (a <code>.img.gz</code>, or a pre-flashed
 spare eMMC module). The whole software stack is already on it — you only
 need to flash it, set WiFi, and flash your printer’s MCUs.</p>
 <blockquote>
-<p><strong>⚠️ Do this FIRST — rescue the AMS server (needed for BOTH
-paths below).</strong> This is <strong>not</strong> a backup of the
-printer: it saves two files and nothing else. Everything else —
-calibration, uploaded G-code, Phrozen’s system — is erased by the flash.
-For a way back, image the whole eMMC onto your stick first (MANUAL, Step
-0b); it needs no teardown. The AMS server
-(<strong><code>phrozen_master</code> + <code>~/hdlDat</code></strong>)
-lives only in the original base OS — it is <strong>not</strong> in
-Phrozen’s <code>Arco_FW_V*.zip</code>, so the flash wipes it, and
-without it AMS detection hangs and the display won’t return home after
-calibration. To save it, <strong>on the still-running original
-Arco</strong>:</p>
-<ol type="1">
-<li>Copy <strong><code>collect_data_arco.sh</code></strong> (from this
-repo) onto the FAT32 USB stick and plug it into the printer.</li>
-<li><strong>Connect via SSH</strong> with a tool like
-<strong>PuTTY</strong> (Windows) or <code>ssh</code> (Mac/Linux):
-<em>Host Name</em> = the printer’s <strong>IP</strong> (from your
-router’s device list or the Phrozen display), <em>Port</em>
-<code>22</code>, login <strong><code>mks</code></strong> / password
-<strong><code>makerbase</code></strong>.</li>
-<li>Run:
-<strong><code>bash ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</code></strong>
-<em>(that <code>~/printer_data/gcodes/USB</code> is where the Arco
-auto-mounts the stick).</em></li>
-<li>The script syncs the stick (and unmounts it if it had to mount it).
-<strong>On your PC, confirm <code>arco-phrozen-ams.tar.gz</code> is
-really on the stick</strong> — if it’s missing, re-insert it in the
-printer and run the command again.</li>
-</ol>
-<p>It writes <strong><code>arco-phrozen-ams.tar.gz</code></strong> onto
-the stick; the new system re-installs it automatically on first
-boot.</p>
-</blockquote>
-<h2 id="two-ways-to-install">Two ways to install</h2>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th></th>
-<th><strong>A) Easy direct flash</strong> <em>(self-flash)</em></th>
-<th><strong>B) eMMC replacement / recovery</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>How</td>
-<td>Run <strong><code>install-unleashed.sh</code></strong> on the
-printer — it overwrites its <strong>own</strong> eMMC, streaming the
-image from a USB stick</td>
-<td>Pull the eMMC, write it on a PC with <strong>balenaEtcher</strong>,
-put it back</td>
-</tr>
-<tr>
-<td>Teardown</td>
-<td><strong>None</strong></td>
-<td>Open the housing + unscrew the eMMC</td>
-</tr>
-<tr>
-<td>Best for</td>
-<td>A quick in-place install / update</td>
-<td>Swapping to a fresh eMMC, or <strong>recovering</strong> a bricked
-one</td>
-</tr>
-<tr>
-<td>Status</td>
-<td>✅ <strong>Proven on hardware</strong> (full end-to-end run,
-2026-07-10). Still <strong>one shot, no net</strong>: once the write
-begins, a failure needs <strong>path B</strong> to recover.
-<em>Before</em> it begins, pulling the stick + a power-cycle stands it
-down.</td>
-<td>✅ <strong>Proven</strong> — and the recovery path for A</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li><strong>Path A</strong> <em>(easy)</em> → on the printer, from where
-the stick auto-mounts: <code>cd ~/printer_data/gcodes/USB</code> →
-<code>sh prepare_unleashed_self_flash.sh</code> →
-<code>sudo bash ~/selfflash/install-unleashed.sh --arm</code>. Details:
-<a href="selfflash/README.md"><code>selfflash/</code></a>.</li>
-<li><strong>Path B</strong> <em>(eMMC replacement / recovery)</em> → the
-detailed steps below, also in the illustrated <strong><a
-href="MANUAL.md">MANUAL</a></strong>.</li>
-</ul>
-<h3 id="what-goes-on-the-usb-stick">What goes on the USB stick</h3>
-<p>One <strong>FAT32</strong> stick, ≥ 4 GB. <strong>The two paths need
-different files</strong> — the big difference is that <strong>path A
-carries the image on the stick</strong>, while <strong>path B writes the
-image straight to the eMMC</strong> on your PC, so its stick only
-carries the first-boot files.</p>
-<table>
-<colgroup>
-<col style="width: 18%" />
-<col style="width: 31%" />
-<col style="width: 31%" />
-<col style="width: 18%" />
-</colgroup>
-<thead>
-<tr>
-<th>File</th>
-<th style="text-align: center;">Path A (self-flash)</th>
-<th style="text-align: center;">Path B (eMMC swap)</th>
-<th>What it is</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">— <em>(goes on the eMMC via
-balenaEtcher)</em></td>
-<td>the image</td>
-</tr>
-<tr>
-<td><code>…img.gz.sha256</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>checksum — verified before any write</td>
-</tr>
-<tr>
-<td><code>…img.gz.rawsize</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>drives the on-display progress %</td>
-</tr>
-<tr>
-<td><code>unleashed-selfflash.tar.gz</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>the self-flash tool</td>
-</tr>
-<tr>
-<td><code>prepare_unleashed_self_flash.sh</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>unpacks the tool</td>
-</tr>
-<tr>
-<td><code>Arco_FW_V*.zip</code> <em>(optional — see below)</em></td>
-<td style="text-align: center;">( ✅ )</td>
-<td style="text-align: center;">( ✅ )</td>
-<td>Phrozen’s official firmware package</td>
-</tr>
-<tr>
-<td><strong><code>arco-phrozen-ams.tar.gz</code></strong> <em>(from Step
-0)</em></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅</td>
-<td>the rescued AMS files — re-installed on first boot</td>
-</tr>
-<tr>
-<td><em>optional</em> <code>wifi-seed.txt</code> <strong>or</strong>
-<code>no_wifi.txt</code></td>
-<td style="text-align: center;">✅</td>
-<td style="text-align: center;">—</td>
-<td>path-A WiFi (else live-captured) — see the WiFi note below</td>
-</tr>
-</tbody>
-</table>
-<p>The first five all live inside one archive — <strong><a
-href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
-— extract it to the top level of the stick.
-<code>arco-phrozen-ams.tar.gz</code> is produced by
-<code>collect_data_arco.sh</code> on your still-running printer (see
-<em>Rescue the AMS server</em> below) and is the one file you
-<strong>must</strong> bring: it exists nowhere else.</p>
-<blockquote>
-<p><strong><code>Arco_FW_V*.zip</code> is normally not needed.</strong>
-Phrozen publishes the display module in their own public repository, and
-the first boot offers to fetch it from there — you confirm once, and the
-checksum is verified before anything is installed. Put the zip on the
-stick if <strong>either</strong> applies: the printer will have
-<strong>no internet</strong> while you set it up, or you want
-<strong>PhrozenGo</strong>, which is only in Phrozen’s own package.
-(Display and AMS firmware are not a reason — those come through
-Phrozen’s own USB firmware update.) A zip on the stick always wins:
-nothing is downloaded then.</p>
-</blockquote>
-<blockquote>
-<p><strong>WiFi (path A).</strong> Recommended: add
-<strong>nothing</strong> → the tool <strong>live-captures</strong> the
-network the printer already uses — and it <strong>carries over that
-printer’s own WiFi country</strong>, so the region is correct
-automatically. <strong>Or</strong> a
-<strong><code>wifi-seed.txt</code></strong> — plain lines
-<code>SSID=YourNetworkName</code>, <code>PSK=YourWiFiPassword</code>,
-and <code>COUNTRY=US</code> — <strong>your 2-letter WiFi region
-code</strong> (US, CA, GB, AU, …). No quotes, a <strong>2.4 GHz</strong>
-network. <strong>Set the country to yours</strong> — the regulatory
-region must match your router, or the printer may not join.
-<code>no_wifi.txt</code> leaves WiFi to the first-boot portal, where you
-pick your network <strong>and your country</strong> from dropdowns. A
-wrong or <strong>non-connecting</strong> WiFi falls back to that phone
-portal on first boot after about 90 seconds; and if the portal itself
-fails to appear, a <code>wifi-seed.txt</code> dropped on the stick
-rescues the printer after the flash too. (Full detail: <a
-href="selfflash/README.md"><code>selfflash/</code></a>.)</p>
-</blockquote>
-<blockquote>
-<p><strong>Where the stick appears:</strong> on both a stock printer and
-Unleashed the USB stick auto-mounts at
-<strong><code>~/printer_data/gcodes/USB</code></strong>. If that folder
-is empty, mount it there <strong>yourself</strong> — same place, so
-every command below then works unchanged:</p>
+<p>🛑 <strong>Before you flash anything, rescue the AMS server.</strong>
+On the <strong>still-running original printer</strong>:</p>
 <div class="sourceCode" id="cb1"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> ~/printer_data/gcodes/USB/     <span class="co"># stick usually here already</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">lsblk</span>                             <span class="co"># if not: find your stick&#39;s partition (e.g. sda1)</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span></code></pre></div>
+<p>That writes <code>arco-phrozen-ams.tar.gz</code> onto your stick, and
+the new system re-installs it by itself on first boot. It saves
+<strong>two files</strong> — <code>phrozen_master</code> and
+<code>~/hdlDat</code> — which live only in Phrozen’s original OS. They
+are in no download and in none of Phrozen’s packages, and the flash
+erases them for good. Without them AMS detection hangs and the display
+will not return home after calibration.</p>
+<p>It is <strong>not</strong> a backup of the printer. For a way back to
+the factory system, image the whole eMMC onto the stick first — <a
+href="MANUAL.md#step-2">MANUAL › Step 2</a>, no teardown needed.</p>
+<p>Full walkthrough with the SSH details: <a
+href="MANUAL.md#step-1">MANUAL › Step 1</a>.</p>
 </blockquote>
-<blockquote>
-<p>📖 <strong>Prefer pictures?</strong> The illustrated <strong><a
-href="MANUAL.md">step-by-step install manual</a></strong> covers
-<strong>both paths</strong> end to end — the self-flash, eMMC removal,
-balenaEtcher, the WiFi portal, the USB install, and the MCU flash —
-every screen pictured. A condensed checklist is in <strong><a
-href="QUICKSTART.md">QUICKSTART</a></strong>.</p>
-</blockquote>
-<h2 id="path-b-emmc-replacement-recovery-detailed">Path B — eMMC
-replacement / recovery (detailed)</h2>
-<p><em>(For <strong>path A</strong>, the easy in-place self-flash, see
-<a href="selfflash/README.md"><code>selfflash/</code></a> instead — the
-steps below are the PC-based eMMC flash, and the way to recover if a
-self-flash ever fails.)</em></p>
-<h3 id="what-you-need">What you need</h3>
-<p><strong>Tools:</strong> <strong>Allen / hex keys</strong> (to remove
-the toolhead’s rear extruder cover and open the printer’s lower housing
-cover), a <strong>small Phillips screwdriver</strong> (for the eMMC’s
-screw on the mainboard), and a <strong>USB-to-eMMC adapter</strong>.
-<strong>Media:</strong> a <strong>FAT32 USB stick, ≥ 4 GB</strong>
-(ideally the original Phrozen one from the printer), <strong>Phrozen’s
-official <code>Arco_FW_V199.zip</code></strong> (download it yourself),
-and a PC with <strong>balenaEtcher</strong>.</p>
-<h3 id="flash-the-image-to-the-emmc">1. Flash the image to the eMMC</h3>
-<p>Take
-<strong><code>Arco-Unleashed_bookworm_6.18.30.img.gz</code></strong> out
-of <strong><a
-href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
-(the release ships that one archive), then: eMMC out → USB adapter → PC
-→ write it with <strong>balenaEtcher</strong> (GUI, no WSL) → eMMC back
-in.</p>
-<h3
-id="first-boot-wifi-portal-usb-install-on-your-phone-no-pc-needed">2.
-First boot — WiFi portal + USB install (on your phone, no PC
-needed)</h3>
-<p>The public image ships <strong>without</strong> Phrozen’s software,
-so the first boot opens a <strong>WiFi setup portal</strong>. Put the
-<code>arco-phrozen-ams.tar.gz</code> from the pre-flash step above onto
-a <strong>FAT32 USB stick</strong> — and, only if you need it (no
-internet at setup, or you want PhrozenGo), Phrozen’s own <a
-href="https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip"><code>Arco_FW_V*.zip</code></a>
-beside it. Then <strong>insert that stick into the printer’s USB port —
-before you connect.</strong> Now on your phone, join the
-<strong><code>Arco-Unleashed-Setup</code></strong> Wi-Fi → the page pops
-up — pick your network, enter the password, tick the consent box → press
-<strong>Connect</strong>. The printer reboots onto your WiFi and, with
-the stick already in, the <strong>display shows a progress bar</strong>
-(Reading → Installing → Patching). At 100 % the display shows
-<strong>“Update complete — wait for restart…”</strong> and the printer
-<strong>restarts itself once</strong> a few seconds later. <strong>Let
-it — don’t switch it off</strong> (the filesystem batches writes for up
-to two minutes, so pulling the power here can cost you the install).
-Remove the stick. <em>(The full-card rootfs resize happens here too; SSH
-host keys are generated on the first boot.)</em> From then on the normal
-Phrozen display WiFi screen works for future network changes.</p>
-<blockquote>
-<p><strong>You’ll then see “Error occurred” — that’s expected.</strong>
-After that restart the display settles on a <strong>“Notice — Error
-occurred”</strong> screen: Klipper can’t start yet because your
-<strong>MCUs still carry the old firmware</strong>.
-Restarting/power-cycling won’t clear it. <strong>Wait for this
-screen</strong> (it means the automatic restart is done), then SSH in
-and <strong>flash the MCUs</strong> (next step). Don’t try to set up on
-the display, and don’t SSH <em>before</em> this — the auto-restart would
-just drop the session.</p>
-</blockquote>
-<blockquote>
-<p><strong>Why USB and not a download?</strong> Arco Unleashed never
-downloads or ships Phrozen’s software. You obtain Phrozen’s official
-package yourself and provide it — nothing proprietary is
-redistributed.</p>
-</blockquote>
-<blockquote>
-<p><strong>Display firmware (.tft) — applies to both install
-paths.</strong> The image installs Phrozen’s module *incl. This project
-never updates the touch panel itself. Phrozen’s zip happens to carry the
-panel firmware (<code>FW_Arco-HMI_*.tft</code>) and their own updater
-may flash it when versions differ; the download route carries none.
-<strong>If your printer was on an older Phrozen firmware</strong> and
-the display looks off, just <strong>run one official Phrozen USB
-firmware update once</strong> — that is how panel firmware is meant to
-be updated. That’s safe: the <strong>self-heal guards re-apply the v0.13
-Klipper patches automatically</strong> on the next boot, so a Phrozen
-update never breaks the migration (see <a href="#menu-reference">Menu
-reference</a>).</p>
-</blockquote>
-<h3 id="connect-via-ssh-with-putty">3. Connect via SSH with PuTTY</h3>
-<ol type="1">
-<li>Find the printer’s <strong>IP</strong> (your router’s device list,
-or it shows on the display).</li>
-<li>Open <strong>PuTTY</strong> → <em>Host Name</em> = that IP,
-<em>Port</em> <code>22</code>, <em>Connection type</em>
-<strong>SSH</strong> → <strong>Open</strong> (accept the host-key
-warning on first connect).</li>
-<li>Login: <strong><code>mks</code></strong> / password
-<strong><code>makerbase</code></strong> (stays default).</li>
-</ol>
-<h3 id="run-the-setup-menu">4. Run the setup menu</h3>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
-<h3 id="essential-steps-without-these-it-wont-run">5. Essential steps —
-without these it won’t run ⚠️</h3>
-<p>First boot did everything else automatically (step 2): WiFi
-onboarding, installing Phrozen’s module <strong>from your USB stick or,
-with your confirmation, from Phrozen’s own repository</strong> and
-patching it for v0.13, the rootfs resize, and SSH host keys.</p>
-<p>The one thing you <strong>must</strong> still do by hand: the image’s
-host runs Klipper <strong>v0.13</strong>, but <strong>your printer’s
-MCUs still have the old firmware</strong> — flash them or Klipper can’t
-talk to them. In the menu:</p>
+<h2 id="installing">Installing</h2>
+<p><strong>The printer flashes itself.</strong> You put the image on a
+USB stick, run one command over SSH, and the printer overwrites its own
+eMMC on the next boot. No teardown, no PC, nothing to unplug.</p>
+<p>Taking the eMMC module out is <strong>not</strong> part of that. It
+is there for recovery if a flash ever fails, for setting up a spare
+module, or for keeping an untouched copy of the factory system — <a
+href="MANUAL.md#appendix-a">MANUAL › Appendix A</a>.</p>
+<h3 id="which-guide">Which guide</h3>
 <table>
 <colgroup>
 <col style="width: 50%" />
 <col style="width: 50%" />
 </colgroup>
-<thead>
-<tr>
-<th>Menu item</th>
-<th>Why it’s essential</th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td><strong>Flash MCUs</strong></td>
-<td>The <strong>F407 (main board) and the host MCU flash
-automatically</strong> over USB — no buttons. <strong>Only the toolhead
-F103 needs a hands-on step</strong> — its <strong>BOOT + RESET</strong>
-buttons — and only once, for the <strong>one-time Katapult
-install</strong>: on the toolhead board, <strong>hold BOOT → tap RESET
-(keep BOOT held) → keep holding ~2 s → release</strong>, then
-<strong>start the flash within ~3 s</strong> (or its ROM bootloader
-drops out again). Flashing the F407 also <strong>auto-writes its
-serial</strong> into <code>printer_MCU.cfg</code>.</td>
+<td><strong><a href="QUICKSTART.md">QUICKSTART</a></strong></td>
+<td>the condensed checklist — start here if you have done this kind of
+thing before</td>
+</tr>
+<tr>
+<td><strong><a href="MANUAL.md">MANUAL</a></strong></td>
+<td>every screen and screwdriver step pictured, 1 → 11 in order</td>
+</tr>
+<tr>
+<td><strong><a
+href="INSTALL-FLOWCHARTS.md">INSTALL-FLOWCHARTS</a></strong></td>
+<td>the same paths as diagrams, including the base-image and revert
+routes</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p>Without the MCU flash you’ll see <code>mcu: Unable to connect</code>
-/ <code>Command format mismatch</code>.</p>
-</blockquote>
-<h3 id="calibrate">6. Calibrate</h3>
-<p>Bed mesh, z-offset, PID, input shaper and purge position are
-per-printer and must be redone after the migration. Three ways, easiest
-first: - <strong>Factory-reset auto-calibration</strong> <em>(from the
-display)</em> — runs input shaper, bed mesh and purge position
-end-to-end and returns to the home screen by itself. - <strong>Arco
-display calibration functions</strong> — run the individual routines
-(input shaper, bed mesh, purge position, …) one at a time from the
-display’s calibration menu. - <strong>Manual</strong> — do it all
-yourself in Mainsail (<code>SHAPER_CALIBRATE</code>, bed mesh, purge
-position, PID, z-offset).</p>
-<blockquote>
-<p><strong>Skip any built-in “print test”</strong> the first-time setup
-or a factory reset offers — the bundled test file was compiled for the
-old Klipper and can’t run on v0.13, so the flow stalls on it. Just skip
-it; your first print comes from <strong>OrcaSlicer</strong> (§6) once
-you’re set up.</p>
-</blockquote>
-<p>That’s it. Optional extras (AMS, PhrozenGo/Cloud, AddOn.cfg,
-recovery) live in the same menu — see <a href="#menu-reference">Menu
-reference</a> below.</p>
-<hr />
+<p>Those three are the install instructions. Everything below on this
+page is <strong>reference</strong> — the menu, the slicer profile, the
+optional features — not a fourth copy of the procedure.</p>
+<h3 id="the-three-things-people-miss">The three things people miss</h3>
+<p><strong>Bring the printer to Phrozen V199 first.</strong> That
+firmware carries the touch-panel firmware this project expects, and the
+panel is the one part Arco Unleashed never touches or ships. Start from
+something older and the display can misbehave, on a machine where the
+display is how you follow the install.</p>
+<p><strong><code>arco-phrozen-ams.tar.gz</code> exists nowhere
+else.</strong> <code>collect_data_arco.sh</code> makes it on your
+<em>still-running</em> printer, and the flash erases the original for
+good. It is in no download and in none of Phrozen’s packages. Everything
+else on the stick comes out of <strong><a
+href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
+— extract it to the top level and you are done.</p>
+<p><strong>Flashing the MCUs is not optional.</strong> It is the one
+step that opens the printer (two buttons inside the toolhead), and until
+it is done Klipper cannot start and the display sits on an error screen.
+That is expected, not a fault.</p>
+<h3 id="in-short">In short</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh          <span class="co"># inspect only — changes nothing</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span>    <span class="co"># then reboot; it writes on the way up</span></span></code></pre></div>
+<p>Afterwards the printer answers to
+<strong><code>unleashed.local</code></strong> —
+<code>ssh mks@unleashed.local</code>, or
+<code>http://unleashed.local/</code> for the web interface. If your
+network blocks mDNS, the address is also written to
+<strong><code>ip.txt</code></strong> on the USB stick at every boot.</p>
 <h2 id="menu-reference">Menu reference</h2>
 <p>The setup menu runs an update check on start (if the kit is a git
 clone) and only prompts y/n when an update exists.</p>
