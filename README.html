@@ -344,18 +344,45 @@ That flag plus what you sliced is all it needs. See <a
 href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>.</li>
 <li><strong>The mesh fix</strong> — <code>G30</code> reliably loads your
 saved bed mesh (the factory behaviour that never stuck).</li>
-<li><strong>Bed-leveling helpers</strong> — Z-tilt dual-Z alignment,
-custom bed mesh, manual screw-tilt.</li>
+<li><strong>Levelling and calibration</strong> —
+<code>Z_TILT_ADJUST</code> for the dual Z,
+<code>SCREWS_TILT_CALCULATE</code> for the manual screws, custom bed
+mesh, and <code>PID_NOZZLE</code> / <code>PID_BED</code>. Each
+<strong>homes first</strong>, which the factory equivalents do not: a
+calibration run from an assumed position measures the wrong thing.
+<code>CALIBRATE_SHAPER_NEW</code> does the same for the input shaper,
+and sweeps to <strong>130 Hz</strong> rather than the stock macro’s
+150.</li>
+<li><strong>Belt tension and idler cleaning</strong> —
+<code>BELT_TENSION</code> homes and parks the toolhead where both belt
+spans are equal, so you tension against a known geometry instead of by
+feel; <code>BELT_WARMUP</code> loosens belts and steppers first;
+<code>CLEAN_IDLERS</code> turns the idlers in fixed steps so the pulleys
+can be wiped. <a href="#belts-and-idlers">Details</a>.</li>
+<li><strong>Filament handling</strong> — <code>LOAD_FILAMENT</code> /
+<code>UNLOAD_FILAMENT</code> with priming, <code>M600</code> change,
+<code>M601</code> pause, and <code>FILA_STATUS</code>, which reports
+what the stock firmware keeps to itself: whether filament is present and
+whether runout protection is actually armed.</li>
 <li><strong>Quality-of-life</strong> — chamber-light toggle, PID
-board-fan, M600 filament change, piezo chime,
-<code>exclude_object</code> + <code>[respond]</code>, and a branded
-<strong>Mainsail theme</strong> (light / dark).</li>
-<li><strong>Filament runout, finally visible</strong> —
-<code>FILA_STATUS</code> reports what the stock firmware keeps to
-itself: whether filament is present and whether runout protection is
-actually armed.</li>
+board-fan, piezo chime, <code>exclude_object</code> +
+<code>[respond]</code>, and a branded <strong>Mainsail theme</strong>
+(light / dark).</li>
+<li><strong>Updating the kit itself</strong> — <code>ARCO_UPDATE</code>
+from the Mainsail console, and an entry in Moonraker’s update manager so
+Arco Unleashed appears beside Klipper and Moonraker.</li>
 <li><strong>Privacy</strong> — one switch turns <strong>PhrozenGo / the
 cloud tunnel off</strong> (run Obico instead).</li>
+<li><strong>Optional: Unleashed × KAOS.</strong> Chris Sanders’ <a
+href="https://gitlab.com/sanders.chris/phrozenarco">KAOS</a> — a
+motion-safety and multicolour layer for the Arco — is supported through
+a <strong>sideloader that ships dormant in the kit</strong>. Nothing to
+download or install: <code>KAOS_ON</code> fetches and applies it,
+<code>KAOS_OFF</code> puts the printer back exactly as it was, and
+<code>KAOS_STATUS</code> says where you stand. The bridge exists because
+KAOS and this kit each replace some of Phrozen’s macros, and running
+them naively together breaks homing; it wires the two so both keep
+working. See <a href="MANUAL.md#step-11">MANUAL › Step 11</a>.</li>
 </ul>
 <p>Install the <strong>easy way</strong>: flash the pre-built image, set
 Wi-Fi, flash your MCUs — running in minutes.</p>
