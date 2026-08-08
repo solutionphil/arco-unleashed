@@ -25,20 +25,18 @@ PhrozenGo app — now running on a current, maintained and fully open system.
 - **It's your printer** — full SSH / root access, Obico-ready, no cloud lock-in.
 
 ### What the AddOn layer adds — all toggleable from the setup menu
-- **AMS auto-mode** — slice single- or multicolor in OrcaSlicer and the printer auto-selects the right
-  AMS mode at print start (no manual gcode).
+- **AMS auto-mode — one OrcaSlicer profile for everything.** Slice single-colour or multicolour with the
+  same profile; the printer works out which AMS mode to start in, at print start, on its own. No second
+  profile, no switching in the slicer, no hand-edited G-code. What you *do* set is the **AMS flag on the
+  printer** — once, with `AMS_ON` or `AMS_OFF`, whenever you physically attach or remove the unit. That
+  flag plus what you sliced is all it needs. See [OrcaSlicer](#orcaslicer--multicolor--ams-auto-mode).
 - **The mesh fix** — `G30` reliably loads your saved bed mesh (the factory behaviour that never stuck).
 - **Bed-leveling helpers** — Z-tilt dual-Z alignment, custom bed mesh, manual screw-tilt.
 - **Quality-of-life** — chamber-light toggle, PID board-fan, M600 filament change, piezo chime,
   `exclude_object` + `[respond]`, and a branded **Mainsail theme** (light / dark).
-- **Filament sensor, finally visible** — the stock firmware watches the toolhead runout sensor but
-  reports nothing about it. `FILA_STATUS` shows presence, raw ADC and whether runout protection is
-  actually armed, and a print running without it gets called out (see *Pause & filament change*).
+- **Filament runout, finally visible** — `FILA_STATUS` reports what the stock firmware keeps to itself:
+  whether filament is present and whether runout protection is actually armed.
 - **Privacy** — one switch turns **PhrozenGo / the cloud tunnel off** (run Obico instead).
-- **Beacon as new probing device for meshing** 🧪 — optional, experimental, reversible: swap the piezo
-  probe for a Beacon (virtual Z endstop, scanned mesh). Read the warnings in
-  [its section](#beacon-as-new-probing-device-for-meshing--experimental) first — with a Beacon fitted,
-  the display must not be used for Z calibration.
 
 Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs — running in minutes.
 
@@ -65,7 +63,7 @@ Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs 
 # 🟢 Flash & Run — the pre-built image
 
 > 📖 **Two guides, same install — pick your style:**
-> - **[QUICKSTART](QUICKSTART.md)** *(also [printable HTML](QUICKSTART.html))* — the condensed checklist, both paths, no pictures.
+> - **[QUICKSTART](QUICKSTART.md)** *(or the [printable version](https://raw.githack.com/solutionphil/arco-unleashed/main/QUICKSTART.html))* — the condensed checklist, both paths, no pictures.
 > - **[Illustrated MANUAL](MANUAL.md)** — every screen and screwdriver step pictured, both paths end to end.
 > - **[INSTALL-FLOWCHARTS](INSTALL-FLOWCHARTS.md)** — the same paths as diagrams: every branch, every option, including the base-image and revert routes.
 >
@@ -445,18 +443,35 @@ built-in themes — keeping those pristine would need a Mainsail fork (out of sc
 <a id="orcaslicer--multicolor--ams-auto-mode"></a>
 
 ## OrcaSlicer — multicolor & AMS auto-mode
-The Arco is a single-nozzle multicolor printer (filament-swap, like a Bambu AMS). Slice in
-**OrcaSlicer**; the AMS mode is chosen automatically at print start.
+The Arco is a single-nozzle multicolor printer (filament-swap, like a Bambu AMS).
 
-**Profile.** Stock OrcaSlicer already ships the official **Phrozen Arco** profile (vendor `Phrozen`,
-no fork needed) — just pick it. The kit adds an enhanced variant in [`orca/`](orca/) with the
-flag-driven start-gcode below. Import it via *File → Import → Import Configs…*, **or** paste the
-complete *Machine start G-code* below into your own profile.
+**You need exactly one OrcaSlicer profile.** Not one for AMS and one without, and nothing to switch
+before you slice. Slice single-colour or multicolour as the model needs, send it, and the printer picks
+the right AMS mode at print start by itself.
 
-**The flag.** AMS on/off is a deliberate **physical toolhead conversion**, so you set it via the
-**SSH menu / `AMS_ON`·`AMS_OFF`** (not casually in Mainsail). That writes a persistent `ams` flag
-(`[save_variables]`); the start-gcode macro `PHROZEN_AMS_START` reads it — so OrcaSlicer needs no
-knowledge of whether the AMS is attached:
+That works because the decision is made on the printer, not in the slicer, from two things: **what you
+sliced** (one filament or several — the start G-code passes that through) and **whether an AMS is
+attached**, which the printer remembers.
+
+**The one thing you set, and only when the hardware changes.** Attaching or removing the AMS is a
+physical toolhead conversion, so the printer has to be told — once, not per print:
+
+```
+AMS_ON     # after fitting the AMS
+AMS_OFF    # after removing it
+AMS_STATUS # what it thinks right now
+```
+
+From the Mainsail Macros panel, or the SSH setup menu. It writes a persistent `ams` flag
+(`[save_variables]`) that survives reboots and updates. Forget it and the symptom is unmistakable: with
+the AMS fitted but the flag off, the tool commands `T1`–`T15` are not even registered, so a multicolour
+print stops at the first colour change.
+
+**Profile.** Stock OrcaSlicer already ships the official **Phrozen Arco** profile (vendor `Phrozen`, no
+fork needed). The kit adds an enhanced variant in [`orca/`](orca/) carrying the start-gcode below —
+import it via *File → Import → Import Configs…*, or paste that block into your own profile.
+
+The macro `PHROZEN_AMS_START` is what reads the flag and decides:
 
 | AMS flag | Slice | Print starts in |
 |---|---|---|
