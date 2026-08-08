@@ -50,12 +50,15 @@ PhrozenGo app — now running on a current, maintained and fully open system.
   update manager so Arco Unleashed appears beside Klipper and Moonraker.
 - **Privacy** — one switch turns **PhrozenGo / the cloud tunnel off** (run Obico instead).
 - **Optional: Unleashed × KAOS.** Chris Sanders' [KAOS](https://gitlab.com/sanders.chris/phrozenarco) —
-  a motion-safety and multicolour layer for the Arco — is supported through a **sideloader that ships
-  dormant in the kit**. Nothing to download or install: `KAOS_ON` fetches and applies it, `KAOS_OFF`
-  puts the printer back exactly as it was, and `KAOS_STATUS` says where you stand. The bridge exists
-  because KAOS and this kit each replace some of Phrozen's macros, and running them naively together
-  breaks homing; it wires the two so both keep working. See
-  [MANUAL › Step 11](MANUAL.md#step-11).
+  a motion-safety and multicolour layer for the Arco — has a **sideloader built into the kit**, sitting
+  dormant until you ask for it. `KAOS_ON` clones KAOS from Chris's own GitLab repository, verifies it,
+  and wires it in; `KAOS_OFF` puts the printer back exactly as it was and keeps the download cached for
+  an instant switch back; `KAOS_STATUS` says which commit is installed and whether it is active. So the
+  printer needs internet the first time, and **KAOS itself is never redistributed here** — you get it
+  from its author, like Phrozen's module.
+  The bridge exists because KAOS and this kit each replace some of Phrozen's macros, and running them
+  naively together breaks homing; it wires the two so both keep working.
+  See [MANUAL › Step 11](MANUAL.md#step-11).
 
 Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs — running in minutes.
 
