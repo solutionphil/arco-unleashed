@@ -768,13 +768,14 @@ leaves X where it is. A plain <code>G28</code> is unchanged — same full
 sequence, same probe.</p>
 <p>The reason is a crash reported from a printer. Park the toolhead at
 the back, restart the firmware, send <code>G28 X</code>, and the head is
-dragged sideways through the wipe area on its way to the X endstop. Two
-things make that possible. Phrozen’s homing section is declared
-<code>axes: z</code>, so Klipper never routed a single-axis home through
-it and the Y-first order it already contained was skipped. And a
-firmware restart does not leave the printer unhomed — it declares a
-position instead, so Klipper believes the head sits at the middle of the
-bed no matter where it really is, and nothing refuses the move.</p>
+dragged sideways through the wipe unit at Y=322 on its way to the X
+endstop — confirmed on the machine it happened to. Two things make that
+possible. Phrozen’s homing section is declared <code>axes: z</code>, so
+Klipper never routed a single-axis home through it and the Y-first order
+it already contained was skipped. And a firmware restart does not leave
+the printer unhomed — it declares a position instead, so Klipper
+believes the head sits at the middle of the bed no matter where it
+really is, and nothing refuses the move.</p>
 <p>Y is <em>homed</em> rather than nudged forward a fixed distance
 because a homing move watches the endstop while it travels. A plain move
 does not, and no fixed distance can know how far back the head
