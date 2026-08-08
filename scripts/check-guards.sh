@@ -95,9 +95,9 @@ if [ -f "$PCFG_H" ]; then
   echo "--------------------------------------"
   if grep -qF 'unleashed-x-kaos: homing_override replaced with KAOS' "$PCFG_H"; then
     echo "  n/a      KAOS's own [homing_override] is installed — our patch stands aside there."
-    echo "           Note KAOS homes X without bringing Y clear first, so the crash above is"
-    echo "           still possible under KAOS. Reported upstream; KAOS_OFF restores the"
-    echo "           guarded vendor section."
+    echo "           Note KAOS's section homes X without bringing Y clear first, so the crash"
+    echo "           described above is still possible under KAOS. KAOS_OFF restores the"
+    echo "           vendor section, which the next klipper start then guards."
   elif grep -qF 'arco-unleashed: single-axis home guard' "$PCFG_H"; then
     echo "  ok       [homing_override] is axis-aware — G28 X homes Y clear before X travels"
   else
