@@ -524,6 +524,31 @@ if [ "$(cat /etc/hostname 2>/dev/null)" = "mkspi" ]; then
   fi
 fi
 
+#    And the belt to that brace: a note on the USB stick. mDNS is blocked on plenty of routers and on
+#    nearly every guest network, and then the router's device list is the only way left — which assumes
+#    the owner can get into their router. The stick is already in the printer during setup and is read on
+#    the machine they are sitting at, so it is the one channel that always works.
+if [ -f "$SELFDIR/arco-write-ip.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/arco-write-ip.service" <<EOF
+[Unit]
+Description=Arco Unleashed - write the printer's address onto the USB stick
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/bin/bash $SELFDIR/arco-write-ip.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable arco-write-ip.service 2>/dev/null || true
+  systemctl start --no-block arco-write-ip.service 2>/dev/null || true
+  echo "  write-ip service installed + started (drops ip.txt on the stick, refreshed every boot)"
+fi
+
 if [ -f /etc/systemd/network/20-wlan.network ]; then
   install -Dm644 /dev/stdin /etc/systemd/network/20-wlan.network.d/10-arco-mdns.conf <<'EOF'
 [Network]
