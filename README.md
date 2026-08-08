@@ -233,8 +233,9 @@ bed mesh is *scanned* instead of poked, and a 15×15 mesh costs less time than t
 config comes from a real conversion contributed by **Philippe Humeau** (unPhrozen) — including the
 gotchas he paid for, which are written into `beacon.cfg` where you need them.
 
-Toggling is reversible: `off` restores `printer.cfg` byte-for-byte (verified) and keeps your calibrated
-`beacon.cfg`. `on` walks five gates before it changes anything, and each one aborts cleanly:
+Toggling is reversible: `off` puts the piezo probe sections back exactly as they were (verified) and
+keeps your calibrated `beacon.cfg`. It edits only the lines it marked as its own, so the rest of
+`printer.cfg` survives both directions untouched. `on` walks five gates before it changes anything, and each one aborts cleanly:
 
 1. **Not mid-print** — switching restarts Klipper. Checked, not asked.
 2. **Is the machine physically ready?** — Beacon mounted, wired and plugged in; rigid mount; bed clear.
@@ -279,15 +280,17 @@ while the driver's DIAG line goes to the **main** MCU. A broken toolhead cable t
 switch but not the sensorless path — the printer homes again without waiting for a spare part.
 
 Proven on hardware here: `G28 X`, `G28 Y` and a full `G28` all home on StallGuard, and the
-disconnected switches still **click** at the end of the move. The click is the point — the stall
+disconnected switches still **click** at the end of the move. Note that `G28 X` brings Y to its
+endstop and clear first, on switches and on StallGuard alike — see *Homing a single axis* below. The click is the point — the stall
 happens *at* the mechanical stop, so the zero does not shift and the filament cutter (X=319), the wipe
 position (Y=322) and any saved mesh stay valid.
 
 `on` equalises the two homing speeds (levelling *down*, never up — StallGuard's reading is
 velocity-dependent, so two axes at different speeds cannot share one sensitivity), installs a
 `sensorless.cfg` that gates StallGuard by velocity, and rolls everything back if Klipper does not come
-up. `off` restores `printer.cfg` byte-for-byte, homing speed included — verified against the toggle's
-own backup. A Phrozen update replaces `printer.cfg`; the kit re-applies sensorless mode before every
+up. `off` puts the endstop and homing-speed lines back exactly as they were, and removes the include —
+verified against the toggle's own backup. It edits those lines and nothing else, so anything else in
+`printer.cfg` is carried through both directions untouched. A Phrozen update replaces `printer.cfg`; the kit re-applies sensorless mode before every
 Klipper start while it is enabled, because handing back a dead switch is exactly the wrong failure.
 
 > ### ⚠️ Read this before switching
@@ -321,6 +324,29 @@ anything. A copy of your `beacon.cfg` is kept outside `printer_data/` for the sa
 **First steps after switching** (in Mainsail/Fluidd, not on the display):
 `STEPPER_BUZZ` both Z steppers → `G28` → `Z_TILT_ADJUST` → `BEACON_CAL` (contact auto-calibration) →
 `BEACON_MESH` (re-scan the mesh — the saved one was probed with the piezo).
+
+## Homing a single axis
+
+`G28 X` moves Y first. That is deliberate, and it is worth knowing before it surprises you: Y travels
+to its endstop and then 50 mm clear, and only then does X home. `G28 Y` homes Y alone and leaves X
+where it is. A plain `G28` is unchanged — same full sequence, same probe.
+
+The reason is a crash reported from a printer. Park the toolhead at the back, restart the firmware,
+send `G28 X`, and the head is dragged sideways through the wipe area on its way to the X endstop. Two
+things make that possible. Phrozen's homing section is declared `axes: z`, so Klipper never routed a
+single-axis home through it and the Y-first order it already contained was skipped. And a firmware
+restart does not leave the printer unhomed — it declares a position instead, so Klipper believes the
+head sits at the middle of the bed no matter where it really is, and nothing refuses the move.
+
+Y is *homed* rather than nudged forward a fixed distance because a homing move watches the endstop
+while it travels. A plain move does not, and no fixed distance can know how far back the head started.
+
+Same behaviour on microswitches and on StallGuard.
+
+**One thing this does not fix:** Z. After a firmware restart the declared height is an assumption, not
+a measurement, so **home before you move Z**. The declaration is deliberately set to the bottom of the
+travel, which means Klipper refuses anything more than 5 mm downward until a real home — but it also
+means a large upward move is still yours to get wrong. `G28` works from anywhere and settles it.
 
 ## Themes (optional)
 An electric-cobalt comic theme matching the Arco Unleashed branding — navy glass panels, halftone-burst
