@@ -80,6 +80,10 @@ gcode_id: PI
 #@ENDFEAT
 
 #@FEAT shaper130 | Input-shaper calibration up to 130 Hz (CALIBRATE_SHAPER_NEW)
+# 130, NOT a typo for Phrozen's 150. Their SHAPER_CALIBRATE sweeps 30-150; on this machine nothing above
+# 130 adds anything worth having, so the extra range is only time on the accelerometer. Do not "fix" it
+# back to 150 -- and note the difference from Phrozen's macro is really the G28: theirs calibrates from
+# whatever position the toolhead happens to be in, which measures the wrong thing.
 [gcode_macro CALIBRATE_SHAPER_NEW]
 description: Run Input Shaper calibration up to 130Hz
 gcode:

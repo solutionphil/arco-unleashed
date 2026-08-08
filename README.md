@@ -34,8 +34,8 @@ PhrozenGo app — now running on a current, maintained and fully open system.
 - **Levelling and calibration** — `Z_TILT_ADJUST` for the dual Z, `SCREWS_TILT_CALCULATE` for the manual
   screws, custom bed mesh, and `PID_NOZZLE` / `PID_BED`. Each **homes first**, which the factory
   equivalents do not: a calibration run from an assumed position measures the wrong thing.
-  `CALIBRATE_SHAPER_NEW` does the same for the input shaper, and sweeps to **130 Hz** rather than the
-  stock macro's 150.
+  `CALIBRATE_SHAPER_NEW` does the same for the input shaper and stops the sweep at **130 Hz**: the stock
+  macro runs to 150, and on this machine nothing above 130 adds anything worth having.
 - **Belt tension and idler cleaning** — `BELT_TENSION` homes and parks the toolhead where both belt spans
   are equal, so you tension against a known geometry instead of by feel; `BELT_WARMUP` loosens belts and
   steppers first; `CLEAN_IDLERS` turns the idlers in fixed steps so the pulleys can be wiped.

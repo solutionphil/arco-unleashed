@@ -350,9 +350,9 @@ saved bed mesh (the factory behaviour that never stuck).</li>
 mesh, and <code>PID_NOZZLE</code> / <code>PID_BED</code>. Each
 <strong>homes first</strong>, which the factory equivalents do not: a
 calibration run from an assumed position measures the wrong thing.
-<code>CALIBRATE_SHAPER_NEW</code> does the same for the input shaper,
-and sweeps to <strong>130 Hz</strong> rather than the stock macro’s
-150.</li>
+<code>CALIBRATE_SHAPER_NEW</code> does the same for the input shaper and
+stops the sweep at <strong>130 Hz</strong>: the stock macro runs to 150,
+and on this machine nothing above 130 adds anything worth having.</li>
 <li><strong>Belt tension and idler cleaning</strong> —
 <code>BELT_TENSION</code> homes and parks the toolhead where both belt
 spans are equal, so you tension against a known geometry instead of by
