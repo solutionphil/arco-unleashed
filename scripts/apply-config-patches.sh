@@ -209,4 +209,41 @@ CFG
   rm -f "$h_open" "$h_else" "$h_out"
 fi
 
+# --- Patch I: the assumed boot position must not hide 155 mm of downward Z travel ------------
+# [delayed_gcode KINEMATIC_POSITION] declares X=150 Y=150 Z=150 at 0.2 s after every klippy start, so
+# Klipper reports homed_axes xyz while the toolhead is physically wherever it was left. That is not an
+# oversight and it cannot simply be deleted: [homing_override] lifts Z BEFORE it homes anything, so if
+# Z were not marked homed, `G28` would fail on its own first move. The declaration is load-bearing.
+#
+# The VALUE is free, though, and it decides how far a later absolute Z move gets before Klipper's own
+# limit check refuses it. With position_min -5 (axis_minimum.z on a running printer):
+#
+#     declared Z=150  ->  up to 155 mm of downward travel, i.e. the nozzle through the bed
+#     declared Z=0    ->  5 mm, and the rest is refused as out of range
+#
+# So this is one number, and it converts the dangerous direction into the harmless one. Nothing else
+# reads the value in a way that flips: every read of position.z in the whole config
+# (printer.cfg 2x, printer_gcode_macro.cfg 3x) is a "do I have room to lift?" gate whose move is
+# relative (G91 G1 Zn G90), and all of them answer the same at 0 as at 150. Our own absolute Z moves
+# in AddOn.cfg are preceded by G28.
+#
+# What this does NOT do: make Z true. Only a real home does that. It also leaves UP as the unbounded
+# direction (303 mm from a declared 0), so a large absolute Z on a machine parked high can still grind
+# the screws at the top -- a deliberately accepted trade, because the travel is 308 mm and no declared
+# origin can bound both directions at once.
+#
+# Scoped to the section by a range address rather than a global replace: the bare
+# SET_KINEMATIC_POSITION in [gcode_macro M84] re-asserts the CURRENT position and must not be touched,
+# and a declared 150 elsewhere might be someone measuring rather than assuming. The trailing
+# whitespace capture preserves Phrozen's CRLF, and the leading capture preserves the tab this line
+# happens to start with.
+if grep -qE '^[[:space:]]*SET_KINEMATIC_POSITION Z=150[[:space:]]*$' "$GM"; then
+  sed -i -E '/^\[delayed_gcode KINEMATIC_POSITION\]/,/^\[/ s@^([[:space:]]*)SET_KINEMATIC_POSITION Z=150([[:space:]]*)$@\1SET_KINEMATIC_POSITION Z=0\2@' "$GM"
+  if grep -qE '^[[:space:]]*SET_KINEMATIC_POSITION Z=0[[:space:]]*$' "$GM"; then
+    echo "  config-patches: boot position declares Z=0, not Z=150 (caps unhomed downward travel at 5 mm)."; changed=1
+  else
+    echo "  config-patches: SET_KINEMATIC_POSITION Z=150 is outside [delayed_gcode KINEMATIC_POSITION] -- left alone."
+  fi
+fi
+
 [ "$changed" = 0 ] && echo "  config-patches: already current." || true
