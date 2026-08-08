@@ -77,6 +77,39 @@ EOF
   echo
 done
 
+# --------------------------------------------------------- single-axis home guard (printer.cfg)
+# Reported from a printer on 2026-08-08: toolhead at the back, firmware restart, `G28 X`, crash.
+# Phrozen's [homing_override] carries `axes: z`, so a single-axis home never reaches it and skips the
+# body's own `G28 Y0` -> `G1 Y50` -> `G28 X0` order — and a restart does not leave the machine
+# unhomed, because SET_KINEMATIC_POSITION reports 150/150/150 no matter where the head is.
+#
+# apply-config-patches.sh repairs this before every klipper start, so a healthy printer is silent
+# here. It is still worth checking: printer.cfg is never regenerated on an existing printer, this is
+# the one guard whose absence ends in a mechanical crash rather than an error message, and on a
+# machine running KAOS's own section our patch deliberately stands aside — which is a different state
+# worth naming rather than passing over.
+PCFG_H="${HOME:-/home/mks}/printer_data/config/printer.cfg"
+home_trouble=""
+if [ -f "$PCFG_H" ]; then
+  echo "Single-axis home guard (G28 X / G28 Y)"
+  echo "--------------------------------------"
+  if grep -qF 'unleashed-x-kaos: homing_override replaced with KAOS' "$PCFG_H"; then
+    echo "  n/a      KAOS's own [homing_override] is installed — our patch stands aside there."
+    echo "           Note KAOS homes X without bringing Y clear first, so the crash above is"
+    echo "           still possible under KAOS. Reported upstream; KAOS_OFF restores the"
+    echo "           guarded vendor section."
+  elif grep -qF 'arco-unleashed: single-axis home guard' "$PCFG_H"; then
+    echo "  ok       [homing_override] is axis-aware — G28 X homes Y clear before X travels"
+  else
+    echo "  MISSING  G28 X would home X wherever Y happens to be — crash risk with the"
+    echo "           toolhead at the back after a firmware restart"
+    echo "           repair:  bash $DIR/apply-config-patches.sh"
+    echo "                    then: sudo systemctl restart klipper"
+    home_trouble=1
+  fi
+  echo
+fi
+
 # ------------------------------------------------------------------- KAOS trust chain
 # Soft and optional: the bridge is a separate add-on and most printers do not have it. But when it
 # IS installed there is one failure it cannot announce itself — a bridge predating 2026-07-27 has

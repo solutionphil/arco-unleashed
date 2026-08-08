@@ -124,4 +124,89 @@ if grep -qE '^[[:space:]]*BED_MESH_PROFILE LOAD=phrozen[[:space:]]*$' "$GM"; the
   echo "  config-patches: guarded $n x BED_MESH_PROFILE LOAD=phrozen (no error before the first calibration)."; changed=1
 fi
 
+# --- Patch H: `G28 X` must not skip the Y-first homing order ---------------------------------
+# Reported from a printer on 2026-08-08: toolhead parked at the back (Y above ~310), firmware
+# restart, then `G28 X` -- and the head crashes on its way across.
+#
+# Two things combine. First, Phrozen's [homing_override] carries `axes: z`, so Klipper routes only
+# Z-involving homes through it; `G28 X` and `G28 Y` go straight to plain homing and never see the
+# body's own `G28 Y0` -> `G1 Y50` -> `G28 X0` order. Second, a firmware restart does not leave the
+# machine unhomed: M84 and [delayed_gcode KINEMATIC_POSITION] both call SET_KINEMATIC_POSITION, so
+# Klipper reports homed_axes xyz at 150/150/150 while the head is physically wherever it was left.
+# Nothing refuses the move, and homing X is a straight X travel at the real Y -- at the back, that
+# is through the wipe/purge area.
+#
+# The fix is not a new safety, it is the existing one applied to the case that bypassed it: widen
+# `axes:` to xyz and branch the body so `G28` and `G28 Z` keep the identical full path (probe and
+# all), while X/Y-only homes get Z lifted, Y homed and moved clear, then X.
+#
+# Homing Y rather than nudging it forward by a fixed amount is deliberate. A homing move watches the
+# endstop DURING the move; a plain G1 never looks at it, and no fixed distance can know how far back
+# the head started. (Reading the switch instead -- QUERY_ENDSTOPS plus printer.query_endstops -- does
+# not work inside one macro either: Klipper renders the whole template to a string before the first
+# command runs, so the value read is the previous query's.)
+#
+# This edits printer.cfg, which a Phrozen update replaces wholesale -- hence a self-heal patch here
+# rather than a template change, exactly like D and E. Skipped while KAOS's own homing_override is
+# swapped in (that section is axis-aware and carries no `axes:` line at all); if the owner later runs
+# KAOS_OFF, the vendor section comes back and the next klipper start re-applies this.
+PC="$(dirname "$GM")/printer.cfg"
+H_MARK='arco-unleashed: single-axis home guard'
+if [ -f "$PC" ] \
+   && ! grep -qF "$H_MARK" "$PC" \
+   && ! grep -qF 'unleashed-x-kaos: homing_override replaced with KAOS' "$PC" \
+   && grep -qE '^axes:[[:space:]]*z[[:space:]]*$' "$PC"; then
+  h_open=$(mktemp); h_else=$(mktemp); h_out=$(mktemp)
+  cat > "$h_open" <<'CFG'
+    # >>> arco-unleashed: single-axis home guard >>>
+    # Full body for `G28` and anything with Z -- what `axes: z` used to select on its own.
+    # `G28 X` / `G28 Y` / `G28 X Y` take the short branch before `axes:` below.
+    {% if params.Z is defined or not (params.X is defined or params.Y is defined) %}
+CFG
+  cat > "$h_else" <<'CFG'
+    {% else %}
+    # X/Y-only home. Same order as the full body above: Y reaches its endstop and moves
+    # clear BEFORE X travels, so a toolhead left at the back is out of the way first.
+    G4 P200
+    {% if (printer.gcode_move.position.z+5) < 295 %}
+    G91
+    G1 Z5 F600
+    {% else %}
+    G91
+    G1 Z-5 F600
+    {% endif %}
+    G4 P500
+    G90
+    G28 Y0
+    G4 P200
+    {% if params.X is defined %}
+    G1 Y50 F2000
+    G4 P200
+    G28 X0
+    G4 P200
+    {% endif %}
+    {% endif %}
+    # <<< arco-unleashed: single-axis home guard <<<
+CFG
+  # One pass, section-scoped: never guess at a `gcode:` or `axes:` line outside
+  # [homing_override]. Bails out (exit 3) unless BOTH edits landed, so a config whose override
+  # does not have the expected shape is left completely untouched rather than half-edited.
+  if awk -v OPEN="$h_open" -v ELSE="$h_else" '
+        /^\[homing_override\]/            { inblk=1; print; next }
+        /^\[[a-zA-Z_]/                    { inblk=0 }
+        inblk && !opened && /^gcode:[ \t]*\r?$/ {
+            print; while ((getline l < OPEN) > 0) print l; close(OPEN); opened=1; next }
+        inblk && opened && /^axes:[ \t]*z[ \t]*\r?$/ {
+            while ((getline l < ELSE) > 0) print l; close(ELSE); print "axes: xyz"; closed=1; next }
+        { print }
+        END { if (!(opened && closed)) exit 3 }
+     ' "$PC" > "$h_out" && [ -s "$h_out" ]; then
+    cat "$h_out" > "$PC"
+    echo "  config-patches: homing_override is now axis-aware (G28 X homes Y clear first)."; changed=1
+  else
+    echo "  config-patches: homing_override has an unexpected shape -- single-axis home guard NOT applied."
+  fi
+  rm -f "$h_open" "$h_else" "$h_out"
+fi
+
 [ "$changed" = 0 ] && echo "  config-patches: already current." || true

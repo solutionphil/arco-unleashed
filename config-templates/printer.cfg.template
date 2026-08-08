@@ -180,6 +180,11 @@ timeout: 3600000
 
 [homing_override]
 gcode:
+    # --- Which branch? -----------------------------------------------------------------
+    # Full body for `G28` and for anything involving Z (that is what `axes: z` used to
+    # select on its own). Everything else -- `G28 X`, `G28 Y`, `G28 X Y` -- takes the
+    # short branch at the bottom. See the note at `axes:` for why this split exists.
+    {% if params.Z is defined or not (params.X is defined or params.Y is defined) %}
     {action_respond_info("homing_override_start\n")}
     M84
     G4 P200
@@ -279,15 +284,57 @@ gcode:
     # into an unknown-command error on any printer where the hook is absent, which is the
     # default. With it, this block is completely inert.
     #
-    # Scope: `axes: z` below means this runs for `G28` and `G28 Z`, never for `G28 X` or
-    # `G28 Y`, so axis-only homes do not fire the hook. Widening `axes:` would change
-    # homing behaviour on a load-cell-probed machine and is not worth it.
+    # Scope: the hook sits inside the full-home branch, so `G28 X` / `G28 Y` do not fire
+    # it. That is deliberate and it matters: the one hook we know of (KAOS's) grants full
+    # XYZ trust unconditionally, which would be a lie after homing X alone.
     {% if printer['gcode_macro _ARCO_POST_HOME_HOOK'] is defined %}
         _ARCO_POST_HOME_HOOK
     {% endif %}
     {action_respond_info("homing_override_end\n")}
 
-axes: z
+    {% else %}
+    # --- X/Y-only home -----------------------------------------------------------------
+    # Reached for `G28 X`, `G28 Y` and `G28 X Y`.
+    #
+    # The order below is Phrozen's own, copied from the full home above: Y goes to its
+    # endstop and moves clear BEFORE X travels. Reported from a printer on 2026-08-08 --
+    # toolhead parked at the back, firmware restart, `G28 X`, crash.
+    #
+    # Two things combine there. A restart does not clear the homing state: M84 and
+    # [delayed_gcode KINEMATIC_POSITION] both call SET_KINEMATIC_POSITION, so Klipper
+    # reports homed_axes xyz at 150/150/150 while the head is physically wherever it was
+    # left. Nothing refuses the move. And homing X is a straight X travel at whatever Y
+    # the head really sits at, which at the back is through the wipe/purge area.
+    #
+    # Homing Y is the fix rather than a fixed nudge forward, because a homing move watches
+    # the endstop DURING the move -- a plain G1 does not look at it at all, and a fixed
+    # distance cannot know how far back the head started.
+    G4 P200
+    {% if (printer.gcode_move.position.z+5) < 295 %}
+    G91
+    G1 Z5 F600
+    {% else %}
+    G91
+    G1 Z-5 F600
+    {% endif %}
+    G4 P500
+    G90
+    G28 Y0
+    G4 P200
+    {% if params.X is defined %}
+    G1 Y50 F2000
+    G4 P200
+    G28 X0
+    G4 P200
+    {% endif %}
+    {% endif %}
+
+# `xyz`, not Phrozen's `z`. With `z` this section only saw `G28` and `G28 Z`; `G28 X` and
+# `G28 Y` went straight to Klipper's plain homing and therefore skipped the Y-first order
+# that the body above has always had. The body is branched (see the top) so that widening
+# this changes nothing for `G28` and `G28 Z` -- those still take the identical full path,
+# probe and all. It only stops the single-axis case from bypassing the section.
+axes: xyz
 
 
 # [gcode_macro PG28]
