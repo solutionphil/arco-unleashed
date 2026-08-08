@@ -354,9 +354,11 @@ calibration run from an assumed position measures the wrong thing.
 stops the sweep at <strong>130 Hz</strong>: the stock macro runs to 150,
 and on this machine nothing above 130 adds anything worth having.</li>
 <li><strong>Belt tension and idler cleaning</strong> —
-<code>BELT_TENSION</code> homes and parks the toolhead where both belt
-spans are equal, so you tension against a known geometry instead of by
-feel; <code>BELT_WARMUP</code> loosens belts and steppers first;
+<code>BELT_TENSION</code> homes, then moves the toolhead to where both
+belt spans are equal. That is <strong>not</strong> the home position:
+home sits off-centre in X and Y relative to the belt system, so
+tensioning there works against two unequal spans.
+<code>BELT_WARMUP</code> warms the belts and steppers up first, and
 <code>CLEAN_IDLERS</code> turns the idlers in fixed steps so the pulleys
 can be wiped. <a href="#belts-and-idlers">Details</a>.</li>
 <li><strong>Filament handling</strong> — <code>LOAD_FILAMENT</code> /
@@ -996,7 +998,7 @@ frequency — the absolute number depends on span length. Leave the
 steppers energised; <code>M84</code> lets the belts go slack and the
 reading is void.</p>
 <p><strong><code>BELT_WARMUP</code></strong> — runs the gantry through
-its range to loosen cold, stiff belts.
+its range to warm the belts and steppers up.
 <code>BELT_WARMUP ACCEL=5000 MARGIN=40 SPEED=200 CYCLES=10</code>. It
 bounds its own acceleration rather than inheriting the machine’s 40000
 ceiling, keeps <code>MARGIN</code> off the frame at the low end, and
