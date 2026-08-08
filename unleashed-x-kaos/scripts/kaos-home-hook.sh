@@ -144,6 +144,73 @@ apply_body() {
     echo "homing_override replaced with KAOS's (axis-aware; grants trust per axis)"
 }
 
+# ── THE ONE EDIT WE MAKE TO KAOS'S OWN CODE ──────────────────────────────────────────────────────
+#
+# Everything else in this bridge shims around the payload and treats it as untouchable. This does not,
+# and the reason is a crash rather than a preference.
+#
+# KAOS's section is axis-aware, and for `G28 X` that means it deliberately SKIPS the Y home: the Y
+# block is gated on `full_home or z_home_promoted or home_y`, all three false. It then homes X
+# immediately, at whatever Y the toolhead physically sits at. A firmware restart does not leave the
+# machine unhomed -- SET_KINEMATIC_POSITION declares a position -- so nothing refuses the move, and on
+# this printer the wipe unit sits at Y=322. Reported from a real machine on 2026-08-08; the owner
+# confirmed the wipe unit is what the head hits.
+#
+# The vendor section has the same hole by a different route (its `axes: z` meant a single-axis home
+# never reached it at all) and apply-config-patches.sh closes that one. But our patch stands aside
+# while KAOS's section is installed -- correctly, two competing overrides would be worse -- which
+# leaves precisely the KAOS users unprotected. Hence this.
+#
+# The fix uses `prior_y_trusted`, which KAOS already captures three lines earlier, so it costs nothing
+# on the normal path: with Y genuinely homed this klippy session it never fires. It only fires when Y
+# is untrusted, which is exactly the post-restart case. _TRUSTED_AXIS_HOME defaults to 0 and is a
+# gcode_macro variable, so a restart resets it -- verified against the payload, not assumed.
+#
+# GATED ON THE BARE LINE. If Chris adopts any fix of his own the line stops matching and this becomes
+# a no-op rather than stacking a second guard on top of his. If his section changes shape for any
+# other reason we skip and say so, because editing his homing blind is not acceptable.
+KAOS_GUARD_VAR='arco_free_y'
+has_y_guard() { grep -qF "$KAOS_GUARD_VAR" "$CFG"; }
+
+guard_kaos_body() {
+    has_body_ours || return 0
+    has_y_guard   && return 0
+    local tmp
+    tmp="$(mktemp)" || { err "mktemp failed"; return 1; }
+    # Scoped to the LIVE payload body: the vendor section is preserved in the same block as '#|'
+    # lines, and `{% if full_home or z_home_promoted %}` occurs four times in KAOS's body -- only the
+    # one inside the Y block may change. POSIX classes are avoided on purpose (mawk 1.3.3).
+    awk -v g="$KAOS_GUARD_VAR" '
+        index($0, "section, taken from the installed payload") { inbody = 1; print; next }
+        inbody && index($0, "unleashed-x-kaos: homing_override replaced with KAOS") { inbody = 0 }
+        inbody && !opened && /^[ \t]*\{% if full_home or z_home_promoted or home_y %\}[ \t\r]*$/ {
+            match($0, /^[ \t]*/); ind = substr($0, 1, RLENGTH)
+            print ind "{% set " g " = home_x and not home_y and prior_y_trusted == 0 %}"
+            sub(/or home_y %\}/, "or home_y or " g " %}")
+            print; opened = 1; next
+        }
+        inbody && opened && !inner && /^[ \t]*\{% if full_home or z_home_promoted %\}[ \t\r]*$/ {
+            sub(/z_home_promoted %\}/, "z_home_promoted or " g " %}")
+            print; inner = 1; next
+        }
+        { print }
+        END { if (!(opened && inner)) exit 3 }
+    ' "$CFG" > "$tmp"
+    if [ $? -ne 0 ] || [ ! -s "$tmp" ]; then
+        rm -f "$tmp"
+        echo "KAOS's homing_override does not have the expected Y block — single-axis guard NOT applied."
+        echo "  (that is the safe outcome if the upstream section changed; nothing was edited)"
+        return 0
+    fi
+    if [ "$(grep -c '^\[homing_override\]' "$tmp")" -ne 1 ] \
+       || [ "$(grep -cF "$KAOS_GUARD_VAR" "$tmp")" -ne 3 ] \
+       || [ "$(wc -l < "$tmp")" -ne "$(( $(wc -l < "$CFG") + 1 ))" ]; then
+        rm -f "$tmp"; err "single-axis guard post-edit check failed — $CFG left untouched"; return 1
+    fi
+    cat "$tmp" > "$CFG" && rm -f "$tmp" || { rm -f "$tmp"; err "could not write $CFG"; return 1; }
+    echo "KAOS's homing_override now brings Y clear before homing X (G28 X)"
+}
+
 revert_body() {
     has_body_ours || return 0
     local tmp
@@ -190,6 +257,9 @@ case "$ACTION" in
             if has_ours; then
                 strip_hook && echo "post-home hook removed — KAOS's section grants trust itself"
             fi
+            # Runs whether the swap just happened or the section was already installed, so a printer
+            # that took the body before this guard existed picks it up on the next klipper start.
+            guard_kaos_body
             exit 0
         fi
         if [ "$_rc" = 2 ]; then
@@ -249,7 +319,8 @@ case "$ACTION" in
         echo "reverted"
         ;;
     status)
-        if   has_body_ours; then echo "body=kaos"
+        if   has_body_ours; then
+            if has_y_guard; then echo "body=kaos yguard=yes"; else echo "body=kaos yguard=no"; fi
         elif has_ours;      then echo "body=vendor hook=ours"
         elif has_call;      then echo "body=vendor hook=foreign"
         elif [ -n "$(anchor_line)" ]; then echo "body=vendor hook=none"

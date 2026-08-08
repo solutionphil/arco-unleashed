@@ -94,10 +94,19 @@ if [ -f "$PCFG_H" ]; then
   echo "Single-axis home guard (G28 X / G28 Y)"
   echo "--------------------------------------"
   if grep -qF 'unleashed-x-kaos: homing_override replaced with KAOS' "$PCFG_H"; then
-    echo "  n/a      KAOS's own [homing_override] is installed — our patch stands aside there."
-    echo "           Note KAOS's section homes X without bringing Y clear first, so the crash"
-    echo "           described above is still possible under KAOS. KAOS_OFF restores the"
-    echo "           vendor section, which the next klipper start then guards."
+    # KAOS's section is installed, so the vendor patch stands aside and the bridge guards KAOS's
+    # own Y block instead. That edit is gated on the exact upstream line, so it skips itself if the
+    # section ever changes shape -- which must be said out loud rather than read as "fine".
+    if grep -qF 'arco_free_y' "$PCFG_H"; then
+      echo "  ok       KAOS's [homing_override] is installed and guarded — G28 X homes Y clear first"
+    else
+      echo "  MISSING  KAOS's [homing_override] is installed but NOT guarded: its Y block did not"
+      echo "           match, so G28 X would home X wherever Y happens to be. Most likely the"
+      echo "           upstream section changed and the bridge needs updating."
+      echo "           workaround: use a full G28, or KAOS_OFF to fall back to the guarded"
+      echo "           vendor section"
+      home_trouble=1
+    fi
   elif grep -qF 'arco-unleashed: single-axis home guard' "$PCFG_H"; then
     echo "  ok       [homing_override] is axis-aware — G28 X homes Y clear before X travels"
   else
