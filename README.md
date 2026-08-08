@@ -36,9 +36,10 @@ PhrozenGo app — now running on a current, maintained and fully open system.
   equivalents do not: a calibration run from an assumed position measures the wrong thing.
   `CALIBRATE_SHAPER_NEW` does the same for the input shaper and stops the sweep at **130 Hz**: the stock
   macro runs to 150, and on this machine nothing above 130 adds anything worth having.
-- **Belt tension and idler cleaning** — `BELT_TENSION` homes and parks the toolhead where both belt spans
-  are equal, so you tension against a known geometry instead of by feel; `BELT_WARMUP` loosens belts and
-  steppers first; `CLEAN_IDLERS` turns the idlers in fixed steps so the pulleys can be wiped.
+- **Belt tension and idler cleaning** — `BELT_TENSION` homes, then moves the toolhead to where both belt
+  spans are equal. That is **not** the home position: home sits off-centre in X and Y relative to the
+  belt system, so tensioning there works against two unequal spans. `BELT_WARMUP` warms the belts and
+  steppers up first, and `CLEAN_IDLERS` turns the idlers in fixed steps so the pulleys can be wiped.
   [Details](#belts-and-idlers).
 - **Filament handling** — `LOAD_FILAMENT` / `UNLOAD_FILAMENT` with priming, `M600` change, `M601` pause,
   and `FILA_STATUS`, which reports what the stock firmware keeps to itself: whether filament is present
@@ -467,7 +468,7 @@ of the travel would be Y160. Park at the wrong place and two perfectly matched b
 Aim for **equal pitch** between the two, not for any particular frequency — the absolute number depends on
 span length. Leave the steppers energised; `M84` lets the belts go slack and the reading is void.
 
-**`BELT_WARMUP`** — runs the gantry through its range to loosen cold, stiff belts.
+**`BELT_WARMUP`** — runs the gantry through its range to warm the belts and steppers up.
 `BELT_WARMUP ACCEL=5000 MARGIN=40 SPEED=200 CYCLES=10`. It bounds its own acceleration rather than
 inheriting the machine's 40000 ceiling, keeps `MARGIN` off the frame at the low end, and stays clear of the
 purge/wipe unit at the high end — those two ends are not symmetric, which is why it derives them separately.
