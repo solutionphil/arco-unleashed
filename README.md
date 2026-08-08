@@ -332,7 +332,8 @@ to its endstop and then 50 mm clear, and only then does X home. `G28 Y` homes Y 
 where it is. A plain `G28` is unchanged — same full sequence, same probe.
 
 The reason is a crash reported from a printer. Park the toolhead at the back, restart the firmware,
-send `G28 X`, and the head is dragged sideways through the wipe area on its way to the X endstop. Two
+send `G28 X`, and the head is dragged sideways through the wipe unit at Y=322 on its way to the X
+endstop — confirmed on the machine it happened to. Two
 things make that possible. Phrozen's homing section is declared `axes: z`, so Klipper never routed a
 single-axis home through it and the Y-first order it already contained was skipped. And a firmware
 restart does not leave the printer unhomed — it declares a position instead, so Klipper believes the
