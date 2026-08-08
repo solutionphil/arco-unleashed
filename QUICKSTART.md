@@ -3,8 +3,11 @@
 From a stock Phrozen Arco to **Debian Bookworm · kernel 6.18 · Klipper v0.13**, without opening the
 printer: it flashes its own eMMC from a USB stick.
 
-Six steps, about **90 minutes**, of which maybe 20 are hands-on — the rest is waiting for the printer.
+Seven steps, about **90 minutes**, of which maybe 20 are hands-on — the rest is waiting for the printer.
 Every screen is pictured in the **[MANUAL](MANUAL.md)**; the full reference is the **[README](README.md)**.
+
+*The step numbers are the MANUAL's, so you can switch between the two at any point. The gaps — 5, 7, 9,
+11 — are the steps this short path folds in or leaves out.*
 
 > ⚠️ **Your risk, and probably your warranty.** Replacing the factory OS and firmware will very likely
 > **void your Phrozen warranty**, and you do it entirely at your own risk — no guarantee of any kind, and
@@ -22,16 +25,16 @@ Every screen is pictured in the **[MANUAL](MANUAL.md)**; the full reference is t
 **You need:** the printer on your network · a PC · one **empty, freshly formatted FAT32 stick** (≥ 4 GB,
 plugged straight into the printer — **never through a USB hub**) ·
 Phrozen's **`Arco_FW_V*.zip`** *(you download it from Phrozen)* · an SSH client (**PuTTY** on Windows) ·
-a **2.5 mm hex key** for Step 4.
+a **2.5 mm hex key** for Step 6.
 
 **Three things are irreversible, so decide now:**
 
-1. The AMS server exists **only on your printer** and the flash erases it. **Step 0 saves it.** Skip that
+1. The AMS server exists **only on your printer** and the flash erases it. **Step 1 saves it.** Skip that
    and AMS detection hangs afterwards, with no way to recover the files.
 2. The eMMC is overwritten in place. If you may ever want to return to stock, the only way to keep that
-   option is Step 0b below: it images the whole eMMC onto your stick, no teardown needed.
+   option is Step 2 below: it images the whole eMMC onto your stick, no teardown needed.
    Phrozen do not publish a stock image.
-3. Once the write begins there is no undo — a failure needs path B to recover.
+3. Once the write begins there is no undo — a failure needs the eMMC route to recover (MANUAL, Appendix A).
 
 **Start from an empty stick.** The tools find their inputs by pattern (`Arco-Unleashed*.img.gz`,
 `Arco_FW_V*.zip`) and take the **first** match, so an old firmware zip or a `(1)` re-download left on the
@@ -39,11 +42,11 @@ stick can win silently and install something you did not intend.
 
 ---
 
-## Step 0 — Save what only your printer has
+## Step 1 — Save what only your printer has
 
 > 🛑 **Not a backup of your printer.** This rescues **two files** that exist nowhere else. Your
 > calibration, your uploaded G-code and Phrozen's own system are **erased and gone**. If you want a way
-> back, make one first — **Step 0b** below images the whole eMMC onto your stick, without opening the
+> back, make one first — **Step 2** below images the whole eMMC onto your stick, without opening the
 > printer.
 
 On the **still-running original printer**. Insert the stick — it auto-mounts at
@@ -51,7 +54,7 @@ On the **still-running original printer**. Insert the stick — it auto-mounts a
 and run **one** of:
 
 `collect_data_arco.sh` is in the release zip, so **it is already on the stick** if you extracted that
-first (Step 1). If you are using the printer's original Phrozen stick instead, copy the one file onto
+first (*Fill the stick*, below). If you are using the printer's original Phrozen stick instead, copy the one file onto
 it from your PC. Then:
 
 ```bash
@@ -73,7 +76,7 @@ it is missing, re-insert the stick and run the command again.
 
 ---
 
-## Step 0b — *optional:* your way back
+## Step 2 — *optional:* your way back
 
 Phrozen publish no stock image, so once the eMMC is overwritten the machine you have today is gone unless
 you copied it first. This copies **all of it** onto your stick as one file — no screws, no PC:
@@ -98,7 +101,7 @@ its own, so a routine backup can never overwrite the one that takes you back to 
 
 ---
 
-## Step 1 — Fill the stick
+## Fill the stick
 
 Extract **[`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)** to the
 **top level** of the stick. That supplies the image, its checksums, the self-flash tool and the guides.
@@ -109,9 +112,9 @@ Then add the two files only you can provide:
 | `Arco-Unleashed_bookworm_6.18.30.img.gz` + `.sha256` + `.rawsize` | the release zip |
 | `unleashed-selfflash.tar.gz` + `prepare_unleashed_self_flash.sh` | the release zip |
 | `Arco_FW_V*.zip` | you download it from Phrozen |
-| `arco-phrozen-ams.tar.gz` | Step 0 |
+| `arco-phrozen-ams.tar.gz` | Step 1 |
 
-**WiFi** — the printer must be online afterwards, because Step 4 runs over SSH. Pick one:
+**WiFi** — the printer must be online afterwards, because Step 6 runs over SSH. Pick one:
 
 - **Nothing to do (default).** The flasher copies the network this printer is already using, region
   setting included.
@@ -129,7 +132,7 @@ Then add the two files only you can provide:
 
 ---
 
-## Step 2 — Flash
+## Step 3 — Flash
 
 Put the filled stick back in the printer, then SSH in again and arm it:
 
@@ -160,12 +163,12 @@ progress bar and **DO NOT POWER OFF**, then it restarts by itself.
 
 ---
 
-## Step 3 — First boot
+## Step 4 — First boot
 
 It installs Phrozen's firmware and your rescued AMS files on its own, restarts once more, and then settles on a
 **"Notice — Error occurred"** screen.
 
-**That error is expected and is not a fault.** Klipper cannot start until Step 4 flashes the MCUs, so the
+**That error is expected and is not a fault.** Klipper cannot start until Step 6 flashes the MCUs, so the
 display has nothing to recover to — restarting or power-cycling will not clear it. Do not set anything up
 on the display, and do not skip ahead: wait for that screen to settle, which is how you know the automatic
 restarts have finished.
@@ -178,7 +181,7 @@ restarts the stage rather than speeding it up. If you used `no_wifi.txt`, this i
 **Done when:** the display sits on the settled "Error occurred" screen and the printer answers on your
 network. Remove the stick.
 
-> **Printer never appears?** Put a `wifi-seed.txt` (as in Step 1) on the stick and power-cycle. The first
+> **Printer never appears?** Put a `wifi-seed.txt` (as in the stick preparation) on the stick and power-cycle. The first
 > boot re-reads the stick on every power-cycle until Phrozen's firmware is installed, applies the file
 > once, and renames it `.applied` so you can see it was picked up. Each seed is used **once, by its
 > contents**: to try again the details must actually differ — a corrected password, say. Writing out the
@@ -187,7 +190,7 @@ network. Remove the stick.
 
 ---
 
-## Step 4 — Flash the MCUs · **the one step that is not optional**
+## Step 6 — Flash the MCUs · **the one step that is not optional**
 
 The host runs Klipper v0.13; your MCUs still carry the factory firmware and cannot talk to it. SSH in
 (`mks` / `makerbase`) and open the menu:
@@ -215,7 +218,7 @@ error, and the display's error popup is gone.
 
 ---
 
-## Step 5 — Calibrate, then save it
+## Step 8 — Calibrate, then save it
 
 Bed mesh, PID, input shaper and purge position are measured per machine and the image ships none — another
 printer's numbers are worthless. Easiest is the display's **factory-reset auto-calibration**, which runs
@@ -234,7 +237,7 @@ runs, and your backup is on a stick.
 
 ---
 
-## Step 6 — Print
+## Step 10 — Print
 
 OrcaSlicer already ships the official **Phrozen Arco** profile, so no fork is needed. To also get the
 kit's AMS auto-mode, import one of the two profiles in [`orca/`](orca/) via *File → Import → Import

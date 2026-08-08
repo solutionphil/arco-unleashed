@@ -294,10 +294,13 @@
 <p>From a stock Phrozen Arco to <strong>Debian Bookworm · kernel 6.18 ·
 Klipper v0.13</strong>, without opening the printer: it flashes its own
 eMMC from a USB stick.</p>
-<p>Six steps, about <strong>90 minutes</strong>, of which maybe 20 are
+<p>Seven steps, about <strong>90 minutes</strong>, of which maybe 20 are
 hands-on — the rest is waiting for the printer. Every screen is pictured
 in the <strong><a href="MANUAL.md">MANUAL</a></strong>; the full
 reference is the <strong><a href="README.md">README</a></strong>.</p>
+<p><em>The step numbers are the MANUAL’s, so you can switch between the
+two at any point. The gaps — 5, 7, 9, 11 — are the steps this short path
+folds in or leaves out.</em></p>
 <blockquote>
 <p>⚠️ <strong>Your risk, and probably your warranty.</strong> Replacing
 the factory OS and firmware will very likely <strong>void your Phrozen
@@ -319,18 +322,18 @@ firmware package yourself.</p>
 straight into the printer — <strong>never through a USB hub</strong>) ·
 Phrozen’s <strong><code>Arco_FW_V*.zip</code></strong> <em>(you download
 it from Phrozen)</em> · an SSH client (<strong>PuTTY</strong> on
-Windows) · a <strong>2.5 mm hex key</strong> for Step 4.</p>
+Windows) · a <strong>2.5 mm hex key</strong> for Step 6.</p>
 <p><strong>Three things are irreversible, so decide now:</strong></p>
 <ol type="1">
 <li>The AMS server exists <strong>only on your printer</strong> and the
-flash erases it. <strong>Step 0 saves it.</strong> Skip that and AMS
+flash erases it. <strong>Step 1 saves it.</strong> Skip that and AMS
 detection hangs afterwards, with no way to recover the files.</li>
 <li>The eMMC is overwritten in place. If you may ever want to return to
-stock, the only way to keep that option is Step 0b below: it images the
+stock, the only way to keep that option is Step 2 below: it images the
 whole eMMC onto your stick, no teardown needed. Phrozen do not publish a
 stock image.</li>
-<li>Once the write begins there is no undo — a failure needs path B to
-recover.</li>
+<li>Once the write begins there is no undo — a failure needs the eMMC
+route to recover (MANUAL, Appendix A).</li>
 </ol>
 <p><strong>Start from an empty stick.</strong> The tools find their
 inputs by pattern (<code>Arco-Unleashed*.img.gz</code>,
@@ -338,14 +341,14 @@ inputs by pattern (<code>Arco-Unleashed*.img.gz</code>,
 so an old firmware zip or a <code>(1)</code> re-download left on the
 stick can win silently and install something you did not intend.</p>
 <hr />
-<h2 id="step-0-save-what-only-your-printer-has">Step 0 — Save what only
+<h2 id="step-1-save-what-only-your-printer-has">Step 1 — Save what only
 your printer has</h2>
 <blockquote>
 <p>🛑 <strong>Not a backup of your printer.</strong> This rescues
 <strong>two files</strong> that exist nowhere else. Your calibration,
 your uploaded G-code and Phrozen’s own system are <strong>erased and
 gone</strong>. If you want a way back, make one first — <strong>Step
-0b</strong> below images the whole eMMC onto your stick, without opening
+2</strong> below images the whole eMMC onto your stick, without opening
 the printer.</p>
 </blockquote>
 <p>On the <strong>still-running original printer</strong>. Insert the
@@ -354,8 +357,9 @@ with <code>lsblk</code> if in doubt) — then SSH in (<code>mks</code> /
 <code>makerbase</code>, port 22) and run <strong>one</strong> of:</p>
 <p><code>collect_data_arco.sh</code> is in the release zip, so
 <strong>it is already on the stick</strong> if you extracted that first
-(Step 1). If you are using the printer’s original Phrozen stick instead,
-copy the one file onto it from your PC. Then:</p>
+(<em>Fill the stick</em>, below). If you are using the printer’s
+original Phrozen stick instead, copy the one file onto it from your PC.
+Then:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span></code></pre></div>
 <p>Downloading it on the printer instead works only once this project’s
@@ -370,8 +374,8 @@ problem — use the stick.</p>
 on the stick — <em>check it on your PC</em>, not just on screen. If it
 is missing, re-insert the stick and run the command again.</p>
 <hr />
-<h2 id="step-0b-optional-your-way-back">Step 0b — <em>optional:</em>
-your way back</h2>
+<h2 id="step-2-optional-your-way-back">Step 2 — <em>optional:</em> your
+way back</h2>
 <p>Phrozen publish no stock image, so once the eMMC is overwritten the
 machine you have today is gone unless you copied it first. This copies
 <strong>all of it</strong> onto your stick as one file — no screws, no
@@ -398,7 +402,7 @@ are on the stick. (The name says which system it holds:
 Each rotates on its own, so a routine backup can never overwrite the one
 that takes you back to Phrozen’s system.)</p>
 <hr />
-<h2 id="step-1-fill-the-stick">Step 1 — Fill the stick</h2>
+<h2 id="fill-the-stick">Fill the stick</h2>
 <p>Extract <strong><a
 href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
 to the <strong>top level</strong> of the stick. That supplies the image,
@@ -432,12 +436,12 @@ files only you can provide:</p>
 </tr>
 <tr>
 <td><code>arco-phrozen-ams.tar.gz</code></td>
-<td>Step 0</td>
+<td>Step 1</td>
 </tr>
 </tbody>
 </table>
 <p><strong>WiFi</strong> — the printer must be online afterwards,
-because Step 4 runs over SSH. Pick one:</p>
+because Step 6 runs over SSH. Pick one:</p>
 <ul>
 <li><p><strong>Nothing to do (default).</strong> The flasher copies the
 network this printer is already using, region setting included.</p></li>
@@ -455,7 +459,7 @@ so you can pick the network from your phone.</p></li>
 <p><strong>Done when:</strong> all four rows above are on the stick, and
 no <em>older</em> image or firmware zip is.</p>
 <hr />
-<h2 id="step-2-flash">Step 2 — Flash</h2>
+<h2 id="step-3-flash">Step 3 — Flash</h2>
 <p>Put the filled stick back in the printer, then SSH in again and arm
 it:</p>
 <div class="sourceCode" id="cb5"><pre
@@ -486,12 +490,12 @@ one.</p>
 <p><strong>Done when:</strong> the printer has rebooted itself and the
 progress bar is gone.</p>
 <hr />
-<h2 id="step-3-first-boot">Step 3 — First boot</h2>
+<h2 id="step-4-first-boot">Step 4 — First boot</h2>
 <p>It installs Phrozen’s firmware and your rescued AMS files on its own,
 restarts once more, and then settles on a <strong>“Notice — Error
 occurred”</strong> screen.</p>
 <p><strong>That error is expected and is not a fault.</strong> Klipper
-cannot start until Step 4 flashes the MCUs, so the display has nothing
+cannot start until Step 6 flashes the MCUs, so the display has nothing
 to recover to — restarting or power-cycling will not clear it. Do not
 set anything up on the display, and do not skip ahead: wait for that
 screen to settle, which is how you know the automatic restarts have
@@ -508,17 +512,17 @@ occurred” screen and the printer answers on your network. Remove the
 stick.</p>
 <blockquote>
 <p><strong>Printer never appears?</strong> Put a
-<code>wifi-seed.txt</code> (as in Step 1) on the stick and power-cycle.
-The first boot re-reads the stick on every power-cycle until Phrozen’s
-firmware is installed, applies the file once, and renames it
-<code>.applied</code> so you can see it was picked up. Each seed is used
-<strong>once, by its contents</strong>: to try again the details must
-actually differ — a corrected password, say. Writing out the identical
-file changes nothing, so if the details were right and it still did not
-join, use the setup portal instead.</p>
+<code>wifi-seed.txt</code> (as in the stick preparation) on the stick
+and power-cycle. The first boot re-reads the stick on every power-cycle
+until Phrozen’s firmware is installed, applies the file once, and
+renames it <code>.applied</code> so you can see it was picked up. Each
+seed is used <strong>once, by its contents</strong>: to try again the
+details must actually differ — a corrected password, say. Writing out
+the identical file changes nothing, so if the details were right and it
+still did not join, use the setup portal instead.</p>
 </blockquote>
 <hr />
-<h2 id="step-4-flash-the-mcus-the-one-step-that-is-not-optional">Step 4
+<h2 id="step-6-flash-the-mcus-the-one-step-that-is-not-optional">Step 6
 — Flash the MCUs · <strong>the one step that is not
 optional</strong></h2>
 <p>The host runs Klipper v0.13; your MCUs still carry the factory
@@ -546,7 +550,7 @@ in between, and that is not a failed flash.</p>
 <code>http://&lt;printer-ip&gt;/</code> comes up <strong>ready</strong>
 with no MCU error, and the display’s error popup is gone.</p>
 <hr />
-<h2 id="step-5-calibrate-then-save-it">Step 5 — Calibrate, then save
+<h2 id="step-8-calibrate-then-save-it">Step 8 — Calibrate, then save
 it</h2>
 <p>Bed mesh, PID, input shaper and purge position are measured per
 machine and the image ships none — another printer’s numbers are
@@ -568,7 +572,7 @@ protecting.</p>
 <code>SAVE_CONFIG</code> has restarted Klipper after the PID runs, and
 your backup is on a stick.</p>
 <hr />
-<h2 id="step-6-print">Step 6 — Print</h2>
+<h2 id="step-10-print">Step 10 — Print</h2>
 <p>OrcaSlicer already ships the official <strong>Phrozen Arco</strong>
 profile, so no fork is needed. To also get the kit’s AMS auto-mode,
 import one of the two profiles in <a href="orca/"><code>orca/</code></a>
