@@ -77,6 +77,47 @@ EOF
   echo
 done
 
+# ------------------------------------------------- one-time system state that optimize-boot.sh sets
+# Everything above compares ExecStartPre drop-ins, and that is all this check has ever looked at. But
+# optimize-boot.sh does more than wire guards: it renames the host, turns on mDNS, gives systemd-resolved
+# a fallback nameserver, and puts the wpa control interface in the netdev group. None of those is a
+# drop-in, so none of them was visible here -- and on 2026-08-09 a tester updated a printer, was told
+# "Self-heal guards: all present", and then found unleashed.local did not resolve. It was not present at
+# all; the check simply could not see that far.
+#
+# 🔴 THESE DO NOT DERIVE THEMSELVES. The drop-in list above is read out of optimize-boot.sh, so it cannot
+# drift. These cannot be, and must be kept in step with optimize-boot.sh by hand. If you add a one-time
+# system change there, add a line here, or the next person gets "all present" while it is not.
+state_missing=""
+sm(){ printf "  MISSING  %s\n" "$1"; state_missing="$state_missing $2"; }
+echo "One-time system settings"
+echo "------------------------"
+if [ "$(cat /etc/hostname 2>/dev/null)" = mkspi ]; then
+  sm "hostname is still 'mkspi' — unleashed.local cannot resolve" hostname
+else
+  printf "  ok       hostname: %s\n" "$(cat /etc/hostname 2>/dev/null)"
+fi
+# PER-LINK, not global. systemd-resolved takes MulticastDNS from networkd's setting for the interface,
+# so this lives in a .network drop-in and NOT in resolved.conf -- which is where the first version of
+# this check looked. It then reported mDNS missing on a printer that answers to unleashed.local
+# perfectly well, which is the worst kind of check: one that is wrong in the direction of alarm.
+if grep -rqs '^[[:space:]]*MulticastDNS=[Yy]' /etc/systemd/network/ 2>/dev/null; then
+  printf "  ok       mDNS is on for the network link (that is what answers <name>.local)\n"
+else
+  sm "mDNS is off — nothing answers unleashed.local" mdns
+fi
+if grep -rqs '^[[:space:]]*FallbackDNS=' /etc/systemd/resolved.conf /etc/systemd/resolved.conf.d/ 2>/dev/null; then
+  printf "  ok       FallbackDNS is set\n"
+else
+  sm "no FallbackDNS — DHCP without a nameserver takes the network down" dns
+fi
+if [ -f /etc/systemd/system/wpa_supplicant@wlan0.service.d/10-arco-netdev.conf ]; then
+  printf "  ok       wpa control interface is group netdev (display can list networks)\n"
+else
+  sm "wpa control interface not in netdev — the display's network list stays empty" netdev
+fi
+echo
+
 # --------------------------------------------------------- single-axis home guard (printer.cfg)
 # Reported from a printer on 2026-08-08: toolhead at the back, firmware restart, `G28 X`, crash.
 # Phrozen's [homing_override] carries `axes: z`, so a single-axis home never reaches it and skips the
@@ -161,7 +202,9 @@ if [ -d "$KAOS_DIR" ] && [ -f "$PCFG" ]; then
 fi
 
 echo
-if [ -z "$missing" ]; then
+# The one-time settings count as "missing" for the caller, because the fix is the same script and the
+# consequence is just as real -- a printer nobody can reach by name is not a working printer.
+if [ -z "$missing" ] && [ -z "$state_missing" ]; then
   if [ -n "$kaos_trouble" ]; then
     echo "The kit's own guards are all in place, but the KAOS trust chain above is broken."
     exit 1
@@ -170,7 +213,8 @@ if [ -z "$missing" ]; then
   exit 0
 fi
 
-echo "Missing:$missing"
+[ -n "$state_missing" ] && echo "Missing system settings:$state_missing"
+[ -n "$missing" ] && echo "Missing:$missing"
 echo "These are installed by optimize-boot.sh, which is idempotent and safe to re-run."
 if [ "$FIX" = 0 ]; then
   echo "Re-run this with --fix, or run it yourself:  sudo bash $OB"
