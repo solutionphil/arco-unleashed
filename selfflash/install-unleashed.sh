@@ -55,6 +55,17 @@ arco_system_kind(){                      # "stock" (Phrozen's) or "unleashed" (o
 BACKUP_NAME="${ARCO_BACKUP_NAME:-arco-emmc-backup-$(arco_system_kind).img.gz}"
 
 # ---- args ----------------------------------------------------------------------------------------
+# Backups are split into parts of at most SPLITSZ so they fit FAT32, whose per-file ceiling is 4 GiB
+# minus one byte. 3.7 GiB leaves 308 MiB of headroom for filesystem slack and for anyone who later
+# moves the parts around. Overridable mainly so the split path can be exercised without first filling
+# an eMMC with several gigabytes of junk: ARCO_BACKUP_SPLIT=400000000 turns any backup into a set.
+SPLITSZ="${ARCO_BACKUP_SPLIT:-3972005888}"
+# -1 is the default because this runs on a printer the owner must not switch off, and time is the cost
+# that hurts. --small trades that: measured on an Arco, level 6 packs runs of zeros 4.5x tighter than
+# level 1 (0.097% vs 0.436%) and costs about 40% more wall clock. Levels 2 and 3 are NOT worth offering
+# -- they use the same fast deflate strategy as 1 and measured byte-identical on zeros.
+GZLEVEL="${ARCO_BACKUP_GZIP:-1}"
+
 MODE=inspect; IMG=""; USBDIR=""; ASSUME_YES=0; DO_REBOOT=1
 while [ $# -gt 0 ]; do case "$1" in
   --arm)       MODE=arm ;;
@@ -62,11 +73,16 @@ while [ $# -gt 0 ]; do case "$1" in
   --disarm)    MODE=disarm ;;
   --image)     IMG="${2:?}"; shift ;;
   --usb)       USBDIR="${2:?}"; shift ;;
+  --fast)      GZLEVEL=1 ;;
+  --small)     GZLEVEL=6 ;;
   --yes)       ASSUME_YES=1 ;;
   --no-reboot) DO_REBOOT=0 ;;
   -h|--help)   grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "unknown arg: $1"; exit 2 ;;
 esac; shift; done
+case "$GZLEVEL" in [1-9]) : ;; *) GZLEVEL=1 ;; esac
+case "$SPLITSZ" in ''|*[!0-9]*) SPLITSZ=3972005888 ;; esac
+[ "$SPLITSZ" -lt 1048576 ] && SPLITSZ=1048576
 
 die(){ echo "  ✗ $*" >&2; exit 1; }
 note(){ echo "  · $*"; }
@@ -133,7 +149,17 @@ EOF
 
 # ---- 1) find the image on the external USB -------------------------------------------------------
 find_image() {
-  [ -n "$IMG" ] && { [ -f "$IMG" ] || die "image not found: $IMG"; echo "$IMG"; return; }
+  # A split backup has no file under the plain name, only PREFIX.001 and its siblings -- and the owner
+  # will quite reasonably pass the plain name, because that is what the .sha256 is called and what every
+  # message about it says. Accept either, and also accept being handed one of the parts, since tab
+  # completion makes that the easiest thing to type.
+  if [ -n "$IMG" ]; then
+    case "$IMG" in
+      *.[0-9][0-9][0-9]) [ -f "$IMG" ] && IMG="${IMG%.*}" ;;
+    esac
+    [ -f "$IMG" ] || [ -f "$IMG.001" ] || die "image not found: $IMG  (a split backup needs its .001 part beside the name)"
+    echo "$IMG"; return
+  fi
   local dirs=() d
   [ -n "$USBDIR" ] && dirs+=("$USBDIR")
   dirs+=(/root/printer_data/gcodes/USB /home/*/printer_data/gcodes/USB /media/* /mnt/* /run/media/*/*)
@@ -156,6 +182,32 @@ find_image() {
          Pass --image PATH to name one explicitly."
 }
 
+# ---- one file, or a numbered set? -----------------------------------------------------------------
+# A backup too large for FAT32 is written as PREFIX.001, .002, ... -- the same single gzip stream cut
+# into pieces, so concatenating them reproduces the original file exactly. Everything from here on asks
+# these four helpers instead of touching the path, which is what lets one code path verify, arm and
+# restore both shapes. The glob is three digits so the shell sorts the parts and the .sha256/.rawsize
+# sidecars cannot be swept in with them.
+img_nparts_of(){ set -- "$1".[0-9][0-9][0-9]; if [ -f "$1" ]; then echo $#; else echo 0; fi; }
+img_cat_of(){ if [ -f "$1" ]; then cat "$1"; else cat "$1".[0-9][0-9][0-9]; fi; }
+img_size_of(){
+  if [ -f "$1" ]; then wc -c < "$1" 2>/dev/null | tr -dc '0-9'; return; fi
+  local p t=0 s
+  for p in "$1".[0-9][0-9][0-9]; do
+    [ -f "$p" ] || continue
+    s=$(wc -c < "$p" 2>/dev/null | tr -dc '0-9'); t=$(( t + ${s:-0} ))
+  done
+  echo "$t"
+}
+# The gzip trailer lives at the very end of the STREAM, which for a set is the end of its last part.
+img_tail4_of(){
+  if [ -f "$1" ]; then tail -c 4 "$1" 2>/dev/null; return; fi
+  set -- "$1".[0-9][0-9][0-9]
+  [ -f "$1" ] || return 0
+  shift $(( $# - 1 ))
+  tail -c 4 "$1" 2>/dev/null
+}
+
 # ---- 2) verify checksum against the sidecar ------------------------------------------------------
 # A tester hit this and all we got back was the words "sha256 MISMATCH". That was our own fault:
 # `sha256sum -c` was run with its output thrown away, and it checks the filename written INSIDE the
@@ -167,9 +219,24 @@ verify_image() {
 
   # First field of the sidecar = expected hash, rest = the name it was written for. Tolerate both
   # sha256sum spellings: "<hash>  <name>" (text) and "<hash> *<name>" (binary).
+  #
+  # TWO SHAPES, one reader. A single-file sidecar is the ordinary "<hash>  <name>" line. A split set's
+  # sidecar carries one line per PART -- so that `sha256sum -c` works on it and names the bad part -- and
+  # the hash of the whole stream in a marked comment, because that hash describes a file that does not
+  # exist on disk. Read the marker when it is there, the first real line when it is not.
+  #
+  # The comment-skipping is not cosmetic: the first attempt at this took line 1 unconditionally, read
+  # "#", stripped it to nothing and refused a healthy backup as "not a sha256 line". Found by the first
+  # real restore against a split set.
   local want name
-  want=$(awk '{print $1; exit}' "$sha" | tr -dc '0-9a-fA-F')
-  name=$(awk '{sub(/^[^ ]+[ ]+[*]?/, ""); print; exit}' "$sha")
+  want=$(awk '/^[ 	]*#[ 	]*arco-stream-sha256:/ {print $3; exit}
+              /^[ 	]*#/ {next}
+              NF {print $1; exit}' "$sha" | tr -dc '0-9a-fA-F')
+  # Only meaningful for a single file; for a set the first real line names a part, not the image, and
+  # warning about that would be noise on every split restore.
+  name=$(awk '/^[ 	]*#[ 	]*arco-stream-sha256:/ {exit}
+              /^[ 	]*#/ {next}
+              NF {sub(/^[^ ]+[ ]+[*]?/, ""); print; exit}' "$sha")
   [ ${#want} -eq 64 ] || die "checksum sidecar is not a sha256 line: $sha"
 
   if [ -n "$name" ] && [ "$name" != "$(basename "$img")" ]; then
@@ -184,13 +251,13 @@ verify_image() {
   # point reading all of it. This also tells the two failure classes apart, which the hash alone cannot:
   # a short file is a copy problem, a full-length file with a wrong hash is flipped bits or a different
   # image. Skipped silently when .rawsize is absent -- it is an optimisation, never a new requirement.
-  local size; size=$(wc -c < "$img" 2>/dev/null | tr -dc '0-9')
+  local size; size=$(img_size_of "$img")
   local raw=""; [ -f "$img.rawsize" ] && raw=$(tr -dc '0-9' < "$img.rawsize")
   local trailer_checked=0          # only then may the mismatch message claim the file is whole
   if [ -n "$raw" ]; then
     local b0 b1 b2 b3 isize
     read -r b0 b1 b2 b3 <<EOF
-$(tail -c 4 "$img" 2>/dev/null | od -An -tu1)
+$(img_tail4_of "$img" | od -An -tu1)
 EOF
     if [ -n "$b3" ]; then
       isize=$(( b0 + b1 * 256 + b2 * 65536 + b3 * 16777216 ))
@@ -211,7 +278,7 @@ EOF
   fi
 
   note "verifying sha256 of ${img##*/} — reads all of it, a few minutes ..."
-  local have; have=$(sha256sum "$img" 2>/dev/null | awk '{print $1}')
+  local have; have=$(img_cat_of "$img" 2>/dev/null | sha256sum 2>/dev/null | awk '{print $1}')
   [ -n "$have" ] || die "could not read $img to hash it — bad USB stick or unreadable file."
 
   if [ "$have" != "$want" ]; then
@@ -256,8 +323,21 @@ parent_disk() {  # partition -> its parent whole-disk device (mmcblk1p2 -> /dev/
   [ -n "$base" ] || base=$(basename "$src" | sed -E 's/p?[0-9]+$//')   # fallback if lsblk lacks pkname
   [ -n "$base" ] && echo "/dev/$base"
 }
-usb_device_of() {  # underlying whole-disk device that holds the image (must NOT be the target)
-  parent_disk "$(findmnt -no SOURCE --target "$1" 2>/dev/null)"
+usb_device_of() {  # underlying whole-disk device holding a path (image or directory)
+  # Called with BOTH shapes: an image path, and the USB directory itself. So resolve the nearest path
+  # that actually exists, rather than always reaching for the parent.
+  #
+  # A split backup has no file under its base name, and `findmnt --target` on a path that does not exist
+  # returns nothing. An empty answer is not harmless here: the same-device guard is written as
+  # `[ -n "$imgdev" ] && ...`, so it would quietly skip itself -- switching off the check that stops
+  # someone flashing from an image sitting on the eMMC, for exactly the backups that need it.
+  #
+  # Reaching for the parent unconditionally fixed that and broke the other caller: find_usb_dir passes a
+  # DIRECTORY, whose parent is on the eMMC, so every stick was rejected as "that is the eMMC itself" and
+  # --backup reported no writable USB at all. One helper, two kinds of argument -- test both.
+  local p="$1"
+  [ -e "$p" ] || p="$(dirname "$p")"
+  parent_disk "$(findmnt -no SOURCE --target "$p" 2>/dev/null)"
 }
 detect_emmc() {
   local rootsrc dev base
@@ -620,7 +700,14 @@ arm() {
   plan
   [ "${ARCO_RESTORING:-0}" = 1 ] && restoring=1
   case "$(basename "$IMG")" in arco-emmc-backup*) restoring=1;; esac
-  local sha; sha=$(cut -d' ' -f1 "$IMG.sha256")
+  # Same rule as verify_image, and it has to be: the initramfs compares this against the hash of the
+  # parts concatenated, so for a split set it must be the STREAM hash from the marked comment, not the
+  # first part's. `cut -d' ' -f1` -- what stood here -- takes the first field of EVERY line, so it would
+  # have handed over a multi-line string starting with "#", and the flash would have failed after the
+  # reboot with an unexplained mismatch.
+  local sha; sha=$(awk '/^[ 	]*#[ 	]*arco-stream-sha256:/ {print $3; exit}
+                        /^[ 	]*#/ {next}
+                        NF {print $1; exit}' "$IMG.sha256")
   # Restoring one of our own backups is not an install, and the install-only steps are wrong for it.
   # The image IS this printer, byte for byte: it already carries the Wi-Fi configuration, so asking for
   # a network and seeding one onto the stick decides nothing; and it already carries phrozen_dev, so
@@ -681,9 +768,15 @@ arm() {
   # exist, so arming a flash on top of a pending backup would quietly take a backup instead -- the user
   # would watch the wrong job run and the flash would still be waiting afterwards.
   rm -f "$STATE_DIR/backup.conf"
+  # How many parts the set had WHEN IT WAS CHECKED. The initramfs counts them again on the stick and
+  # refuses if the number changed: a part deleted to make room, or a copy that stopped early, would
+  # otherwise be discovered as a stream ending mid-sentence -- after the eMMC had been partly
+  # overwritten. 0 means an ordinary single file.
+  local nparts; nparts=$(img_nparts_of "$IMG")
   cat > "$STATE_DIR/flash.conf" <<EOF
 ARCO_FLASH_ARMED=1
 ARCO_IMG_NAME=$(basename "$IMG")
+ARCO_IMG_PARTS=$nparts
 ARCO_IMG_SHA=$sha
 ARCO_IMG_RAW=$raw
 ARCO_TARGET=$EMMC
@@ -816,9 +909,16 @@ backup_emmc() {
   echo "  Measuring how big the backup will be. This samples the eMMC and takes"
   echo "  about a minute, with no output until it is done. Nothing is written."
   echo "  A quiet screen here is normal — please wait."
-  need=$(estimate_backup_size "$EMMC" "$devsz")
+  local est exp
+  est=$(estimate_backup_size "$EMMC" "$devsz" "$GZLEVEL")
+  exp=${est%% *}; need=${est##* }
   free=$(df -B1 --output=avail "$usb" 2>/dev/null | tail -1 | tr -dc '0-9')
-  note "estimated backup size: ~$(( need / 1000000000 )).$(( need / 100000000 % 10 )) GB   free on the stick: $(( ${free:-0} / 1000000000 )).$(( ${free:-0} / 100000000 % 10 )) GB"
+  # Both figures, because they answer different questions: the expected size is what the owner will
+  # actually see, the worst case is what the stick has to be able to hold. Checking against the worst
+  # case keeps the old asymmetry -- running out of room after half an hour of reading is expensive, a
+  # cautious sentence on screen is not -- without the flat 35% that used to refuse good sticks.
+  note "backup size: ~$(( exp / 1000000000 )).$(( exp / 100000000 % 10 )) GB expected, up to $(( need / 1000000000 )).$(( need / 100000000 % 10 )) GB worst case (gzip -$GZLEVEL)"
+  note "free on the stick: $(( ${free:-0} / 1000000000 )).$(( ${free:-0} / 100000000 % 10 )) GB"
   if [ -n "$free" ] && [ "$free" -lt "$need" ]; then
     warn "the stick does not have room for the backup (needs roughly $(( need / 1000000000 + 1 )) GB free)."
     # Naming backups per system doubled how many can pile up here: stock and unleashed, each with a
@@ -853,25 +953,22 @@ backup_emmc() {
     warn "(it can do: $(fs_flashable_list)). It would arm here and then do nothing after the reboot."
     die "aborting — nothing was changed. Reformat the stick, or image the eMMC on a PC instead."
   fi
-  if [ "$fstype" = vfat ] && [ "$need" -ge 4294967296 ]; then
-    # FAT32 is the only medium this project asks anyone to use, so the answer to "too big" is to make
-    # the IMAGE smaller, not to send the owner off to reformat. Two levers, in the order that costs
-    # least: zeroing the free space (usually decisive, because a dd image carries deleted files byte for
-    # byte until their blocks are zeroed) and a stronger compression level (slower, ~10-15%).
-    warn "this stick is FAT32: it cannot hold a single file of 4 GiB or more,"
-    warn "and the backup is estimated at $(( need / 1000000000 )).$(( need / 100000000 % 10 )) GB."
+  # FAT32 cannot hold a file of 4 GiB or more. That used to end the run here, with advice to zero the
+  # free space and compress harder -- and refusing was the wrong answer twice over: the zeroing step was
+  # never something the printer could actually do (see the initramfs hook), and a backup that does not
+  # fit in ONE file fits perfectly well in several. So it is written as a numbered set now, and the only
+  # question left is whether the stick has room in TOTAL, which was already asked above.
+  if [ "$need" -ge "$SPLITSZ" ]; then
+    local parts=$(( (need + SPLITSZ - 1) / SPLITSZ ))
+    note "too large for one file on FAT32 — it will be written as about $parts parts"
     echo
-    echo "  This is an image of the whole eMMC, so DELETING FILES DOES NOT SHRINK IT — their"
-    echo "  contents stay in the freed blocks and compress no better than noise. Two things do:"
+    echo "  The parts are named ${BACKUP_NAME}.001, .002 and so on. They are one"
+    echo "  stream cut into pieces, so ALL OF THEM ARE NEEDED: keep them together,"
+    echo "  copy them together, and never delete one to make room."
     echo
-    echo "    1. Zero the free space first, then run this again. Usually the decisive one:"
-    echo "         sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync"
-    echo "       (fills the disk for a few minutes — do not print meanwhile, and reboot afterwards)"
+    echo "  Restoring from this printer handles the set for you. On a PC it is:"
+    echo "      cat ${BACKUP_NAME}.??? | gunzip | dd of=/dev/<your-emmc> bs=4M"
     echo
-    echo "    2. Compress harder — slower, buys roughly 10-15%:"
-    echo "         sudo ARCO_BACKUP_GZIP=6 bash \$0 --backup"
-    echo
-    die "aborting — nothing was changed."
   fi
 
   echo
@@ -894,15 +991,15 @@ backup_emmc() {
   # A pending flash and a pending backup must never coexist: whichever the initramfs picked, the other
   # would still be sitting there armed for the boot after.
   rm -f "$STATE_DIR/flash.conf"
-  # ZEROFREE and GZIP are the two levers that decide whether a backup fits FAT32's 4 GiB per-file
-  # ceiling, which is the only medium this project asks for. Both are carried into the initramfs here
-  # rather than decided there, so what the owner agreed to on screen is exactly what runs.
+  # GZIP and SPLIT are carried into the initramfs here rather than decided there, so what the owner saw
+  # on screen -- the size estimate, the part count -- is measured with exactly the settings that will
+  # run. ARCO_BACKUP_ZEROFREE used to sit here too; it is gone, along with the feature it switched.
   cat > "$STATE_DIR/backup.conf" <<EOF
 ARCO_BACKUP_ARMED=1
 ARCO_BACKUP_NAME=$BACKUP_NAME
 ARCO_BACKUP_TOKEN=$token
-ARCO_BACKUP_GZIP=${ARCO_BACKUP_GZIP:-1}
-ARCO_BACKUP_ZEROFREE=${ARCO_BACKUP_ZEROFREE:-1}
+ARCO_BACKUP_GZIP=$GZLEVEL
+ARCO_BACKUP_SPLIT=$SPLITSZ
 ARCO_TARGET=$EMMC
 EOF
   install -D -m0755 "$HOOK_SRC"     "$ITOOLS/hooks/arco-emmc-flash"
@@ -961,33 +1058,115 @@ EOF
 # one would run out of space minutes into the read. So sample the device and measure, which costs about a
 # minute of reading and nothing else. Read-only.
 estimate_backup_size() {
-  # SPREAD beats VOLUME. This used to take 16 samples of 8 MiB and then simply DOUBLE the result, and
-  # the doubling was not caution, it was compensation: 16 points cannot see a device whose compressible
-  # and incompressible regions are unevenly spread, so the first real run sampled 4.8% and finished at
-  # 7.2%. Same 128 MiB of reading, 64 points instead of 16, is four times the spatial coverage for the
-  # same minute of I/O -- so the estimate can stand closer to the truth without becoming a gamble.
+  # Prints two byte counts: "<expected> <worst-case>".
   #
-  # This matters more than it looks: everything on a FAT32 stick is measured against a hard 4 GiB
-  # per-file ceiling, and a doubled estimate refuses backups that would in fact have fitted. A tester saw
-  # 5.3 GB predicted where the honest figure was closer to 3.
-  local dev="$1" devsz="$2" chunk=$((2*1024*1024)) i off raw out tin=0 tout=0
-  i=0
-  while [ "$i" -lt 64 ]; do
-    off=$(( devsz / 64 * i / chunk ))
-    raw=$(dd if="$dev" bs=$chunk count=1 skip=$off 2>/dev/null | wc -c)
-    if [ "${raw:-0}" -gt 0 ]; then
-      out=$(dd if="$dev" bs=$chunk count=1 skip=$off 2>/dev/null | gzip -1 | wc -c)
-      tin=$(( tin + raw )); tout=$(( tout + out ))
-    fi
+  # THE OLD VERSION ESTIMATED SOMETHING IT DID NOT HAVE TO. It sampled 64 chunks spread evenly over the
+  # whole device and extrapolated, which means it was measuring two quantities at once: how much of the
+  # device carries data, and how well that data compresses. Only the second needs sampling -- df knows
+  # the first exactly -- and the noise in the first dominated the error. Measured on a 31 GB Arco: the
+  # sample hit data in 20.3% of chunks where the true figure was 15.8%, a factor of 1.28, and the
+  # estimate came out 1.26x above the model. The entire discrepancy was that one avoidable guess, and it
+  # then had 35% added on top. A tester was told 5.3 GB where the honest figure was nearer 3.
+  #
+  # So: take the size from df, and spend the sampling budget where the answer actually varies.
+  local dev="$1" devsz="$2" lvl="${3:-1}"
+  local freeb=0 a s
+
+  # 1. FREE space, exactly. Everything not accounted for by a filesystem -- unpartitioned gaps, anything
+  #    unreadable -- stays on the data side, which is the conservative direction.
+  while read -r a s; do
+    case "$s" in "$dev"*) freeb=$(( freeb + ${a:-0} )) ;; esac
+  done <<EOF
+$(df -B1 --output=avail,source 2>/dev/null | tail -n +2)
+EOF
+  local datab=$(( devsz - freeb ))
+  [ "$datab" -lt 0 ] && datab=0
+
+  # 2. What free space costs once it is gzipped. Measured, not assumed, and measured at the level that
+  #    will actually run: gzip -1 and -6 differ by 4.5x on runs of zeros (0.436% vs 0.097% on an Arco),
+  #    so assuming either would be wrong for the other. It is not negligible at -1: 26 GB of free space
+  #    is still ~115 MB in the finished file.
+  local zden=$(( 16 * 1024 * 1024 )) znum
+  znum=$(dd if=/dev/zero bs=1M count=16 2>/dev/null | gzip -"$lvl" | wc -c)
+  [ "${znum:-0}" -gt 0 ] || znum=$(( zden / 200 ))
+
+  # 3. WHERE the data is. A cheap coarse pass -- 256 reads of 64 KiB, 16 MiB in total -- just to find the
+  #    regions worth sampling properly. Filesystems fill from the front, so an even spread wastes most of
+  #    its budget on empty space: on the dev printer 51 of 64 full-size samples landed in zeros.
+  local ncoarse=256 csz=65536 i=0 boff out
+  local hits="" nhit=0
+  while [ "$i" -lt "$ncoarse" ]; do
+    boff=$(( devsz / ncoarse * i ))
+    out=$(dd if="$dev" bs=$csz count=1 skip=$(( boff / csz )) 2>/dev/null | gzip -1 | wc -c)
+    if [ "${out:-0}" -gt $(( csz / 50 )) ]; then hits="$hits $boff"; nhit=$(( nhit + 1 )); fi
     i=$(( i + 1 ))
   done
-  # Fall back to the pessimistic figure if the sampling could not read anything at all.
-  if [ "$tin" -le 0 ]; then echo $(( devsz / 100 * 35 )); return; fi
-  # A 35% margin, not 100%. The errors stay asymmetric -- too little room ends in a failed backup after
-  # half an hour of reading, too much only costs a sentence on screen -- so this keeps a real margin. It
-  # also still matches the sampler to the writer: both use gzip -1, so no compression level is being
-  # assumed here that the backup will not actually use.
-  echo $(( devsz / tin * tout * 135 / 100 ))
+
+  # 4. Sample the data properly: up to 64 reads of 2 MiB, all of them inside regions the coarse pass
+  #    found something in. Same reading time as before, five times the coverage of the part that matters.
+  #    If the coarse pass found nothing at all -- a device that is genuinely empty, or unreadable -- fall
+  #    back to an even spread rather than reporting a fantasy.
+  local chunk=$(( 2 * 1024 * 1024 )) nsamp=0 samples=""
+  local step=1; [ "$nhit" -gt 64 ] && step=$(( (nhit + 63) / 64 ))
+  if [ "$nhit" -gt 0 ]; then
+    i=0
+    for boff in $hits; do
+      i=$(( i + 1 )); [ $(( i % step )) -eq 0 ] || continue
+      out=$(dd if="$dev" bs=$chunk count=1 skip=$(( boff / chunk )) 2>/dev/null | gzip -"$lvl" | wc -c)
+      [ "${out:-0}" -gt 0 ] || continue
+      samples="$samples$out
+"; nsamp=$(( nsamp + 1 ))
+    done
+  fi
+  if [ "$nsamp" -le 0 ]; then
+    i=0
+    while [ "$i" -lt 32 ]; do
+      out=$(dd if="$dev" bs=$chunk count=1 skip=$(( devsz / 32 * i / chunk )) 2>/dev/null | gzip -"$lvl" | wc -c)
+      [ "${out:-0}" -gt 0 ] && { samples="$samples$out
+"; nsamp=$(( nsamp + 1 )); }
+      i=$(( i + 1 ))
+    done
+  fi
+  [ "$nsamp" -gt 0 ] || { echo "$(( devsz / 100 * 35 )) $(( devsz / 100 * 50 ))"; return; }
+
+  # 5. Put it together -- in awk, which has floating point. Doing this in shell integers meant scaling
+  #    everything down first to dodge a silent 64-bit overflow, and that scaling is where the upper bound
+  #    was lost: it divided by 1000 one time too many, came out a thousandfold too small, and the guard
+  #    below it quietly raised it back to the expected value. Both numbers then printed the same, which
+  #    is the only reason it was noticed at all.
+  #
+  # THE UPPER BOUND IS THE ONE THAT DECIDES, so it has to be honest in the expensive direction: too high
+  # costs a sentence on screen, too low costs half an hour of reading and a failed backup. Measured here:
+  # expected came out 2.1 GB where the truth was 2.30 GB, a 9% miss -- normal sampling error, and exactly
+  # what the bound exists to absorb.
+  #
+  # Mean plus two standard errors of the sampled ratio, not a flat percentage and not "the worst chunk we
+  # saw". The worst chunk was the first attempt and it was useless: one incompressible 2 MiB region would
+  # have predicted 5 GB here and refused a stick with 4.2 GB free that fits the real 2.3 GB easily. A
+  # confidence bound tightens by itself on a uniform device and widens only where the device really is
+  # uneven. The 10% floor covers the case where too few samples make the spread look artificially small.
+  printf '%s' "$samples" | awk -v datab="$datab" -v freeb="$freeb" \
+                               -v znum="$znum" -v zden="$zden" -v chunk="$chunk" '
+    # %.0f, never %d. mawk (1.3.4, what the printer has) converts %d through a 32-bit int and SATURATES
+    # at 2147483647 -- so any figure past 2.1 GB came out as exactly 2147483647, which the GB formatting
+    # then rendered as "2.1 GB". Expected happened to sit just under the ceiling and looked right;
+    # the upper bound sat just over it and printed the same number, which is how it was noticed. It also
+    # fed that truncated value into the does-it-fit check, so on a tighter stick it would have waved
+    # through a backup that does not fit. gawk has no such limit, which is why an offline test passed.
+    NF { r = $1 / chunk; n++; s += r; s2 += r*r }
+    END {
+      if (n == 0) { printf "%.0f %.0f\n", datab*0.35, datab*0.50; exit }
+      mean = s / n
+      var  = s2/n - mean*mean; if (var < 0) var = 0
+      se   = sqrt(var / n)
+      zfree = freeb * znum / zden
+      # NOT named exp: that is awk s built-in exponential, and using it as a variable is a syntax error
+      # -- one that would have taken the whole estimate down on the printer rather than skewing it.
+      expd = datab * mean + zfree
+      hi   = datab * (mean + 2*se) + zfree
+      if (hi < expd * 1.10) hi = expd * 1.10
+      printf "%.0f %.0f\n", expd, hi
+    }'
 }
 
 find_usb_dir() {

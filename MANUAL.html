@@ -757,33 +757,60 @@ post or share it.</p>
 2.3 GB file. A stock 8 GB eMMC is proportionally quicker and
 smaller.</p>
 <p><a id="backup-too-large"></a></p>
-<h3 id="if-it-says-the-backup-is-too-large">If it says the backup is too
-large</h3>
-<p>The backup is a <strong>single file</strong>, and FAT32 cannot hold
-one of 4 GiB or more. The tool tells you before it starts, so you lose a
-sentence rather than half an hour.</p>
-<p><strong>Deleting files is the fix — but only because the backup zeros
-the freed space for you.</strong> A disk image copies blocks, not files,
-so on its own a deleted file stays in those blocks byte for byte and
-compresses no better than noise. Zeroing turns it into almost nothing.
-That is why the two commands above are worth running before you start,
-and why deleting alone does nothing on other tools.</p>
-<p>If it still does not fit, in order:</p>
-<p><strong>1. Zero the free space by hand as well</strong>, then run the
-backup again. It fills the disk for a few minutes and releases it:</p>
+<h3 id="if-the-backup-is-large">If the backup is large</h3>
+<p>FAT32 cannot hold a single file of 4 GiB or more, and FAT32 is the
+only format this guide asks you to use. That is no longer something you
+have to solve: when the backup would cross that, it is written as a
+numbered set instead — <code>arco-emmc-backup-….img.gz.001</code>,
+<code>.002</code>, and so on.</p>
+<p><strong>All the parts belong together.</strong> They are one file cut
+into pieces, so a set with a part missing is not a smaller backup, it is
+no backup at all. Keep them together, copy them together, and never
+delete one to make room. Restoring from the printer handles the set for
+you.</p>
+<p>You can check them with the ordinary tool, on the printer or on any
+PC — it names the part that is wrong, which is usually a bad stick
+rather than a bad backup:</p>
 <div class="sourceCode" id="cb7"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> dd if=/dev/zero of=/zero.tmp bs=1M <span class="dv">2</span><span class="op">&gt;</span>/dev/null<span class="kw">;</span> <span class="fu">sync</span><span class="kw">;</span> <span class="fu">sudo</span> rm <span class="at">-f</span> /zero.tmp<span class="kw">;</span> <span class="fu">sync</span></span></code></pre></div>
-<p>Do not print while that runs, and reboot afterwards.</p>
-<p><strong>2. Compress harder.</strong> Slower, and buys roughly 10–15
-%:</p>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-unleashed.img.gz.sha256</span></code></pre></div>
+<p>And on a PC the set goes back with no software of ours:</p>
 <div class="sourceCode" id="cb8"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
-<p><strong>3. Image the eMMC on a PC instead</strong> — <a
-href="#appendix-a">Appendix A</a>. No size limit at all.</p>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> arco-emmc-backup-unleashed.img.gz.<span class="pp">???</span> <span class="kw">|</span> <span class="fu">gunzip</span> <span class="kw">|</span> <span class="fu">dd</span> of=/dev/<span class="op">&lt;</span>your-emmc<span class="op">&gt;</span> bs=4M</span></code></pre></div>
+<p>What you still need is <strong>room on the stick in total</strong>.
+The tool measures the eMMC before it starts and prints both the size it
+expects and an upper bound, against the free space it found — so if the
+stick is too small you lose a sentence rather than half an hour. If it
+is, delete what you no longer need (the <code>.previous</code> copies
+are safe to remove; an image of Phrozen’s original system is not) or use
+a bigger stick.</p>
+<p><strong>If the stick fills up anyway</strong> — the estimate was
+optimistic, or something else took the room — the backup stops and the
+printer <strong>stays on that screen</strong> instead of carrying on. It
+does not boot past it, because a job you left running for half an hour
+is a job nobody is watching when it fails. Switch the printer off and on
+when you have read it; nothing on the printer was changed, and the
+half-written backup is deleted so it cannot be mistaken for a complete
+one. The same message is left on the stick as
+<code>BACKUP-STOPPED-READ-ME.txt</code>, for the case where the display
+is not the thing you are looking at.</p>
+<p><strong>A smaller backup, if you want one.</strong>
+<code>--small</code> compresses harder: perhaps 20 % less to store, at
+roughly half again the time. <code>--fast</code> is the default and is
+what you want unless space is tight.</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span> <span class="at">--small</span></span></code></pre></div>
+<blockquote>
+<p><strong>Why deleting files does not shrink it.</strong> A disk image
+copies blocks, not files. A deleted file stays in those blocks byte for
+byte until something writes over them, and to the compressor it looks
+like noise. So freeing 5 GB of files changes the backup very little.
+This is normal for disk images and is the reason the size is handled by
+splitting rather than by asking you to tidy up.</p>
+</blockquote>
 <h3 id="writing-it-back-later">Writing it back later</h3>
 <p>The ordinary flash, pointed at your own file:</p>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="at">--image</span> /path/to/arco-emmc-backup-stock.img.gz</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="at">--image</span> /path/to/arco-emmc-backup-stock.img.gz</span></code></pre></div>
 <p>It verifies the checksum, refuses an image that cannot fit this
 printer’s eMMC, and skips the WiFi and first-boot steps — a restore is
 not an install, and your image already carries both. A 32 GB image takes
@@ -875,11 +902,11 @@ look before you leap</h3>
 if you have not done that before. The stick mounts itself at
 <code>~/printer_data/gcodes/USB</code>, on Phrozen’s system and on this
 one alike.</p>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh</span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh</span></code></pre></div>
 <p>That second command is the <strong>inspect pass. It changes
 nothing.</strong> It finds the image, checks it against its
 <code>.sha256</code>, names the eMMC it would write to, and stops. Read
@@ -889,13 +916,13 @@ that line and make sure it is the device you mean.</p>
 <code>~/printer_data/gcodes/USB</code>?</strong> Then the stick did not
 mount itself. Mount it to that same path and the commands above work
 unchanged — <code>lsblk</code> tells you which partition it is:</p>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 </blockquote>
 <h3 id="arm-it">2. Arm it</h3>
-<div class="sourceCode" id="cb14"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span></span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span></span></code></pre></div>
 <p align="center">
 <img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760">
 </p>
@@ -976,8 +1003,8 @@ put a good image back on the stick, power-cycle, and it tries again.</p>
 <p>But if you stop here and go on using the old system, <strong>cancel
 it first</strong> — otherwise the next boot with that image on a
 plugged-in stick overwrites the eMMC without asking:</p>
-<div class="sourceCode" id="cb15"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--disarm</span></span></code></pre></div>
 <hr />
 <p><a id="step-4"></a></p>
 <h2 id="step-4-first-boot-wifi-portal-usb-install">Step 4 — First boot:
@@ -1133,8 +1160,8 @@ there until the MCUs are flashed in the next step.</p>
 <h2 id="step-6-flash-the-mcus-essential">Step 6 — Flash the MCUs ⚠️
 essential</h2>
 <p>Open the setup menu — everything from here on runs from it:</p>
-<div class="sourceCode" id="cb18"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p align="center">
 <img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820">
 </p>
@@ -1235,8 +1262,8 @@ dragging it.</p>
 <p><strong>3) Power back up and get the script waiting.</strong> Plug
 in, switch on, wait for the boot, connect with PuTTY again (<a
 href="#step-5">Step 5</a>) and run:</p>
-<div class="sourceCode" id="cb19"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>→ <code>1</code> (Flash MCUs) → the toolhead F103. The toolhead stays
 open from here: the flasher stops Klipper, so nothing homes and nothing
 heats — just leave the part-cooling fan unplugged until the covers go
@@ -1339,9 +1366,9 @@ when you started (you pressed BOOT0, or an earlier attempt left it
 there) — a DFU device doesn’t announce a Klipper serial. Then the
 placeholder is still in the config. Fix it in one command, with the
 printer powered on and running its new firmware:</p>
-<div class="sourceCode" id="cb20"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/set-mcu-serial.sh</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 </details>
 <hr />
 <p><a id="step-7"></a></p>
@@ -1352,8 +1379,8 @@ optional. The power-cycle at the end of Step 6 ended your SSH session.
 Give the printer a minute to finish booting, connect again as in <a
 href="#step-5">Step 5</a>, and re-open the menu — you can do this at any
 time, from now on:</p>
-<div class="sourceCode" id="cb21"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>This is what it has to offer.</p>
 <p>The menu groups it: <strong>ESSENTIAL</strong> (1 — Flash MCUs,
 done), <strong>MAINTENANCE</strong> (2 — backup / restore your settings
@@ -1508,8 +1535,8 @@ bites.)</em></p>
 <p><strong>Now back up what you just measured.</strong> Open the setup
 menu and take <strong>2 — Backup / restore settings</strong>, then
 <strong>copy the backup to a USB stick</strong>:</p>
-<div class="sourceCode" id="cb24"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <p>The menu calls it <em>“do this once, right after setup”</em> — this
 is that moment. Your calibration numbers exist from here on, nothing can
 guess them back, and the local copy lives on the very eMMC it is meant
@@ -1785,9 +1812,9 @@ printer, from your own installation.</p>
 repairs everything it can without needing to know what broke, and tells
 you what was actually wrong.</p>
 <p><strong>To update Klipper</strong> — safe, for the same reason:</p>
-<div class="sourceCode" id="cb25"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
 <p>Nothing is lost: every patch is re-applied before klippy loads. Be
 aware you are then off the version this build was tested against.</p>
 <h3 id="verify-the-migration">Verify the migration</h3>
@@ -2152,7 +2179,8 @@ return to the factory system — the safest arrangement there is.</li>
 <li><strong>Keeping a copy of stock.</strong> With the module in a PC
 you can image it byte for byte, with no size limit and no compression to
 worry about. <a href="#step-2">Step 2</a> does the same thing without
-opening the printer, but it has to fit under 4 GiB.</li>
+opening the printer, and is no longer limited by size — a backup too
+large for one file on FAT32 is written as a numbered set.</li>
 </ul>
 <p><strong>In addition to the usual tools you need:</strong> a
 <strong>USB-to-eMMC adapter</strong> (the white MKS case), a
@@ -2302,9 +2330,9 @@ backup on the stick is unaffected.</p>
 auto-mounts at <code>~/printer_data/gcodes/USB</code>. If that folder is
 empty, find the partition with <code>lsblk</code> and mount it
 <strong>to that same path</strong> — the tools look there by name:</p>
-<div class="sourceCode" id="cb35"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 <p><strong>More than one image on the stick</strong> The tools match by
 pattern (<code>Arco-Unleashed*.img.gz</code>,
 <code>Arco_FW_V*.zip</code>) and take the <strong>first</strong> match,
@@ -2356,8 +2384,8 @@ website</li>
 level</strong> of a FAT32 stick (do not extract it)</li>
 <li>plug the stick into the printer and power-cycle — or, over SSH:</li>
 </ol>
-<div class="sourceCode" id="cb36"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
+<div class="sourceCode" id="cb37"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
 <p>The zip always takes priority over the download, so this also works
 on a printer that does have internet — and it is the only route that
 brings PhrozenGo.</p>
@@ -2385,14 +2413,14 @@ effect</strong> Config repairs are applied by a guard that runs when the
 klipper <strong>service</strong> starts. Klipper’s own
 <code>RESTART</code> and <code>FIRMWARE_RESTART</code> do
 <strong>not</strong> run it:</p>
-<div class="sourceCode" id="cb37"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb38"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p><strong>A new self-heal guard is not active</strong> Guards are
 systemd drop-ins, and a kit update ships the scripts without rewiring
 them. Menu <strong>3 — Check self-heal guards</strong> compares what is
 wired against what the kit expects and offers to fix it, or:</p>
-<div class="sourceCode" id="cb38"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
 <p>It is idempotent — on an up-to-date printer it changes nothing.</p>
 <p><strong>Obico disappeared after a Phrozen firmware update</strong>
 Phrozen’s own start scripts delete <code>moonraker-obico</code> on every
@@ -2408,8 +2436,8 @@ was started from a copy outside the kit (<code>/tmp/scripts/…</code>)
 and tried to work in the wrong place. Current versions detect this and
 update the installed kit anyway; if yours does not, run it from the kit
 itself:</p>
-<div class="sourceCode" id="cb39"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
+<div class="sourceCode" id="cb40"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
 <h3 id="backup-and-restore">Backup and restore</h3>
 <p><strong>The printer starts a backup by itself after a
 restore</strong> A backup image contains whatever was armed when it was
@@ -2417,8 +2445,8 @@ taken, and restoring it brings that back. Current versions make the
 arming one-shot, so it lands harmlessly. An image taken before that fix
 still expects a marker file — create it on the stick before restoring
 such an image:</p>
-<div class="sourceCode" id="cb40"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
+<div class="sourceCode" id="cb41"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
 <p><strong>Which backup file is the good one</strong> The name tells you
 which system it holds — <code>-stock</code> is Phrozen’s,
 <code>-unleashed</code> is this one — and the restore menu spells that
@@ -2427,8 +2455,8 @@ on purpose: a <code>.img.gz</code> <strong>without</strong> its
 <code>.sha256</code> and <code>.rawsize</code> is an interrupted run,
 whatever its size. To check a complete one in a second, without reading
 the whole file:</p>
-<div class="sourceCode" id="cb41"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb42"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
 <p><strong>“This image does not fit the eMMC in this printer”</strong>
 The backup came from a machine with a larger eMMC — a 32 GB image cannot
 be written to an 8 GB one. The comparison is against the image’s
@@ -2501,10 +2529,10 @@ names the repair when neither is. That state arises on printers set up
 before the bridge could install it, or after a Phrozen firmware update
 replaces <code>printer.cfg</code>. Bringing the bridge up to date and
 restarting the klipper <strong>service</strong> repairs it:</p>
-<div class="sourceCode" id="cb43"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
 <div class="sourceCode" id="cb44"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+<div class="sourceCode" id="cb45"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
 not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
@@ -2568,17 +2596,17 @@ keeps a later Unleashed backup from rotating it away, and what the menu
 reads to label it for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb46"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb47"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the
@@ -2593,7 +2621,7 @@ output until it finishes. If you happen to have 7-Zip,
 <code>7z a -tgzip -mx=1 "$dst" "$img"</code> replaces the three middle
 lines and is quicker; the two sidecar lines are still needed either
 way.</p>
-<p><strong>Why must it be under 4 GB?</strong></p>
+<p><strong>What if it comes out over 4 GB?</strong></p>
 <p>FAT32 cannot hold a single <strong>file</strong> of 4 GiB or more.
 That is a per-file limit, not a limit on the stick — a 64 GB stick is
 fine, one 4 GiB file on it is not. So a raw 8 GB image can never sit on
@@ -2601,10 +2629,24 @@ the stick at all; compressed it normally lands at 2–2.5 GB, unless the
 eMMC’s free space is full of deleted data, which does not compress.</p>
 <p>Reformatting to exFAT or NTFS does <strong>not</strong> help: the
 small system that performs the flash runs before Linux is up and can
-only mount FAT32. If your image will not go below 4 GiB, use <strong><a
-href="#appendix-a">Appendix A</a></strong> instead — write the raw
-<code>.img</code> straight to the eMMC on your PC, no stick
-involved.</p>
+only mount FAT32.</p>
+<p>A backup made <strong>by the printer</strong> splits itself when it
+has to, so this only concerns an image you made by hand here. If yours
+is over the limit, cut it into parts the restore will accept — on Linux
+or macOS:</p>
+<div class="sourceCode" id="cb48"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span> <span class="at">-b</span> 3788M <span class="at">--numeric-suffixes</span><span class="op">=</span>1 <span class="at">-a</span> 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.</span></code></pre></div>
+<p>The sidecar then needs the hash of the whole file first, marked as
+such, followed by one line per part:</p>
+<div class="sourceCode" id="cb49"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="bu">printf</span> <span class="st">&#39;# arco-stream-sha256: %s\n&#39;</span> <span class="st">&quot;</span><span class="va">$(</span><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span><span class="st">&#39; &#39;</span> <span class="at">-f1</span><span class="va">)</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz.<span class="pp">???</span> <span class="op">&gt;&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span></code></pre></div>
+<p>Put the parts and that one sidecar on the stick — not the original —
+and the restore menu lists it under its plain name. On Windows, where
+there is no comfortable way to do this, use <strong><a
+href="#appendix-a">Appendix A</a></strong> instead: write the raw
+<code>.img</code> straight to the eMMC, no stick involved.</p>
 <p><strong>balenaEtcher does not create images</strong>, it only writes
 them. To read one off an eMMC use Win32DiskImager’s <em>Read</em>, or
 <code>dd</code> on Linux/macOS. Or skip all of this and let the printer

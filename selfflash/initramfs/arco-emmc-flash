@@ -77,6 +77,30 @@ panic_shell(){
 # clean exit that leaves the old system booting normally
 normal_boot(){ say "$*"; sync; umount /arco_usb 2>/dev/null; exit 0; }
 
+# Stop, and keep the message on screen until somebody comes.
+#
+# Only for situations where the PRINTER IS UNTOUCHED and the owner has to do something before another
+# attempt is worth making -- a full stick above all. Carrying on with the boot after a six-second screen
+# is what this replaces, and for a job people deliberately leave running for half an hour that is close
+# to useless: whoever comes back finds a printer that looks perfectly normal, with no sign anything went
+# wrong and nothing on screen any more.
+#
+# No shell, unlike panic_shell: this machine has no keyboard, and unlike the flash path there is nothing
+# here to repair. Just hold still. Everything is flushed and the stick unmounted FIRST, so it can be
+# pulled straight out and read on a PC -- which is also why the note is left on the stick as a file: a
+# display that is dead or unplugged would otherwise make this a printer that simply never boots.
+# $1 = one line for the log. The CALLER writes BACKUP-STOPPED-READ-ME.txt on the stick before calling,
+# because only it knows the details -- and a multi-line shell string passed through here came out with
+# its own source indentation baked in, which is fine in a log and looks broken in a file somebody opens
+# on a PC.
+halt_for_power_cycle(){
+  say "$1"
+  say "STOPPING HERE so this stays on screen. Nothing on the printer was changed — switch it off and on"
+  say "again once you have read it."
+  sync; umount /arco_usb 2>/dev/null; LOGF=""
+  while : ; do sleep 3600; done
+}
+
 # --- delete a file, on an initramfs that has no rm ---------------------------------------------------
 # klibc ships 'nuke', not 'rm'. Every `rm -f` in here was therefore a silent no-op, and three things
 # quietly did not happen (found on hardware 2026-07-31, after a backup that should have consumed its
@@ -91,6 +115,28 @@ normal_boot(){ say "$*"; sync; umount /arco_usb 2>/dev/null; exit 0; }
 # away, not that the bytes do. Truncating would leave the arming marker in place -- the one-shot guard
 # broken in exactly the way this function exists to fix -- and would leave a 0-byte file still sitting
 # where a backup belongs.
+# --- one file, or a set of numbered parts? ------------------------------------------------------------
+# FAT32 cannot hold a file of 4 GiB or more, and FAT32 is the only medium this project asks anyone to
+# use. A backup that would cross that is written as PREFIX.001, PREFIX.002, ... -- the SAME single gzip
+# stream, cut into pieces. Concatenating the parts therefore reproduces the original file byte for byte,
+# which has two consequences worth stating plainly:
+#
+#   * the .sha256 beside them is the hash of the WHOLE stream, exactly what it would have been without
+#     splitting, so nothing downstream needs to learn a new format;
+#   * `cat backup.img.gz.* | gunzip | dd of=/dev/sdX` restores it on any PC, with no tooling of ours.
+#     That mattered enough to decide the design: splitting the DEVICE into regions instead would have
+#     been simpler here and would have made the owner dependent on us to get their printer back.
+#
+# Every read of the image goes through img_cat, so "one file or many" is decided in ONE place rather
+# than at each of the eleven points that touch it (checksum, decompress probe, write, verify, ...).
+# The glob is three digits, so the shell sorts the parts correctly and the sidecars (.sha256, .rawsize)
+# cannot be swept in.
+img_cat(){
+  if [ -f "$IMG" ]; then cat "$IMG"; return; fi
+  cat "$IMG".[0-9][0-9][0-9]
+}
+img_nparts(){ set -- "$IMG".[0-9][0-9][0-9]; if [ -f "$1" ]; then echo $#; else echo 0; fi; }
+
 # --- how many bytes has dd copied so far? ------------------------------------------------------------
 # From dd's own status=progress output, because under conv=sparse the block layer's written-sectors
 # counter is the wrong yardstick -- seeked-over runs are not written, and dd counts them as copied.
@@ -151,11 +197,21 @@ tft_chrome(){                                  # static frame, drawn once
   tft "xstr 0,38,800,36,$F_BRAND,$C_ACC,$C_BG,1,1,1,\"ARCO UNLEASHED\""
   tft "fill 320,92,160,2,$C_TRK"
 }
-tft_phase(){                                   # $1 headline  $2 warning  $3 warning colour  $4 hint
+# $1 headline  $2 warning  $3 warning colour  $4 hint
+#
+# NONE OF THESE WRAP. Each is one xstr box, and anything past its width is simply not drawn -- no
+# ellipsis, no warning, it just stops mid-word. Photographed on hardware 2026-08-09: a hint of 82
+# characters was cut at about 74, and two older ones in this file (94 and 86) had the same fault
+# unnoticed, because their screens are rare. Keep hints to ~70 characters.
+#
+# The hint box was also 28 px tall against a font that needs more, so descenders were clipped -- the
+# 'g' in "bigger" had no tail. Grown to 44 px around the same centre line; the panel is 800x480 and
+# nothing else lives below y=400, so there was room to take.
+tft_phase(){
   [ -e "$TFT" ] || return 0
   tft "xstr 0,136,800,32,$F_PHASE,$C_TXT,$C_BG,1,1,1,\"$1\""
   tft "xstr 0,322,800,36,$F_WARN,$3,$C_BG,1,1,1,\"$2\""
-  tft "xstr 0,372,800,28,$F_HINT,$C_MUT,$C_BG,1,1,1,\"$4\""
+  tft "xstr 0,364,800,44,$F_HINT,$C_MUT,$C_BG,1,1,1,\"$4\""
 }
 tft_bar(){                                     # $1 = percent (0-100)
   [ -e "$TFT" ] || return 0
@@ -218,7 +274,10 @@ while [ $i -lt 30 ]; do                        # USB can be slow to enumerate in
           say "$GOVMSG"        # only now is there a file to write it to
           break
         fi
-      elif [ -f "/arco_usb/$ARCO_IMG_NAME" ]; then
+      # A split backup has no file under the plain name -- only PREFIX.001 and its siblings -- so the
+      # stick would be passed over as "not the one" and the flash would sit armed forever, waiting for a
+      # file that will never exist. Accept either shape here; img_cat sorts out which it is.
+      elif [ -f "/arco_usb/$ARCO_IMG_NAME" ] || [ -f "/arco_usb/$ARCO_IMG_NAME.001" ]; then
         IMG="/arco_usb/$ARCO_IMG_NAME"; LOGF="/arco_usb/arco-selfflash.log"
         { echo; echo "==== arco-selfflash run (mounted $part) ===="; } >> "$LOGF" 2>/dev/null
         say "$GOVMSG"          # only now is there a file to write it to
@@ -236,7 +295,18 @@ if [ "$JOB" = backup ]; then
   say "writable stick: $USBOK"
 else
   [ -n "$IMG" ] || normal_boot "image NOT found on any USB after 30s — continuing normal boot (still armed)."
-  say "found: $IMG"
+  NPARTS=$(img_nparts)
+  if [ "$NPARTS" -gt 0 ]; then
+    # A missing part is not a smaller image, it is a stream that stops mid-sentence -- and it would stop
+    # AFTER the eMMC had been partly overwritten. The count was recorded when the set was armed, so a gap
+    # is caught here, before anything is read and long before anything is written.
+    say "found: $IMG in $NPARTS parts"
+    if [ "${ARCO_IMG_PARTS:-0}" -gt 0 ] && [ "$NPARTS" != "$ARCO_IMG_PARTS" ]; then
+      normal_boot "this backup was armed as $ARCO_IMG_PARTS parts but $NPARTS are on the stick — NOT flashing. Copy the whole set (${ARCO_IMG_NAME}.001 ... and the .sha256 beside them), then arm it again."
+    fi
+  else
+    say "found: $IMG"
+  fi
 fi
 # "Step 1 of 3" counts the three things the FLASHER does, and on an install that is honest: three steps
 # here, then the printer restarts and carries on with the first-boot setup. Writing back an owner's own
@@ -313,8 +383,18 @@ if [ "$JOB" = backup ]; then
 
   # Refuse to silently overwrite an earlier backup: it may be the only copy of a system that no longer
   # exists anywhere. Rename it aside instead -- and if even that fails, stop rather than clobber.
-  if [ -e "$OUT" ]; then
-    if mv "$OUT" "$OUT.previous" 2>/dev/null; then
+  # An earlier run may have left ONE file or a numbered set, and the whole set has to move together: a
+  # backup missing a part is not a smaller backup, it is nothing at all. Renaming to "$OUT.previous"
+  # keeps the set's own shape -- .previous for a single file, .previous.001/.002 for parts -- so the
+  # earlier backup stays exactly as restorable as it was.
+  if [ -e "$OUT" ] || [ -e "$OUT.001" ]; then
+    _rotfail=0
+    if [ -e "$OUT" ]; then mv "$OUT" "$OUT.previous" 2>/dev/null || _rotfail=1; fi
+    for _p in "$OUT".[0-9][0-9][0-9]; do
+      [ -f "$_p" ] || continue
+      mv "$_p" "$OUT.previous.${_p##*.}" 2>/dev/null || _rotfail=1
+    done
+    if [ "$_rotfail" = 0 ]; then
       # The sidecars have to travel with it. install-unleashed.sh refuses to flash an image whose
       # .sha256 is missing, so an image moved aside WITHOUT them is an image that can never be restored
       # -- the backup would still be on the stick and still be useless.
@@ -326,27 +406,43 @@ if [ "$JOB" = backup ]; then
     fi
   fi
 
-  # ---- zero the free space first ---------------------------------------------------------------
-  # A dd image carries deleted files byte for byte: their blocks are marked free but still hold the old
-  # contents, which look like noise to gzip. On a printer that has been used for a while this, not the
-  # data, is what pushes a backup past FAT32's 4 GiB per-file ceiling -- and FAT32 is the only medium
-  # this project asks anyone to use. Here in the initramfs the filesystem is not mounted, which is the
-  # one moment zerofree can run at all. It writes ONLY to blocks the filesystem already considers free:
-  # no file changes, and it refuses outright on an unclean filesystem.
-  if [ "${ARCO_BACKUP_ZEROFREE:-1}" = 1 ] && command -v zerofree >/dev/null 2>&1; then
-    tft_chrome; tft_nobar
-    tft_phase "Preparing the backup (zeroing free space)" \
-              "This makes the backup fit - no files are changed" "$C_MUT" \
-              "Only blocks that are already empty are touched. Please wait."
-    for _zp in "${TARGET}p2" "${TARGET}p1"; do
-      [ -b "$_zp" ] || continue
-      say "zerofree $_zp ..."
-      if zerofree "$_zp" 2>>"$LOGF"; then say "  zerofree ok: $_zp"
-      else say "  zerofree skipped $_zp (not ext, or not cleanly unmounted) — backup continues"; fi
-    done
-  else
-    say "zerofree not run (disabled, or not in this initramfs) — backup may be considerably larger"
+  # ---- how large may one file be? ----------------------------------------------------------------
+  # A dd image carries deleted files byte for byte: blocks the filesystem calls free still hold their old
+  # contents, which look like noise to gzip. That, not the live data, is what makes a backup big -- so on
+  # a printer that has been used for a while it can pass what FAT32 can hold in a single file.
+  #
+  # This used to be answered with zerofree, and that answer was a facade: zerofree was never installed by
+  # anything in this kit, so copy_exec had nothing to copy and the branch below it always took the "not in
+  # this initramfs" path. Two hardware backups went out that way without a single zerofree line in the
+  # log. Worse, it could never have worked where it was needed most -- a stock Buster printer has no
+  # zerofree either, and no reliable way to install one. Splitting is the answer that does not depend on
+  # the printer having anything.
+  #
+  # 3.7 GiB, against FAT32's ceiling of 4 GiB minus one byte: 308 MiB of headroom for the slack a
+  # filesystem takes and for anyone who later moves the parts around.
+  SPLITSZ="${ARCO_BACKUP_SPLIT:-3972005888}"
+  case "$SPLITSZ" in ''|*[!0-9]*) SPLITSZ=3972005888 ;; esac
+  [ "$SPLITSZ" -lt 1048576 ] && SPLITSZ=1048576
+
+  # Same probe shape as gzip above, and for the same reason: klibc owns some of these names, copy_exec is
+  # a silent no-op when it does, and the failure would only surface mid-backup. Prove it can split before
+  # anything is read.
+  SPBIN=""
+  for _s in /usr/bin/split.real /bin/split.real split /bin/split /usr/bin/split; do
+    command -v "$_s" >/dev/null 2>&1 || [ -x "$_s" ] || continue
+    del /run/.arco-sp001
+    if printf 'probe' | "$_s" -b 4 --numeric-suffixes=1 -a 3 - /run/.arco-sp 2>/dev/null \
+       && [ -s /run/.arco-sp001 ]; then
+      SPBIN="$_s"; del /run/.arco-sp001 /run/.arco-sp002; break
+    fi
+    del /run/.arco-sp001 /run/.arco-sp002
+  done
+  if [ -z "$SPBIN" ]; then
+    normal_boot "no usable 'split' in this initramfs, so a backup could not be kept under FAT32's 4 GiB
+    per-file limit. Nothing was written and the printer is unchanged. Update the kit and run --backup
+    again."
   fi
+  say "splitting at $SPLITSZ bytes per part (using $SPBIN)"
 
   tft_chrome; tft_nobar
   tft_phase "Backing up the internal eMMC to the USB stick" \
@@ -364,7 +460,16 @@ if [ "$JOB" = backup ]; then
   GZL="${ARCO_BACKUP_GZIP:-1}"
   case "$GZL" in [1-9]) : ;; *) GZL=1 ;; esac
   say "compressing with gzip -$GZL"
-  ( dd if="$TARGET" bs=4194304 2>/run/arco-backuperr | "$GZBIN" "-$GZL" > "$OUT" 2>>/run/arco-backuperr; echo $? > "$CDONE" ) &
+  del /run/arco-gzrc
+  # split is the writer now, so a full stick surfaces as ITS failure -- but gzip's own status would then
+  # be lost, and losing it would be dangerous rather than untidy: a pipeline reports only its last
+  # command, and split is perfectly content to see the stream stop early. It would write a short set and
+  # exit 0, leaving a truncated backup that looks finished and whose parts each hash correctly. So gzip's
+  # status is captured on the way past and checked alongside split's.
+  ( dd if="$TARGET" bs=4194304 2>/run/arco-backuperr \
+      | { "$GZBIN" "-$GZL" 2>>/run/arco-backuperr; echo $? > /run/arco-gzrc; } \
+      | "$SPBIN" -b "$SPLITSZ" --numeric-suffixes=1 -a 3 - "$OUT." 2>>/run/arco-backuperr
+    echo $? > "$CDONE" ) &
   # 1% steps, not 5%. On a 32 GB eMMC a 5% step is 1.5 GB of reading, which at initramfs speed can be
   # several minutes with the bar frozen on 0 -- indistinguishable from a hang, and a user watching that
   # will pull the plug on a healthy backup. Seen on the first real run: 3 minutes at 0%.
@@ -394,16 +499,68 @@ if [ "$JOB" = backup ]; then
   done
   wait
   crc=$(cat "$CDONE" 2>/dev/null || echo 1)
+  grc=$(cat /run/arco-gzrc 2>/dev/null || echo 1)
   sync
-  # $? of the pipeline is gzip's. A full stick shows up here, as gzip failing to write, and the
-  # half-file it leaves behind would look like a backup -- so it goes.
-  if [ "$crc" != 0 ]; then
+  # A full stick shows up as split failing to write; a broken compressor as gzip's non-zero status. Both
+  # leave a part-written set behind, and a part-written set looks exactly like a finished one -- so it
+  # goes, every part of it, rather than sitting on the stick waiting to be trusted.
+  if [ "$crc" != 0 ] || [ "$grc" != 0 ]; then
     CERR=$(cat /run/arco-backuperr 2>/dev/null)
+    # Measure what landed BEFORE deleting it: "it got to 3.1 GB" is the one number that tells the owner
+    # how much bigger a stick has to be, and it is gone a moment later.
+    WROTE=0
+    for _p in "$OUT".[0-9][0-9][0-9]; do
+      [ -f "$_p" ] || continue
+      _s=$(wc -c < "$_p" 2>/dev/null); WROTE=$(( WROTE + ${_s:-0} ))
+    done
+    [ -f "$OUT" ] && { _s=$(wc -c < "$OUT" 2>/dev/null); WROTE=$(( WROTE + ${_s:-0} )); }
+    PREV=0
+    if [ -e "$OUT.previous" ] || [ -e "$OUT.previous.001" ]; then PREV=1; fi
     del "$OUT"
-    say "backup FAILED (rc=$crc): [$CERR]"
+    for _p in "$OUT".[0-9][0-9][0-9]; do [ -f "$_p" ] && del "$_p"; done
+    say "backup FAILED (split rc=$crc, gzip rc=$grc) after $WROTE bytes: [$CERR]"
+
+    # A full stick is not an error like the others: nothing is broken, the owner simply needs a bigger
+    # one or has to clear some room, and until they do another attempt fails the same way half an hour
+    # later. So say exactly that, and hold the screen instead of booting on past it.
+    case "$CERR" in
+      *"No space left"*|*"no space left"*|*ENOSPC*)
+        tft_nobar
+        tft_phase "USB stick FULL - backup stopped" \
+                  "NOTHING on the printer was changed" "$C_ERR" \
+                  "Power-cycle the printer, then free space or use a bigger stick."
+        # Written line by line, not as one indented shell string: this file gets opened on a PC by
+        # somebody whose printer just stopped, and a wall of ragged text is the wrong thing to hand them.
+        { echo "Arco Unleashed - backup stopped"
+          echo "==============================="
+          echo
+          echo "The USB stick ran out of space after $WROTE bytes."
+          echo
+          echo "The partly written backup has been DELETED, so it cannot be mistaken for a"
+          echo "complete one. There is no half-backup sitting on this stick."
+          if [ "$PREV" = 1 ]; then
+            echo
+            echo "An earlier backup is still here, renamed to '...previous'. If you no longer"
+            echo "need it, deleting it is the quickest way to make room."
+          fi
+          echo
+          echo "NOTHING ON THE PRINTER WAS CHANGED. This job only ever reads the eMMC and"
+          echo "writes to the stick. Switch the printer off and on and it starts up as usual."
+          echo
+          echo "To try again: free some space or use a bigger stick, then run"
+          echo "    sudo bash install-unleashed.sh --backup"
+          echo "The size it prints before starting is the figure to go by - the stick needs"
+          echo "that much FREE space, not that much capacity."
+          echo
+          echo "Smaller, if space is tight:  --small   (slower, roughly 20% less to store)"
+        } > /arco_usb/BACKUP-STOPPED-READ-ME.txt 2>/dev/null
+        halt_for_power_cycle "the USB stick ran out of space after $WROTE bytes — partly written backup deleted, printer untouched. See BACKUP-STOPPED-READ-ME.txt on the stick."
+        ;;
+    esac
+
     tft_nobar
     tft_phase "Backup FAILED" "The printer is untouched" "$C_ERR" \
-              "Most likely the stick is full. Nothing on the printer was changed."
+              "Nothing on the printer changed. Details in arco-selfflash.log."
     sleep 6
     normal_boot "backup failed (rc=$crc) — the incomplete file was deleted. The printer is unchanged."
   fi
@@ -413,22 +570,68 @@ if [ "$JOB" = backup ]; then
   # Only when the size is actually known. Writing "0" would be worse than writing nothing: the restore
   # path treats a present .rawsize as authoritative and would compare the gzip trailer against 0, then
   # refuse a perfectly good backup as "INCOMPLETE or damaged". Absent means "unknown", which it handles.
+  # One part is not a split backup, it is an ordinary one that happened to pass through split. Give it
+  # back its plain name: the stick then looks exactly as it always did, backups made before and after
+  # this change stay interchangeable, and nothing downstream has to special-case a set of one.
+  NP=0
+  for _p in "$OUT".[0-9][0-9][0-9]; do [ -f "$_p" ] && NP=$(( NP + 1 )); done
+  if [ "$NP" = 1 ] && [ -f "$OUT.001" ]; then
+    mv "$OUT.001" "$OUT" 2>/dev/null && NP=0
+  fi
+  [ "$NP" -gt 0 ] && say "backup written as $NP parts of at most $SPLITSZ bytes"
+
   [ "$DEVSZ" -gt 0 ] && printf '%s\n' "$DEVSZ" > "$OUT.rawsize" 2>/dev/null
   tft_bar 100
   tft_phase "Checking the backup" "Leave the USB stick in - almost done" "$C_MUT" \
             "Reading the file back off the stick to make sure it is complete."
   say "hashing the backup (reads it back off the stick) ..."
-  CH=$(sha256sum "$OUT" 2>/dev/null); CH=${CH%% *}
+  if [ "$NP" -gt 0 ]; then
+    # Two passes over the parts, on purpose. The per-part hashes are the ones `sha256sum -c` can actually
+    # check, and it names the part that failed -- which is the whole point, because by far our commonest
+    # tester failure is "sha256 MISMATCH" and it is nearly always the stick. Knowing WHICH part is bad
+    # turns a 25-minute redo into recopying one file. The second pass, over the concatenation, costs
+    # about a minute and produces the number everything downstream compares against.
+    : > "$OUT.sha256.tmp" 2>/dev/null
+    for _p in "$OUT".[0-9][0-9][0-9]; do
+      [ -f "$_p" ] || continue
+      _h=$(sha256sum "$_p" 2>/dev/null); _h=${_h%% *}
+      printf '%s  %s\n' "$_h" "${_p##*/}" >> "$OUT.sha256.tmp" 2>/dev/null
+    done
+    CH=$(cat "$OUT".[0-9][0-9][0-9] 2>/dev/null | sha256sum 2>/dev/null); CH=${CH%% *}
+  else
+    CH=$(sha256sum "$OUT" 2>/dev/null); CH=${CH%% *}
+  fi
   case "$CH" in
     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|"")
-      del "$OUT" "$OUT.rawsize"
+      del "$OUT" "$OUT.rawsize" "$OUT.sha256.tmp"
+      for _p in "$OUT".[0-9][0-9][0-9]; do [ -f "$_p" ] && del "$_p"; done
       tft_nobar
       tft_phase "Backup FAILED" "The printer is untouched" "$C_ERR" \
                 "The file could not be read back. Try another USB stick."
       sleep 6
       normal_boot "the backup could not be read back (empty digest) — deleted it rather than leave a file that looks valid. Run --backup again to retry.";;
   esac
-  printf '%s  %s\n' "$CH" "$OUTN" > "$OUT.sha256" 2>/dev/null
+  # ONE sidecar, and `sha256sum -c` has to work on it in BOTH shapes -- that is what an owner will reach
+  # for, and a standard tool erroring on a perfectly good backup is its own kind of damage.
+  #
+  #   single file : the ordinary "<hash>  <name>" line, unchanged from every backup made before this.
+  #   split set   : one line PER PART, which is what sha256sum can genuinely check and what makes it name
+  #                 the bad part. The whole-stream hash cannot be a normal line -- it describes a file
+  #                 that does not exist, and sha256sum -c would report it missing -- so it rides in a
+  #                 marked comment. sha256sum ignores '#' lines (verified, not assumed).
+  #
+  # An earlier version had it the other way round: the whole-stream hash as the only real line, plus a
+  # separate .parts.sha256. That made `sha256sum -c backup.img.gz.sha256` fail on a healthy backup.
+  if [ "$NP" -gt 0 ]; then
+    { printf '# arco-stream-sha256: %s\n' "$CH"
+      printf '# %s parts of one gzip stream. Restore on any PC:\n' "$NP"
+      printf '#   cat %s.??? | gunzip | dd of=/dev/<your-emmc> bs=4M\n' "$OUTN"
+      cat "$OUT.sha256.tmp" 2>/dev/null
+    } > "$OUT.sha256" 2>/dev/null
+    del "$OUT.sha256.tmp"
+  else
+    printf '%s  %s\n' "$CH" "$OUTN" > "$OUT.sha256" 2>/dev/null
+  fi
   # The token above is what makes THIS code one-shot. The stamp below is for code that is no longer here:
   # every image taken before 2026-07-31 carries an initramfs whose only guard is `.arco-backup-done`, and
   # restoring such an image brings that initramfs back. Removing the stamp as "two mechanisms for the same
@@ -437,8 +640,18 @@ if [ "$JOB" = backup ]; then
   # A guard can only be retired once nothing that depends on it can return, and an image is exactly the
   # thing that brings old code back. So it keeps being written, for their benefit rather than ours.
   : > /arco_usb/.arco-backup-done 2>/dev/null
-  CSZ=$(wc -c < "$OUT" 2>/dev/null)
-  say "backup OK: $OUTN = $CSZ bytes, sha256 $CH"
+  if [ "$NP" -gt 0 ]; then
+    CSZ=0
+    for _p in "$OUT".[0-9][0-9][0-9]; do
+      [ -f "$_p" ] || continue
+      _s=$(wc -c < "$_p" 2>/dev/null); CSZ=$(( CSZ + ${_s:-0} ))
+    done
+    say "backup OK: $OUTN in $NP parts = $CSZ bytes total, whole-stream sha256 $CH"
+    say "restore needs ALL $NP parts; on a PC: cat $OUTN.??? | gunzip | dd of=/dev/<your-emmc> bs=4M"
+  else
+    CSZ=$(wc -c < "$OUT" 2>/dev/null)
+    say "backup OK: $OUTN = $CSZ bytes, sha256 $CH"
+  fi
   sync; umount /arco_usb 2>/dev/null; LOGF=""
 
   tft_nobar
@@ -458,7 +671,7 @@ fi
 
 # --- verify sha256 BEFORE writing (klibc initramfs has NO 'cut' -> shell prefix-strip of the first field) ---
 say "verifying sha256 (reads the whole image; a few minutes over USB) ..."
-RAW=$(sha256sum "$IMG" 2>&1); ACT=${RAW%% *}
+RAW=$(img_cat 2>/dev/null | sha256sum 2>&1); ACT=${RAW%% *}
 say "sha256sum output: [$RAW]"
 [ "$ACT" = "$ARCO_IMG_SHA" ] || normal_boot "sha256 mismatch ($ACT != $ARCO_IMG_SHA) — NOT flashing, continuing normal boot."
 say "checksum OK"
@@ -499,7 +712,7 @@ say "image fits: $ARCO_IMG_RAW <= $DEVSZ bytes on $TARGET"
 # decompressor produced a megabyte or nothing at all. Tested: that version passed a deliberately corrupt
 # image and a missing gzip alike, which is worse than no check, because it would have zeroed the boot
 # area on the strength of it.
-DZ=$(gzip -dc "$IMG" 2>/dev/null | head -c 1048576 | wc -c)
+DZ=$(img_cat 2>/dev/null | gzip -dc 2>/dev/null | head -c 1048576 | wc -c)
 if [ "${DZ:-0}" -lt 65536 ]; then
   normal_boot "cannot decompress $IMG in this initramfs (got ${DZ:-0} bytes) — NOT writing. The file passed its checksum, so this is the decompressor, not the image."
 fi
@@ -594,7 +807,7 @@ case "${IMG##*/}" in
 esac
 
 DONE=/run/arco-flashdone; del "$DONE" /run/arco-dderr
-( gzip -dc "$IMG" | $DDW of="$TARGET" bs=4194304 $SPARSE $DDPROG 2>/run/arco-dderr; echo $? > "$DONE" ) &
+( img_cat | gzip -dc | $DDW of="$TARGET" bs=4194304 $SPARSE $DDPROG 2>/run/arco-dderr; echo $? > "$DONE" ) &
 last=-5; ft=0
 while [ ! -f "$DONE" ]; do
   if [ "${ARCO_IMG_RAW:-0}" -gt 0 ] 2>/dev/null; then
@@ -686,7 +899,7 @@ VBYTES=536870912                      # 512 MiB
 VERIFIED=1
 DEV_H=$(dd if="$TARGET" bs=4194304 count=128 2>/dev/null | sha256sum); DEV_H=${DEV_H%% *}
 if printf 'abc' | head -c 2 >/dev/null 2>&1; then
-  IMG_H=$(gzip -dc "$IMG" | head -c "$VBYTES" | sha256sum); IMG_H=${IMG_H%% *}
+  IMG_H=$(img_cat | gzip -dc | head -c "$VBYTES" | sha256sum); IMG_H=${IMG_H%% *}
 else
   # No usable head either. Do NOT strand the user at a panic shell over a check that cannot run: the
   # write itself is error-checked and almost certainly fine, and halting here turns a healthy printer
@@ -695,7 +908,7 @@ else
   say "WARNING: cannot verify — this initramfs has neither a dd that accepts iflag nor 'head -c'."
   tft_nobar
   tft_phase "Written, not verified" "The image was written OK" "$C_WRN" \
-            "The read-back check could not run. It should boot normally; if it does not, re-flash the eMMC."
+            "Read-back check could not run. If it will not boot, re-flash the eMMC."
   sleep 4
 fi
 say "verify: dev=[$DEV_H] img=[$IMG_H] (verified=$VERIFIED)"
@@ -731,7 +944,7 @@ case "$ARCO_IMG_NAME" in
     say "verify OK — restored from your own backup. The stick is no longer needed; rebooting."
     tft_nobar
     tft_phase "Restored from your own backup" "You can take the USB stick out" "$C_ACC" \
-              "Sorry to see you go - the door stays open, and your printer is exactly as you left it."
+              "Sorry to see you go - your printer is exactly as you left it."
     tft "xstr 0,190,800,28,$F_HINT,$C_TXT,$C_BG,1,1,1,\"Restarting now\""
     ;;
   *)
