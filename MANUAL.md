@@ -287,34 +287,53 @@ quicker and smaller.
 
 <a id="backup-too-large"></a>
 
-### If it says the backup is too large
+### If the backup is large
 
-The backup is a **single file**, and FAT32 cannot hold one of 4 GiB or more. The tool tells you before
-it starts, so you lose a sentence rather than half an hour.
+FAT32 cannot hold a single file of 4 GiB or more, and FAT32 is the only format this guide asks you to
+use. That is no longer something you have to solve: when the backup would cross that, it is written as
+a numbered set instead — `arco-emmc-backup-….img.gz.001`, `.002`, and so on.
 
-**Deleting files is the fix — but only because the backup zeros the freed space for you.** A disk image
-copies blocks, not files, so on its own a deleted file stays in those blocks byte for byte and
-compresses no better than noise. Zeroing turns it into almost nothing. That is why the two commands
-above are worth running before you start, and why deleting alone does nothing on other tools.
+**All the parts belong together.** They are one file cut into pieces, so a set with a part missing is
+not a smaller backup, it is no backup at all. Keep them together, copy them together, and never delete
+one to make room. Restoring from the printer handles the set for you.
 
-If it still does not fit, in order:
-
-**1. Zero the free space by hand as well**, then run the backup again. It fills the disk for a few
-minutes and releases it:
+You can check them with the ordinary tool, on the printer or on any PC — it names the part that is
+wrong, which is usually a bad stick rather than a bad backup:
 
 ```bash
-sudo dd if=/dev/zero of=/zero.tmp bs=1M 2>/dev/null; sync; sudo rm -f /zero.tmp; sync
+sha256sum -c arco-emmc-backup-unleashed.img.gz.sha256
 ```
 
-Do not print while that runs, and reboot afterwards.
-
-**2. Compress harder.** Slower, and buys roughly 10–15 %:
+And on a PC the set goes back with no software of ours:
 
 ```bash
-sudo ARCO_BACKUP_GZIP=6 bash ~/selfflash/install-unleashed.sh --backup
+cat arco-emmc-backup-unleashed.img.gz.??? | gunzip | dd of=/dev/<your-emmc> bs=4M
 ```
 
-**3. Image the eMMC on a PC instead** — [Appendix A](#appendix-a). No size limit at all.
+What you still need is **room on the stick in total**. The tool measures the eMMC before it starts and
+prints both the size it expects and an upper bound, against the free space it found — so if the stick
+is too small you lose a sentence rather than half an hour. If it is, delete what you no longer need
+(the `.previous` copies are safe to remove; an image of Phrozen's original system is not) or use a
+bigger stick.
+
+**If the stick fills up anyway** — the estimate was optimistic, or something else took the room — the
+backup stops and the printer **stays on that screen** instead of carrying on. It does not boot past it,
+because a job you left running for half an hour is a job nobody is watching when it fails. Switch the
+printer off and on when you have read it; nothing on the printer was changed, and the half-written
+backup is deleted so it cannot be mistaken for a complete one. The same message is left on the stick as
+`BACKUP-STOPPED-READ-ME.txt`, for the case where the display is not the thing you are looking at.
+
+**A smaller backup, if you want one.** `--small` compresses harder: perhaps 20 % less to store, at
+roughly half again the time. `--fast` is the default and is what you want unless space is tight.
+
+```bash
+sudo bash ~/selfflash/install-unleashed.sh --backup --small
+```
+
+> **Why deleting files does not shrink it.** A disk image copies blocks, not files. A deleted file
+> stays in those blocks byte for byte until something writes over them, and to the compressor it looks
+> like noise. So freeing 5 GB of files changes the backup very little. This is normal for disk images
+> and is the reason the size is handled by splitting rather than by asking you to tidy up.
 
 ### Writing it back later
 
@@ -1404,7 +1423,8 @@ opening it. Come here for one of three reasons:
   untouched as a guaranteed return to the factory system — the safest arrangement there is.
 - **Keeping a copy of stock.** With the module in a PC you can image it byte for byte, with no size
   limit and no compression to worry about. [Step 2](#step-2) does the same thing without opening the
-  printer, but it has to fit under 4 GiB.
+  printer, and is no longer limited by size — a backup too large for one file on FAT32 is written as a
+  numbered set.
 
 **In addition to the usual tools you need:** a **USB-to-eMMC adapter** (the white MKS case), a **small
 Phillips screwdriver** for the module's retaining screws, and **[balenaEtcher](https://etcher.balena.io/)**
@@ -1791,7 +1811,7 @@ Expect it to take a while — several minutes per gigabyte, with no output until
 happen to have 7-Zip, `7z a -tgzip -mx=1 "$dst" "$img"` replaces the three middle lines and is quicker;
 the two sidecar lines are still needed either way.
 
-**Why must it be under 4 GB?**
+**What if it comes out over 4 GB?**
 
 FAT32 cannot hold a single **file** of 4 GiB or more. That is a per-file limit, not a limit on the
 stick — a 64 GB stick is fine, one 4 GiB file on it is not. So a raw 8 GB image can never sit on the
@@ -1799,8 +1819,27 @@ stick at all; compressed it normally lands at 2–2.5 GB, unless the eMMC's free
 deleted data, which does not compress.
 
 Reformatting to exFAT or NTFS does **not** help: the small system that performs the flash runs before
-Linux is up and can only mount FAT32. If your image will not go below 4 GiB, use **[Appendix A](#appendix-a)** instead —
-write the raw `.img` straight to the eMMC on your PC, no stick involved.
+Linux is up and can only mount FAT32.
+
+A backup made **by the printer** splits itself when it has to, so this only concerns an image you made
+by hand here. If yours is over the limit, cut it into parts the restore will accept — on Linux or
+macOS:
+
+```bash
+split -b 3788M --numeric-suffixes=1 -a 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.
+```
+
+The sidecar then needs the hash of the whole file first, marked as such, followed by one line per part:
+
+```bash
+printf '# arco-stream-sha256: %s\n' "$(sha256sum arco-emmc-backup-stock.img.gz | cut -d' ' -f1)" \
+  > arco-emmc-backup-stock.img.gz.sha256
+sha256sum arco-emmc-backup-stock.img.gz.??? >> arco-emmc-backup-stock.img.gz.sha256
+```
+
+Put the parts and that one sidecar on the stick — not the original — and the restore menu lists it
+under its plain name. On Windows, where there is no comfortable way to do this, use
+**[Appendix A](#appendix-a)** instead: write the raw `.img` straight to the eMMC, no stick involved.
 
 **balenaEtcher does not create images**, it only writes them. To read one off an eMMC use
 Win32DiskImager's *Read*, or `dd` on Linux/macOS. Or skip all of this and let the printer do it:

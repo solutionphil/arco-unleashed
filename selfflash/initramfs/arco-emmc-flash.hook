@@ -37,11 +37,22 @@ for _g in /bin/gzip /usr/bin/gzip; do
   [ -x "$_g" ] && copy_exec "$_g" /usr/bin/gzip.real >/dev/null 2>&1 && break
 done
 
-# zerofree is what makes a backup fit FAT32's 4 GiB per-file ceiling. A dd image carries deleted files
-# byte for byte until their blocks are zeroed, and the initramfs -- filesystem unmounted -- is the only
-# place that can be done. If it is not installed on the building system the backup still runs, just
-# larger, and the flasher says so rather than pretending.
-for t in dd sha256sum blkid gzip stty cut tr head wc rm tail zerofree; do
+# split is what keeps a backup within FAT32's 4 GiB per-file ceiling: a dd image carries deleted files
+# byte for byte, so on a printer that has seen use it can pass that ceiling however well it compresses.
+#
+# This slot used to hold zerofree, which was meant to zero those blocks before the image was taken. It
+# was never installed by anything in this kit, so copy_exec had nothing to copy and the feature did not
+# run once -- two hardware backups went out with no zerofree line in their log at all. And it could
+# never have helped where it was needed most: a stock Buster printer has no zerofree either, and no
+# dependable way to get one. Splitting needs nothing beyond coreutils, which every Debian has.
+#
+# Copied under a .real name too, for the same reason gzip is above: if this initramfs ever ships its own
+# split at the same path, copy_exec is a silent no-op and the failure would only surface mid-backup.
+for _s in /usr/bin/split /bin/split; do
+  [ -x "$_s" ] && copy_exec "$_s" /usr/bin/split.real >/dev/null 2>&1 && break
+done
+
+for t in dd sha256sum blkid gzip stty cut tr head wc rm tail split; do
   b="$(command -v "$t" 2>/dev/null)"; [ -n "$b" ] && copy_exec "$b" >/dev/null 2>&1 || true
 done
 # printf is a SHELL BUILTIN in this hook's shell, so `command -v printf` returns the word "printf"
