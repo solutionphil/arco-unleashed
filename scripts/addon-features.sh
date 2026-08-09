@@ -71,8 +71,14 @@ if ! whiptail --title "Klipper restart" --yesno \
   exit 0
 fi
 printf "   Restarting, waiting for klippy "
+# No sudo fallback with a password baked in. It used to be `echo makerbase | sudo -S ...`: clear text in
+# a public repository, broken for anyone who changed their password -- which the manual recommends --
+# and silent when it failed. Moonraker can restart the service without root if the gcode RESTART is not
+# enough; and if Moonraker itself cannot be reached, the wait below times out and says so, which is
+# already the honest outcome.
 curl -s -m 5 -X POST "http://localhost:7125/printer/gcode/script?script=RESTART" >/dev/null 2>&1 \
-  || (echo makerbase | sudo -S systemctl restart klipper >/dev/null 2>&1)
+  || curl -s -m 25 -X POST "http://localhost:7125/machine/services/restart?service=klipper" >/dev/null 2>&1 \
+  || true
 sleep 3
 ok=-1; msg=""
 for i in $(seq 1 25); do
