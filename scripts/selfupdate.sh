@@ -13,6 +13,13 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 KIT="$(cd "$DIR/.." && pwd)"
 SVC=/etc/systemd/system/arco-kit-update.service
 TMR=/etc/systemd/system/arco-kit-update.timer
+# "This kit needs optimize-boot.sh run once, and it needs root." Written here as the klipper user,
+# acted on at the next boot by ensure-imageid.sh, which is the one guard that runs as root.
+#
+# Deliberately NOT inside the kit: an untracked file in the repository is what makes the next `git pull`
+# refuse, and we have already lost an update to exactly that. printer_data is beside the kit, is the
+# owner's, and survives kit updates.
+RECONCILE_MARK="$(cd "$KIT/.." && pwd)/printer_data/.arco-reconcile-pending"
 cd "$KIT"
 
 # Overridable so a fork can be adopted instead, and so the adoption path can be exercised against a
@@ -148,11 +155,26 @@ after_update(){
   # the KAOS payload and the vendor dev.py backup are never touched by a pull.
   if [ -x scripts/check-guards.sh ]; then
     if bash scripts/check-guards.sh >"/tmp/.arco-guards.$$" 2>&1; then
-      echo "Self-heal guards: all present."
+      echo "Self-heal: everything this update needs is already wired up."
     else
-      echo "Self-heal guards: SOMETHING IS MISSING — this update may have added one."
-      tail -6 "/tmp/.arco-guards.$$" | sed 's/^/  /'
-      echo "  Wire them up with:  sudo bash $(pwd)/scripts/optimize-boot.sh"
+      # WHY THIS ARMS INSTEAD OF ADVISING. Installing what is missing needs root, and this runs as the
+      # klipper user from a macro -- so the line that stood here asked the owner to open an SSH session
+      # and run optimize-boot.sh themselves. That asks them to know what optimize-boot.sh is, and it is
+      # exactly the step that gets skipped. On 2026-08-09 a tester updated a printer, was told nothing
+      # was wrong (this check could not see one-time settings yet), and was left with a machine that
+      # would not answer to its own name. Arming and asking for a power-cycle is the shape everything
+      # else here already uses -- the backup, the flash -- and it asks the owner to know nothing.
+      echo "Self-heal: this update brought something that is not set up on this printer yet:"
+      grep -E '^  MISSING|^Missing' "/tmp/.arco-guards.$$" | sed 's/^/  /'
+      if : > "$RECONCILE_MARK" 2>/dev/null; then
+        echo
+        echo "  >> Please POWER-CYCLE the printer once."
+        echo "     It is applied automatically on the next start. Nothing else to do, and"
+        echo "     nothing is lost if you leave it until later."
+      else
+        echo "  Could not arm it ($RECONCILE_MARK is not writable)."
+        echo "  Run it by hand instead:  sudo bash $(pwd)/scripts/optimize-boot.sh"
+      fi
     fi
     rm -f "/tmp/.arco-guards.$$"
   fi

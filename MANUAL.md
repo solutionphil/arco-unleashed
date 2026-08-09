@@ -1633,10 +1633,25 @@ Config repairs are applied by a guard that runs when the klipper **service** sta
 sudo systemctl restart klipper
 ```
 
-**A new self-heal guard is not active**
-Guards are systemd drop-ins, and a kit update ships the scripts without rewiring them. Menu
-**3 — Check self-heal guards** compares what is wired against what the kit expects and offers to fix
-it, or:
+**An update brought something that is not set up yet**
+A kit update copies files; it cannot install systemd guards or change system settings, because it runs
+as the printer user and those need root. So when an update brings one, it says so and asks for a
+power-cycle:
+
+```
+Self-heal: this update brought something that is not set up on this printer yet:
+  MISSING  hostname is still 'mkspi' — unleashed.local cannot resolve
+
+  >> Please POWER-CYCLE the printer once.
+```
+
+That is the whole procedure — switch it off and on, and it is applied during the next start. Nothing
+is lost if you leave it until later; you will simply be asked again after the next update. What it did
+is written to `printer_data/logs/arco-reconcile.log`.
+
+If you would rather do it yourself, or the printer never asked but something is missing anyway, menu
+**3 — Check self-heal guards** reports what is wired against what the kit expects and offers to fix it,
+or:
 ```bash
 sudo bash ~/arco-unleashed/scripts/optimize-boot.sh
 ```
