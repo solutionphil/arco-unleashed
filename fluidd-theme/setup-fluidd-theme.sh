@@ -16,7 +16,14 @@
 # (Ctrl+F5) to see the change. Safe to run during a print.
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
-CFG="$HOME/printer_data/config"
+# Under sudo $HOME is ROOT'S home. This one fails silently rather than loudly: it would happily create
+# /root/printer_data/config/.fluidd-theme, print "installed", and leave Fluidd showing nothing at all.
+ARCO_HOME="$HOME"
+if [ -n "${SUDO_USER:-}" ]; then
+  _h=$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)
+  [ -n "$_h" ] && ARCO_HOME="$_h"
+fi
+CFG="$ARCO_HOME/printer_data/config"
 DEST="$CFG/.fluidd-theme"
 ACT="${1:-apply}"
 
@@ -27,7 +34,7 @@ status(){
   else
     echo "Fluidd theme: not installed"
   fi
-  [ -d "$HOME/fluidd" ] || echo "  note: Fluidd itself is not installed -- see scripts/install-fluidd.sh"
+  [ -d "$ARCO_HOME/fluidd" ] || echo "  note: Fluidd itself is not installed -- see scripts/install-fluidd.sh"
 }
 
 case "$ACT" in

@@ -208,6 +208,32 @@ flash_f407() {
       echo "  (flashed via DFU — after the power-cycle, set the F407 serial: bash scripts/set-mcu-serial.sh)"
     fi
   else
+    # `make flash` goes through Klipper's flash_usb.py, which does the 1200-baud touch and then waits
+    # only 100 ms after the sysfs path reappears before calling dfu-util -- and on this board the chip
+    # is not always usable as DFU by then. It reports "No DFU capable USB device available" and stops,
+    # while the F407 arrives in DFU a moment later and sits there waiting. Seen on hardware 2026-08-10
+    # on the revert path, which uses the same helper; running the script again succeeded instantly.
+    #
+    # So look again, for the CONDITION rather than a fixed delay, and finish the job here. Not fixed in
+    # flash_usb.py itself on purpose: that is Klipper's file, and a Klipper update would take the patch
+    # with it -- the same trap as mcu.py. dfu-util is called without flash_usb.py's `-p <buspath>`,
+    # which pins the OLD bus path and would miss the device if it re-enumerated elsewhere.
+    echo "[F407] flash_usb.py did not complete — checking whether the chip reached DFU anyway ..."
+    local _i _dfu=0
+    for _i in 1 2 3 4 5 6 7 8 9 10; do
+      lsusb 2>/dev/null | grep -qi "0483:df11" && { _dfu=1; break; }
+      sleep 1
+    done
+    if [ "$_dfu" = 1 ] && [ -f "$KLIPPER_DIR/out/klipper.bin" ]; then
+      echo "[F407] it did — flashing directly with dfu-util ..."
+      out=$(sudo dfu-util -a 0 -s 0x8008000:leave -D "$KLIPPER_DIR/out/klipper.bin" 2>&1); echo "$out"
+      if echo "$out" | grep -qiE "File downloaded successfully|Download[[:space:]]+done"; then
+        echo "[F407] firmware WRITTEN OK.  ('can't detach' is expected — it stays in DFU until a POWER-CYCLE.)"
+        NEED_POWERCYCLE=1
+        echo "  (flashed via DFU — after the power-cycle, set the F407 serial: bash scripts/set-mcu-serial.sh)"
+        return 0
+      fi
+    fi
     echo "[F407] FLASH FAILED — no 'File downloaded successfully' above (firmware was NOT written)."
     return 1
   fi

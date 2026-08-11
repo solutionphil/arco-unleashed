@@ -11,7 +11,17 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC="$DIR/../config-templates/AddOn.cfg.template"
-DST="${1:-$HOME/printer_data/config/AddOn.cfg}"
+# The chown below says out loud that this runs as root sometimes -- and under sudo $HOME is ROOT'S home,
+# so the default target would be /root/printer_data/config/AddOn.cfg: created, chowned, reported as
+# installed, and never seen by klipper. Derive the invoking user's home instead.
+# ${HOME:-}, not $HOME: this also runs in the image build, and with `set -u` an unset HOME would abort
+# the whole script -- which is how optimize-boot.sh once died under systemd.
+ARCO_HOME="${HOME:-/home/mks}"
+if [ -n "${SUDO_USER:-}" ]; then
+  _h=$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)
+  [ -n "$_h" ] && ARCO_HOME="$_h"
+fi
+DST="${1:-$ARCO_HOME/printer_data/config/AddOn.cfg}"
 
 [ -f "$SRC" ] || { echo "ERROR: template missing: $SRC"; exit 1; }
 

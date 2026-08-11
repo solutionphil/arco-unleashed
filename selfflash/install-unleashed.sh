@@ -773,8 +773,16 @@ arm() {
   # otherwise be discovered as a stream ending mid-sentence -- after the eMMC had been partly
   # overwritten. 0 means an ordinary single file.
   local nparts; nparts=$(img_nparts_of "$IMG")
+  # ARCO_RESTORE: hand the ANSWER over instead of the evidence. This side already knows -- the menu the
+  # owner picked from says restore or install, and $restoring carries it -- while the initramfs was left
+  # to guess from the filename, which only ever recognised our own default name. A backup renamed through
+  # ARCO_BACKUP_NAME, or Phrozen's own stock image, therefore arrived there as an INSTALL. That is not
+  # only wording: the sparse write hangs off the same answer, so on 2026-08-11 a 31 GB restore of
+  # arco-buster-split.img.gz was written in full instead of skipping its zero runs (104 progress lines
+  # against 44 for the same job under its old name).
   cat > "$STATE_DIR/flash.conf" <<EOF
 ARCO_FLASH_ARMED=1
+ARCO_RESTORE=$restoring
 ARCO_IMG_NAME=$(basename "$IMG")
 ARCO_IMG_PARTS=$nparts
 ARCO_IMG_SHA=$sha
@@ -1072,15 +1080,24 @@ estimate_backup_size() {
   local dev="$1" devsz="$2" lvl="${3:-1}"
   local freeb=0 a s
 
-  # 1. FREE space, exactly. Everything not accounted for by a filesystem -- unpartitioned gaps, anything
-  #    unreadable -- stays on the data side, which is the conservative direction.
-  while read -r a s; do
-    case "$s" in "$dev"*) freeb=$(( freeb + ${a:-0} )) ;; esac
+  # 1. How much of the device is USED, from df -- a floor, not the answer.
+  #
+  # This used to be the answer: data = device - (free space df reports), on the reasoning that anything
+  # unaccounted for should count as data because that errs high. On a migrated printer, where the
+  # partition fills the eMMC, it was roughly right. On a FACTORY printer it is catastrophic, and the
+  # factory layout is the common one: Phrozen ships a 6.8 GB root partition on a 31 GB eMMC and never
+  # grows it (resize-emmc.sh does, later). The ~24 GB of unpartitioned space then counted as data, and
+  # the estimate came out at 11.9 GB against a real 2.7 GB -- refusing a stick with plenty of room.
+  # Measured on stock Buster on 2026-08-10.
+  local dfused=0
+  while read -r u s; do
+    case "$s" in "$dev"*) dfused=$(( dfused + ${u:-0} )) ;; esac
   done <<EOF
-$(df -B1 --output=avail,source 2>/dev/null | tail -n +2)
+$(df -B1 --output=used,source 2>/dev/null | tail -n +2)
 EOF
-  local datab=$(( devsz - freeb ))
-  [ "$datab" -lt 0 ] && datab=0
+  # datab/freeb are settled after the coarse pass below, which measures what actually reads as zeros --
+  # partitioned or not. df cannot see past the filesystems, and the compressor does not care about them.
+  local datab=0
 
   # 2. What free space costs once it is gzipped. Measured, not assumed, and measured at the level that
   #    will actually run: gzip -1 and -6 differ by 4.5x on runs of zeros (0.436% vs 0.097% on an Arco),
@@ -1101,6 +1118,18 @@ EOF
     if [ "${out:-0}" -gt $(( csz / 50 )) ]; then hits="$hits $boff"; nhit=$(( nhit + 1 )); fi
     i=$(( i + 1 ))
   done
+
+  # 3b. NOW size the two halves, from what the device actually reads as -- not from the partition table.
+  #     The coarse pass sampled the whole device evenly, so the share of points carrying data is the
+  #     share of the DEVICE carrying data, whether it is filesystem free space, an unpartitioned tail,
+  #     or a wiped region. That is the only thing the compressor responds to.
+  #     df's used figure is kept as a floor: the sampling could under-count a small, dense filesystem
+  #     between sample points, and a floor cannot make the estimate too low.
+  datab=$(( devsz / ncoarse * nhit ))
+  [ "$datab" -lt "$dfused" ] && datab="$dfused"
+  [ "$datab" -gt "$devsz" ] && datab="$devsz"
+  freeb=$(( devsz - datab ))
+  [ "$freeb" -lt 0 ] && freeb=0
 
   # 4. Sample the data properly: up to 64 reads of 2 MiB, all of them inside regions the coarse pass
   #    found something in. Same reading time as before, five times the coverage of the part that matters.

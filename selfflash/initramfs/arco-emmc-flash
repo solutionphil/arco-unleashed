@@ -313,7 +313,19 @@ fi
 # image is the whole job -- there is no first boot to follow, nothing to install, nothing to set up --
 # so counting steps there promises a sequence that does not exist. The restore says what it is doing
 # instead of where it is in a list.
-case "${IMG##*/}" in arco-emmc-backup*) RESTORE_JOB=1;; *) RESTORE_JOB=0;; esac
+#
+# The arming step writes ARCO_RESTORE into flash.conf, because IT knows -- the owner picked a menu entry
+# that says which job this is. The filename test below is only the fallback for a stick armed by an older
+# tool: it recognises our own default name and nothing else, so anything renamed through ARCO_BACKUP_NAME
+# and every stock image of Phrozen's arrived here as an install.
+if [ -n "${ARCO_RESTORE:-}" ]; then
+  RESTORE_JOB="$ARCO_RESTORE"
+else
+  # ${IMG##*/}, not basename: klibc has no basename, as the line that works out BN above says in as many
+  # words. Written as $(basename ...) this expanded to nothing, the case never matched, and the job was
+  # silently treated as an install.
+  case "${IMG##*/}" in arco-emmc-backup*) RESTORE_JOB=1;; *) RESTORE_JOB=0;; esac
+fi
 
 # Step 1 screen. Nothing is written yet, so the warning stays muted — not "DO NOT POWER OFF".
 tft_chrome; tft_nobar
@@ -655,8 +667,17 @@ if [ "$JOB" = backup ]; then
   sync; umount /arco_usb 2>/dev/null; LOGF=""
 
   tft_nobar
-  tft_phase "Backup stored on the USB stick" "You can take the stick out now" "$C_ACC" \
-            "Nothing on the printer was changed. It is starting up as usual."
+  # The prominent line says what happens NEXT, not what the owner may do. Someone who has watched a
+  # progress bar for half an hour is asking one question -- "is it finished, do I need to do something?"
+  # -- and "You can take the stick out now" answers a different one. Reported after a real run: the
+  # screen did not make clear that the printer carries on by itself.
+  #
+  # It CARRIES ON, it does not reboot: the backup runs before the system starts, so the boot simply
+  # continues from here. Saying "reboots automatically" would read better and be untrue, and the next
+  # person to read this file would then look for a reboot that is not there.
+  tft_phase "Backup finished - stored on the USB stick" \
+            "Starting up now by itself - nothing to do" "$C_ACC" \
+            "Nothing on the printer was changed. You can take the stick out."
   # Neither a reboot nor a power-cycle is needed: this ran before the system started and changed nothing
   # on the printer, so the boot simply carries on. An earlier version stopped here and asked for a manual
   # power-cycle, which left an unattended printer sitting dark for however long nobody came -- after a
@@ -765,12 +786,14 @@ read _ _ _ _ _ _ W0 _ < "$STATF" 2>/dev/null || W0=0
 # cover exactly this window and the two must not drift apart.
 VBYTES=536870912                              # 512 MiB — the post-write verify's comparison window
 DDW="dd"; SPARSE=""; DDPROG=""
-# ${IMG##*/}, not basename: klibc has no basename, as the line that works out BN above says in as many
-# words. Written as $(basename ...) here it expanded to nothing, the case never matched, and the whole
-# sparse branch was skipped in silence -- no sparse write and no message saying why. The first restore
-# to use it wrote all 31 GB and the only trace was a log line that was not there.
-case "${IMG##*/}" in
-  arco-emmc-backup*)
+# Sparse is for restores only, and deliberately so: it SEEKS over the zero runs in the stream, which is
+# right when the image is this very device and wrong when it is an install image being written over
+# somebody else's system, where the skipped runs would keep whatever stood there before.
+#
+# This asked the FILENAME until 2026-08-11 and got it wrong twice over -- see RESTORE_JOB above. Both
+# failures were silent: a full 31 GB write instead of a sparse one looks like nothing at all, it is
+# merely slow, and the only trace is a log line that is not there.
+if [ "$RESTORE_JOB" = 1 ]; then
     # The probe writes to a real file, not /dev/null: conv=sparse works by SEEKING over zero runs, and a
     # device that cannot be seeked is not a fair test of whether the operand is understood. The first
     # version probed /dev/null, and on 2026-07-31 every candidate came back refused on a printer whose
@@ -803,8 +826,8 @@ case "${IMG##*/}" in
       DDPROG="status=progress"
     else
       say "no dd here accepts conv=sparse — writing the image in full (slower, still correct)"
-    fi;;
-esac
+    fi
+fi
 
 DONE=/run/arco-flashdone; del "$DONE" /run/arco-dderr
 ( img_cat | gzip -dc | $DDW of="$TARGET" bs=4194304 $SPARSE $DDPROG 2>/run/arco-dderr; echo $? > "$DONE" ) &
@@ -939,23 +962,20 @@ fi
 # just written is the owner's OWN backup, none of that follows -- that system is finished the
 # moment it boots, and telling them to leave the stick in and wait for "the next step" would be a plain
 # untruth. So the restore gets its own screen.
-case "$ARCO_IMG_NAME" in
-  arco-emmc-backup*)
+if [ "$RESTORE_JOB" = 1 ]; then
     say "verify OK — restored from your own backup. The stick is no longer needed; rebooting."
     tft_nobar
     tft_phase "Restored from your own backup" "You can take the USB stick out" "$C_ACC" \
               "Sorry to see you go - your printer is exactly as you left it."
     tft "xstr 0,190,800,28,$F_HINT,$C_TXT,$C_BG,1,1,1,\"Restarting now\""
-    ;;
-  *)
+else
     say "verify OK — rebooting. LEAVE THE USB STICK PLUGGED IN: the fresh system seeds WiFi and installs the"
     say "Phrozen firmware from it on first boot. Remove it once setup has finished."
     tft_nobar
     tft_phase "Done   Restarting now" "Keep the USB stick plugged in" "$C_ACC" \
               "The printer finishes setup from the stick, then reboots once more."
     tft "xstr 0,190,800,28,$F_HINT,$C_TXT,$C_BG,1,1,1,\"Please wait until the next step proceeds\""
-    ;;
-esac
+fi
 sync; sleep 2
 reboot -f
 # if reboot returns, force it
