@@ -536,8 +536,11 @@ After=network.target
 Wants=network.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=no
+# simple, for the same reason as arco-update-refresh: the script polls for an address up to 40 times
+# at 3 s, so as a oneshot under multi-user.target it can hold the boot for two minutes -- and it does
+# that precisely on the printer that has no Wi-Fi yet, which is the first boot of every new owner.
+# Nothing waits on this unit's result; the file it writes is read later, by a human, off the stick.
+Type=simple
 ExecStart=/bin/bash $SELFDIR/arco-write-ip.sh
 
 [Install]
@@ -574,9 +577,21 @@ After=moonraker.service network.target
 Wants=moonraker.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=no
+# Type=simple, NOT oneshot -- and this is the whole point of the unit's shape. A oneshot pulled in by
+# multi-user.target holds that target until the process exits, and this process is a WATCHER that may
+# legitimately sit for twelve minutes. Measured on the first boot after the 2026-08-11 flash:
+# "Startup finished in 5.067s (kernel) + 8min 36.217s (userspace)", of which 8min 22.156s was this
+# unit alone -- the printer felt broken for the whole window (an ssh login took 15 s), and the only
+# thing wrong was that we were waiting for ourselves. The --no-block below already guarded the manual
+# start against exactly this and the reasoning was written down there; the boot path was missed.
+# With simple, systemd calls the unit started the moment it is exec'd, the boot carries on, and the
+# watcher keeps watching in the background where its patience costs nobody anything.
+Type=simple
 ExecStart=/bin/bash $SELFDIR/arco-update-refresh.sh
+# It talks to the network and to git the whole time it runs. Off the boot's critical path it is no
+# longer urgent, so let everything else have the machine first.
+Nice=10
+IOSchedulingClass=idle
 
 [Install]
 WantedBy=multi-user.target
