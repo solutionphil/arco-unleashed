@@ -187,12 +187,17 @@ a_revert_to_buster(){
     printf "   exists on this printer to copy. Nothing was changed.\n"
     return 1
   fi
+  # NUMBERED, because the prompt below asks for a number. Without the index the list and the question do
+  # not meet: "Which one? [1-2]" over two bare filenames leaves the reader counting lines and hoping the
+  # order is the one meant -- on a screen whose next question is whether to overwrite the whole system.
+  # Reported from a real revert on 2026-08-10.
   printf "   Found:\n\n"
-  printf '%s' "$imgs" | while IFS= read -r f; do
+  printf '%s' "$imgs" | { i=0; while IFS= read -r f; do
     [ -n "$f" ] || continue
-    printf "     %s  ${CC}%s, %s${C0}\n" "$(basename "$f")" \
+    i=$((i+1))
+    printf "     ${CW}%s)${C0} %s  ${CC}%s, %s${C0}\n" "$i" "$(basename "$f")" \
       "$(du -h "$f" 2>/dev/null | cut -f1)" "$(date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null)"
-  done
+  done; }
   local n pick
   n=$(printf '%s' "$imgs" | grep -c .)
   if [ "$n" = 1 ]; then
@@ -259,8 +264,13 @@ a_image_restore(){
     return 1
   fi
   printf "   Found on %s:\n\n" "$stick"
-  printf '%s' "$imgs" | while IFS= read -r f; do
+  # Numbered, for the same reason as the list in the revert helper: the prompt below says "in the order
+  # listed", and there can be six entries here -- two kinds of backup, each with a .previous, plus a
+  # bare-named one from an older kit. Asking someone to count those by eye, on the screen that
+  # overwrites their whole eMMC, is asking for the wrong number.
+  printf '%s' "$imgs" | { i=0; while IFS= read -r f; do
     [ -n "$f" ] || continue
+    i=$((i+1))
     # Say what each one IS. The name carries it, but only if you know the convention -- and the wrong
     # choice here is the one that leaves a printer unable to talk to its own MCUs.
     case "$(basename "$f")" in
@@ -268,9 +278,9 @@ a_image_restore(){
       *-unleashed*) k="Arco Unleashed";;
       *)            k="older backup, system unknown";;
     esac
-    printf "     %-42s ${CC}%s, %s${C0}\n       ${CY}%s${C0}\n" "$(basename "$f")" \
+    printf "     ${CW}%s)${C0} %-38s ${CC}%s, %s${C0}\n        ${CY}%s${C0}\n" "$i" "$(basename "$f")" \
       "$(du -h "$f" 2>/dev/null | cut -f1)" "$(date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null)" "$k"
-  done
+  done; }
   n=$(printf '%s' "$imgs" | grep -c .)
   # The trap this closes: restoring an image that PREDATES Unleashed leaves the MCUs on v0.13 under a
   # Buster host that speaks v0.11, so the printer boots and cannot find its own hardware -- and by then

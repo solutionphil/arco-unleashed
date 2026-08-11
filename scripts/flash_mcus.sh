@@ -21,7 +21,18 @@ KATAPULT_DIR=/home/mks/katapult
 # Per-TOOLHEAD marker: records that the Katapult bootloader is flashed onto THIS printer's F103.
 # NOT the presence of the katapult repo (that ships with the image) — the recipient's F103 still
 # carries the old Phrozen firmware. Stripped during image sanitizing (see IMAGE.md).
-KATAPULT_MARK="$HOME/.config/arco-unleashed/katapult-f103.done"
+# This script is meant to run WITHOUT sudo (it elevates the few steps that need it), and then $HOME is
+# right. Run with sudo anyway -- which people do -- and $HOME becomes /root: the marker below lands
+# where nothing looks for it, and worse, the printer_MCU.cfg edits further down write to a path that
+# does not exist and fail silently. The comment beside that edit already says its absence is "one line
+# of scrollback nobody re-reads". The mirror script, revert-to-buster/flash-buster-mcus.sh, had the
+# same defect and it cost a real revert on 2026-08-10.
+ARCO_HOME="$HOME"
+if [ -n "${SUDO_USER:-}" ]; then
+  _h=$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)
+  [ -n "$_h" ] && ARCO_HOME="$_h"
+fi
+KATAPULT_MARK="$ARCO_HOME/.config/arco-unleashed/katapult-f103.done"
 
 # ---- parse selection ----
 DO_F407=0; DO_F103=0; DO_HOST=0
@@ -190,7 +201,7 @@ flash_f407() {
     NEED_POWERCYCLE=1
     # the chip-ID serial is stable across the flash -> keep printer_MCU.cfg pointing at the right one
     if [ -n "$dev" ]; then
-      local cfg="$HOME/printer_data/config/printer_MCU.cfg"
+      local cfg="$ARCO_HOME/printer_data/config/printer_MCU.cfg"
       [ -f "$cfg" ] && grep -q "stm32f407xx_" "$cfg" && { cp "$cfg" "$cfg.bak"; \
         sed -i -E "s#^serial:.*stm32f407xx_.*#serial: $dev#" "$cfg"; echo "  printer_MCU.cfg serial -> $dev"; }
     else
@@ -382,7 +393,7 @@ EOF
 # impossible in exactly one case: the board was ALREADY in DFU when we started, because a DFU device does not
 # announce a Klipper serial. The placeholder then stays, Klipper cannot connect, and the reason is one line
 # of scrollback nobody re-reads. Say it at the end, where it is the last thing on screen.
-_cfg="$HOME/printer_data/config/printer_MCU.cfg"
+_cfg="$ARCO_HOME/printer_data/config/printer_MCU.cfg"
 if [ "$DO_F407" = 1 ] && grep -q 'CHANGE-your-chip-id' "$_cfg" 2>/dev/null; then
   echo ""
   echo "############################################################################"

@@ -11,7 +11,17 @@ set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 F103_BIN=$(ls "$DIR"/arco-f103-*.bin 2>/dev/null | head -1)
 F407_BIN=$(ls "$DIR"/arco-f407-*.bin 2>/dev/null | head -1)
-KATAPULT="$HOME/katapult/scripts/flashtool.py"
+# $HOME under sudo is ROOT'S home, and katapult and klipper live in the printer user's. Run from the
+# setup menu this happened to work, because the menu keeps HOME; run the way the script's own header
+# suggests -- `sudo bash flash-buster-mcus.sh` -- it looked for /root/katapult, did not find it, and
+# reported "Katapult flashtool not found" on a printer that has it. Seen on hardware 2026-08-10, in the
+# middle of a revert, which is the worst moment for a tool to claim something is missing.
+ARCO_HOME="$HOME"
+if [ -n "${SUDO_USER:-}" ]; then
+  _h=$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)
+  [ -n "$_h" ] && ARCO_HOME="$_h"
+fi
+KATAPULT="$ARCO_HOME/katapult/scripts/flashtool.py"
 TTY="${ARCO_F103_TTY:-/dev/ttyS0}"          # toolhead serial (F103)
 BAUD="${ARCO_F103_BAUD:-250000}"            # must match the Buster printer.cfg [mcu ...] baud (default 250000)
 F407_ADDR=0x8008000                         # F407 app offset (32 KiB) — matches Phrozen's bootloader layout
@@ -85,7 +95,7 @@ dfu_ok() {
 
 if [ "$DO407" = 1 ]; then
   echo; echo "== F407 (mainboard) via USB-DFU =="
-  FLASH_USB="$HOME/klipper/scripts/flash_usb.py"
+  FLASH_USB="$ARCO_HOME/klipper/scripts/flash_usb.py"
   F407_SERIAL=$(ls /dev/serial/by-id/*[Kk]lipper*stm32f407* /dev/serial/by-id/*stm32f407* /dev/serial/by-id/*[Kk]lipper* 2>/dev/null | head -1)
   if [ -z "$F407_BIN" ]; then say "no F407 .bin — skipped"; note_fail F407;
   elif lsusb 2>/dev/null | grep -qi 0483:df11; then
@@ -97,9 +107,30 @@ if [ "$DO407" = 1 ]; then
     # No button: Klipper's flash_usb.py reboots the running F407 into DFU (1200-baud touch), then dfu-util
     # writes at the app address. Same path 'make flash' uses.
     say "reboot-to-DFU (no button) + flash via flash_usb.py: $F407_SERIAL"
-    if ( cd "$HOME/klipper" && dfu_ok python3 "$FLASH_USB" -t stm32f407xx -d "$F407_SERIAL" -s "$F407_ADDR" "$F407_BIN" ); then
+    if ( cd "$ARCO_HOME/klipper" && dfu_ok python3 "$FLASH_USB" -t stm32f407xx -d "$F407_SERIAL" -s "$F407_ADDR" "$F407_BIN" ); then
       say "F407 OK  ('can't detach' above is expected — it stays in DFU until the power-cycle)"
-    else say "F407 FAILED — no 'File downloaded successfully' above. Try again, or use BOOT0+RESET + dfu-util."; note_fail F407; fi
+    else
+      # flash_usb.py does the 1200-baud touch and the dfu-util call back to back, and on this board the
+      # chip is not always enumerated as DFU by the time dfu-util looks: it reports "No DFU capable USB
+      # device available" and gives up, while the F407 arrives in DFU a moment later and sits there.
+      # Seen on hardware 2026-08-10 -- the first attempt failed, and running the whole script again
+      # succeeded instantly through the 'already in DFU' branch above. So look again here instead of
+      # sending the user round the loop: the chip is usually already waiting.
+      say "flash_usb.py did not complete — checking whether the F407 reached DFU anyway ..."
+      _dfu=0
+      for _i in 1 2 3 4 5 6 7 8 9 10; do
+        lsusb 2>/dev/null | grep -qi 0483:df11 && { _dfu=1; break; }
+        sleep 1
+      done
+      if [ "$_dfu" = 1 ]; then
+        say "it did — flashing directly ..."
+        if dfu_ok sudo dfu-util -a 0 -s "${F407_ADDR}:leave" -D "$F407_BIN"; then
+          say "F407 OK  ('can't detach' above is expected — it stays in DFU until the power-cycle)"
+        else say "F407 FAILED — no 'File downloaded successfully' above (nothing was written)."; note_fail F407; fi
+      else
+        say "F407 FAILED — it never appeared in DFU. Try again, or use BOOT0+RESET + dfu-util."; note_fail F407
+      fi
+    fi
   else
     say "flash_usb.py or the F407 serial not found -> manual DFU: hold BOOT0 + tap RESET, then press ENTER..."
     read -r
