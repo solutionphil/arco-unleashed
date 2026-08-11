@@ -287,6 +287,50 @@ CPUAffinity=0 1
 EOF
 echo "  manager-wide CPUAffinity=0 1 installed (leaves CPU2 to klipper-mcu, CPU3 to klippy; needs a reboot)"
 
+# THE PRICE OF THE FENCE, AND WHAT TO DO ABOUT IT. The fence above is not negotiable -- it is what keeps
+# "Timer too close" away -- but it means every service on this printer shares TWO cores while two sit
+# reserved. A load average that looks mild against four cores is not mild: 1.67 measured on 2026-08-12
+# is ~83% of what is actually available, and it showed as an ssh banner taking 7.5-9.9 s for the first
+# five minutes after a flash. Same machine, 170 ms once the burst was over.
+#
+# The burst is Moonraker's own startup update check -- git fetches plus PackageKit. Worth being precise
+# about the blame: arco-update-refresh was suspected first and is innocent. Its log that boot reads
+# "nudge timed out - moonraker is busy with its own check" twice, so both of our POSTs were refused and
+# contributed nothing; delaying or dropping them would change nothing at all. The work happens either
+# way. What can change is who yields, and on two cores that is the only lever there is.
+#
+# So: PackageKit down, ssh up. Not moonraker -- KlipperScreen talks to it, and throttling it would move
+# the stutter from the console to the display, which is worse. Nothing here touches CPU2 or CPU3, the
+# affinities, or klipper in any way; it only orders the queue on the two cores that were already shared.
+# CPUWeight needs the cpu controller in system.slice, which this image has (cgroup2, controllers
+# "cpu memory pids") -- without it the line is silently ignored, so Nice/IOSchedulingClass carry the fix
+# on their own rather than the whole thing being a no-op.
+install -Dm644 /dev/stdin /etc/systemd/system/packagekit.service.d/20-arco-background.conf <<'EOF'
+[Service]
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=20
+EOF
+install -Dm644 /dev/stdin /etc/systemd/system/ssh.service.d/20-arco-interactive.conf <<'EOF'
+[Service]
+CPUWeight=300
+EOF
+# ...and user.slice, which is the half of it that is easy to miss. ssh.service covers the LOGIN -- the
+# pre-auth child that sends the banner lives in its cgroup -- but the shell you get afterwards does not:
+# it is moved to /user.slice/user-1000.slice/session-N.scope. Weighting only ssh.service would have made
+# connecting fast and left the console exactly as slow, which was the actual complaint.
+#
+# Safe here specifically because of the fence above: a logged-in human now outranks background
+# maintenance on cores 0-1, while the step generator on CPU3 and the F407 link on CPU2 are untouchable
+# either way. Without the fence this would be a bad idea; with it, the print cannot be affected by what
+# somebody does in a shell.
+install -Dm644 /dev/stdin /etc/systemd/system/user.slice.d/20-arco-interactive.conf <<'EOF'
+[Slice]
+CPUWeight=300
+EOF
+systemctl daemon-reload 2>/dev/null || true
+echo "  background work yields to the console (packagekit nice+idle-IO, ssh + user.slice weight 300)"
+
 # numpy/OpenBLAS -> single thread. The input-shaper FFT is post-motion (printer idle) and would otherwise
 # spawn one worker per core, stealing the cores klippy + comms need. Bundled scipy-OpenBLAS (cortexa53
 # kernel) honours OPENBLAS_NUM_THREADS; the rest are harmless no-ops on aarch64 (no MKL/VECLIB/BLIS).
