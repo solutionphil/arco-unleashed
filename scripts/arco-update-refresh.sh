@@ -80,7 +80,7 @@ done
 say "resolution works — watching for the update manager to come good"
 
 # ── 3. Watch, and nudge now and then ───────────────────────────────────────────────────────────────
-# 15 s between looks, up to 8 minutes, and the POST must never hold the loop up. Two facts, both
+# 15 s between looks, up to 15 minutes, and the POST must never hold the loop up. Two facts, both
 # measured, decide the shape here:
 #   * while Moonraker is busy it sends the 503 body and then keeps the connection open, so a POST with
 #     --max-time 60 eats a full minute doing nothing -- that is how the first version spent three
@@ -90,7 +90,13 @@ say "resolution works — watching for the update manager to come good"
 # Hence: the first nudge is sent synchronously with room to finish, purely so its answer reaches the
 # log; every later one is fired and forgotten. Watching is what actually detects success either way.
 OUT=$(mktemp 2>/dev/null) || OUT=/tmp/arco-update-refresh.$$
-for i in $(seq 1 32); do
+# 60, not 32. The 8-minute window was chosen while this unit still held multi-user.target, where every
+# extra minute was a minute of dead printer -- so it was a compromise, not a measurement. On 2026-08-11
+# it ran out at 22:03:15 and the state came good on its own a few minutes later: it gave up with the
+# finish line in sight, wrote no stamp, and thereby signed itself up to repeat the whole thing on the
+# next boot. Now that the unit is Type=simple and off the boot path, waiting longer costs nothing and
+# buys the stamp.
+for i in $(seq 1 60); do
   m=$(invalid_count)
   if [ "${m:-1}" -eq 0 ]; then
     say "all components valid now (after $(( i * 15 ))s)"
@@ -113,6 +119,6 @@ for i in $(seq 1 32); do
   sleep 15
 done
 rm -f "$OUT"
-say "still invalid after 8 min — NOT stamping, so the next boot tries again. Press refresh in the"
+say "still invalid after 15 min — NOT stamping, so the next boot tries again. Press refresh in the"
 say "update manager, or run this script by hand, if it stays this way."
 exit 0
