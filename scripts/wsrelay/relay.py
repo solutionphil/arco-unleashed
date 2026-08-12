@@ -11,23 +11,48 @@
 # LD_PRELOAD). Runs under the moonraker-env python (tornado). Listens on 127.0.0.1:7126.
 # NOTE: the TFT-reprint print.start injection lives in a SEPARATE helper (arco-reprint-bridge.py)
 # that reads voronFDM's stdout; this relay is pure freeze-protection and touches no message.
+import asyncio
 import tornado.web, tornado.websocket, tornado.ioloop
 from tornado.websocket import websocket_connect
 import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s wsrelay %(message)s")
 UP = "ws://127.0.0.1:7125/websocket"
 MAXMSG = 64 * 1024 * 1024
+# WAIT for moonraker rather than turning voronFDM away. The upstream connection is made when voronFDM
+# ARRIVES, not when this relay starts, so on a fast boot voronFDM can get here first. And voronFDM never
+# retries a refused connection -- measured on hardware 2026-08-12: it stayed alive for 32 s with
+# moonraker back up and never tried again; only the watchdog's restart fixed it, costing a full watchdog
+# cycle plus its ~15 s of panel initialisation. Turning it away once is therefore expensive, and holding
+# it for a few seconds costs nothing. This also removes the only reason the boot ordering had to be
+# exact, which is what made it safe to look at that at all.
+UP_WAIT = 60
 
 class Relay(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin): return True
     async def open(self, *a):
         self.up = None; self.alive = True
-        try:
-            self.up = await websocket_connect(UP, ping_interval=None, max_message_size=MAXMSG)
-        except Exception as e:
-            logging.info("upstream connect FAIL: %s", e); self.close(); return
-        logging.info("bridged voronFDM <-> moonraker")
-        tornado.ioloop.IOLoop.current().spawn_callback(self.pump)
+        loop = tornado.ioloop.IOLoop.current()
+        deadline = loop.time() + UP_WAIT
+        tries = 0
+        last = "?"
+        while self.alive:
+            tries += 1
+            try:
+                self.up = await websocket_connect(UP, ping_interval=None, max_message_size=MAXMSG)
+                break
+            except Exception as e:
+                last = str(e)
+                if loop.time() >= deadline:
+                    logging.info("upstream connect FAIL after %ss / %d tries: %s", UP_WAIT, tries, last)
+                    self.close(); return
+                await asyncio.sleep(1)
+        if not self.alive or self.up is None:
+            return
+        if tries > 1:
+            logging.info("bridged voronFDM <-> moonraker (waited %d tries; last error: %s)", tries, last)
+        else:
+            logging.info("bridged voronFDM <-> moonraker")
+        loop.spawn_callback(self.pump)
     async def pump(self):
         while self.alive:
             try:
