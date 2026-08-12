@@ -50,17 +50,21 @@ shutdown_value: 0
 cycle_time: 0.001 ; default tone period; 1 / 0.001 = 1000 Hz
 
 [delayed_gcode startup_beep]
-; 11, not 1: the beep announces "the printer is usable", and at 1 it announced it to somebody still
-; watching a loading display. initial_duration counts from KLIPPER's ready state, and on this hardware
-; that arrives well before the panel does -- measured 2026-08-12: klippy ready at +35 s, voronFDM's
-; websocket at +39 s, panel actually usable about ten seconds after the beep. So the beep is moved to
-; ready + 11 s, where the two line up.
+; 8, not 1: the beep announces "the printer is usable", and at 1 it announced it to somebody still
+; watching a loading display -- measured 2026-08-12, the panel was ready about ten seconds after the
+; beep. initial_duration counts from KLIPPER's ready state, so the beep is now placed after it.
 ;
-; A fixed offset on purpose. Firing it on voronFDM's real "finished" event would need a service that
-; watches for it, and this is a beep -- the worst a wrong number does is sound a second or two off.
-; What WOULD invalidate it: anything that changes how long klippy's MCU connect takes (it is the larger
-; and more variable half of the wait) or a panel that loads at a different speed.
-initial_duration: 11
+; WHY THE NUMBER CANNOT BE EXACT, and why 8 rather than the 11 tried first. The beep is anchored to
+; klippy's ready state; the panel is anchored to when KlipperScreen starts. Those are two independent
+; clocks and they drift several seconds against each other from boot to boot -- klippy's MCU connect is
+; the variable half. Measured across three boots: ready at +35, +36 and +39 s, voronFDM's websocket at
+; +38, +39 and +40 s. On one boot the display was even ready BEFORE klipper was. 11 was tuned on a boot
+; where ready came early and landed twelve seconds late on the next one; 8 sits in the middle, so the
+; error falls to both sides instead of always running late.
+;
+; A fixed offset on purpose: firing on voronFDM's real "finished" event would need a service watching
+; for it, and this is a beep. The worst a wrong number does is sound a few seconds off.
+initial_duration: 8
 gcode:
   SET_PIN PIN=beeper VALUE=0.2
   G4 P25
