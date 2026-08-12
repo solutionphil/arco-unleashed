@@ -175,6 +175,21 @@ EOF
   echo "  klipper: phrozen_dev v0.13 API-patch guard (ExecStartPre) installed"
 fi
 
+# Test-print guard. Phrozen's FDM_TEST.gcode is a 3DBenchy sliced for THEIR demo profile; on a printer
+# running this kit it measures a machine configuration that is not the one it is running. Ours is the
+# same model cut for the profile this kit ships. Numbered 23 so it runs after guard 13 has put
+# phrozen_dev back -- one of the two files it maintains lives inside that module, and a Phrozen firmware
+# update replaces it there and re-seeds the gcodes folder from it. See apply-test-print.sh for why this
+# is a guard and not a one-time copy at install.
+if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-test-print.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/23-arco-test-print.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-test-print.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: test-print guard (ExecStartPre) installed"
+fi
+
 # ImageId self-heal: ensure /etc/ImageId.json = {"ImageId":16} before EVERY klipper start (missing/wrong
 # -> phrozen work mode stuck UNKNOW). The file lives under /etc, so this ExecStartPre uses the '+' prefix
 # to run as root. Idempotent (grep-gated), '-' non-fatal.
@@ -336,6 +351,36 @@ CPUWeight=300
 EOF
 systemctl daemon-reload 2>/dev/null || true
 echo "  background work yields to the console (packagekit nice+idle-IO, ssh + user.slice weight 300)"
+
+# Webcam: bound how far a viewer may fall behind. Every Arco has the same Sonix UVC camera and the same
+# BCM43430 radio, so every Arco has the same arithmetic: the camera emits ~146 KB per 720p frame with no
+# quality control to turn down (it exposes none), and the SoC has no JPEG encoder to re-compress with --
+# only decoders. One viewer therefore costs 16-21 Mbit/s of a link that carries 37. Two viewers do not fit.
+#
+# The default tcp_wmem ceiling of 4 MB lets a single slow viewer queue 28 frames. Measured during a print
+# with three browser tabs open: 1.6 MB backed up per connection, the picture running ~0.7 s behind and
+# drifting, then the browser giving up and reconnecting -- while a fourth viewer was starved down to
+# 0.4 fps because the others had already claimed the buffers.
+#
+# 1 MB is the measured optimum, not a guess. Under four viewers, against the 4 MB default: throughput
+# unchanged (36.3 vs 37.3 Mbit/s), latency down from 0.7 s to 0.18-0.28 s, and the bandwidth shared fairly
+# (5.7/7.4/11.5 fps) instead of one viewer being starved. A single viewer gets 26 fps at 0.13 s.
+#
+# Do NOT tighten this further. 256 KB was tried and cost two thirds of the throughput (11.3 Mbit/s,
+# 9.7 frames/s total): camera-streamer serves every viewer from one capture loop and does not release a
+# capture buffer until the frame is written, so too small a socket buffer stalls the capture itself and
+# starves everyone. The generous buffer is what decouples the loop from a slow client; the point here is
+# only to stop it from becoming a latency reservoir.
+#
+# Global rather than per-listener on purpose: the ceiling is the autotuner's upper bound, not an
+# allocation, and 1 MB is ~20x this LAN's bandwidth-delay product -- nothing else (ssh, uploads, an eMMC
+# backup over scp) can notice it.
+install -Dm644 /dev/stdin /etc/sysctl.d/98-arco-webcam.conf <<'EOF'
+# Cap how many frames a slow webcam viewer may queue. See optimize-boot.sh for the measurements.
+net.ipv4.tcp_wmem = 4096 16384 1048576
+EOF
+sysctl -q -p /etc/sysctl.d/98-arco-webcam.conf 2>/dev/null || true
+echo "  webcam: viewer backlog capped at 1 MB (~7 frames) instead of 4 MB (~28)"
 
 # numpy/OpenBLAS -> single thread. The input-shaper FFT is post-motion (printer idle) and would otherwise
 # spawn one worker per core, stealing the cores klippy + comms need. Bundled scipy-OpenBLAS (cortexa53
