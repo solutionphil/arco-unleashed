@@ -659,5 +659,23 @@ EOF
   echo "  update-refresh service installed + started (clears the post-flash INVALID by itself)"
 fi
 
+# THE RELAY IS DEPLOYED ONCE AND NEVER AGAIN, which makes every improvement to it unreachable for a
+# printer that already exists. install-wsrelay.sh is called from arco-firstrun.sh and from nowhere else,
+# so relay.py is copied to ~/wsrelay on the FIRST boot and a later kit update leaves that copy untouched
+# for good -- the fix sits in the kit, the printer keeps running the old file, and nothing says so.
+# This is the same shape as the guards: the kit knows better than the machine, and something has to
+# carry it across. optimize-boot runs as root and is what the post-update reconcile executes, which
+# makes it the one place that can.
+#
+# Copy only, deliberately NOT a restart. Restarting the relay drops voronFDM's socket without the clean
+# CLOSE that its reconnect is gated on, and voronFDM does not come back from that on its own -- measured
+# 2026-08-12. The new file is a boot-time robustness fix anyway, so it may as well take effect at the
+# next boot together with everything else here.
+if [ -f "$SELFDIR/wsrelay/relay.py" ] && [ -f "$AHOME/wsrelay/relay.py" ] \
+   && ! cmp -s "$SELFDIR/wsrelay/relay.py" "$AHOME/wsrelay/relay.py"; then
+  install -o "$AUSER" -g "$AUSER" -m 644 "$SELFDIR/wsrelay/relay.py" "$AHOME/wsrelay/relay.py"
+  echo "  wsrelay: relay.py refreshed from the kit (active after the next boot; not restarted on purpose)"
+fi
+
 systemctl daemon-reload 2>/dev/null || true
 echo "  done (takes effect on next boot)."
