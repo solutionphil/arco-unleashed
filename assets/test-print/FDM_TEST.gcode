@@ -60348,7 +60348,7 @@ PRINT_END
 ; print_flow_ratio = 1
 ; print_order = default
 ; print_sequence = by layer
-; print_settings_id = 0.20mm Standard @Phrozen Arco 0.4 nozzle - exxtremor
+; print_settings_id = 0.20mm Standard @Phrozen Arco 0.4 nozzle
 ; printable_area = 0x0,300x0,300x300,0x300
 ; printable_height = 300
 ; printer_agent = 
