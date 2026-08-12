@@ -302,9 +302,15 @@ echo "  manager-wide CPUAffinity=0 1 installed (leaves CPU2 to klipper-mcu, CPU3
 # So: PackageKit down, ssh up. Not moonraker -- KlipperScreen talks to it, and throttling it would move
 # the stutter from the console to the display, which is worse. Nothing here touches CPU2 or CPU3, the
 # affinities, or klipper in any way; it only orders the queue on the two cores that were already shared.
-# CPUWeight needs the cpu controller in system.slice, which this image has (cgroup2, controllers
-# "cpu memory pids") -- without it the line is silently ignored, so Nice/IOSchedulingClass carry the fix
-# on their own rather than the whole thing being a no-op.
+# WHAT ACTUALLY CARRIES THIS, checked rather than assumed. CPUWeight needs the cpu controller in
+# system.slice and this image has it (cgroup2, controllers "cpu memory pids"); without it the line would
+# be ignored in silence. IOSchedulingClass=idle, on the other hand, does NOTHING on this board, and the
+# honest place to say so is beside it: /sys/block/mmcblk1/queue/scheduler is [none], and `none` ignores
+# ioprio classes entirely. Only the USB stick runs bfq, and PackageKit never writes there. It stays
+# because it costs nothing and would take effect under a different scheduler, but every bit of the
+# measured improvement comes from Nice=10 and CPUWeight=20. Said plainly because the first version of
+# this comment claimed the IO half was doing work, and a comment that promises more than the code
+# delivers is worse than no comment -- the next person budgets for an effect that was never there.
 install -Dm644 /dev/stdin /etc/systemd/system/packagekit.service.d/20-arco-background.conf <<'EOF'
 [Service]
 Nice=10
