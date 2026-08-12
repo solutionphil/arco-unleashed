@@ -50,7 +50,17 @@ shutdown_value: 0
 cycle_time: 0.001 ; default tone period; 1 / 0.001 = 1000 Hz
 
 [delayed_gcode startup_beep]
-initial_duration: 1
+; 11, not 1: the beep announces "the printer is usable", and at 1 it announced it to somebody still
+; watching a loading display. initial_duration counts from KLIPPER's ready state, and on this hardware
+; that arrives well before the panel does -- measured 2026-08-12: klippy ready at +35 s, voronFDM's
+; websocket at +39 s, panel actually usable about ten seconds after the beep. So the beep is moved to
+; ready + 11 s, where the two line up.
+;
+; A fixed offset on purpose. Firing it on voronFDM's real "finished" event would need a service that
+; watches for it, and this is a beep -- the worst a wrong number does is sound a second or two off.
+; What WOULD invalidate it: anything that changes how long klippy's MCU connect takes (it is the larger
+; and more variable half of the wait) or a panel that loads at a different speed.
+initial_duration: 11
 gcode:
   SET_PIN PIN=beeper VALUE=0.2
   G4 P25
