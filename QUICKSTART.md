@@ -196,7 +196,7 @@ The host runs Klipper v0.13; your MCUs still carry the factory firmware and cann
 (`mks` / `makerbase`) and open the menu:
 
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
 
 Take **1 — Flash MCUs**. The **F407 main board** and the **host MCU** flash over USB with no buttons. The

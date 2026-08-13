@@ -644,8 +644,13 @@ self-heal guards re-apply the v0.13 Klipper patches by themselves on the next bo
 Open the setup menu — everything from here on runs from it:
 
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
+
+*(If your shell says it does not know that command, you are on a printer set up from an older image:
+the shortcut is installed on first boot, so it is not there yet. The long form still works —
+`bash ~/arco-unleashed/scripts/unleashed_setup.sh` — and menu item **3** puts it in place, along with
+anything else the kit expects and your printer is missing.)*
 
 <p align="center"><img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820"></p>
 
@@ -725,7 +730,7 @@ before you touch a button.
 PuTTY again ([Step 5](#step-5)) and run:
 
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
 
 → `1` (Flash MCUs) → the toolhead F103. The toolhead stays open from here: the flasher stops Klipper, so
@@ -823,7 +828,7 @@ of Step 6 ended your SSH session. Give the printer a minute to finish booting, c
 [Step 5](#step-5), and re-open the menu — you can do this at any time, from now on:
 
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
 
 This is what it has to offer.
@@ -961,7 +966,7 @@ Arco probes with a **load cell**, so the Z reference is found automatically.
 then **copy the backup to a USB stick**:
 
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
 
 The menu calls it *"do this once, right after setup"* — this is that moment. Your calibration numbers
@@ -1758,7 +1763,7 @@ when neither is. That state arises on printers set up before the bridge could in
 Phrozen firmware update replaces `printer.cfg`. Bringing the bridge up to date and restarting the
 klipper **service** repairs it:
 ```bash
-bash ~/arco-unleashed/scripts/unleashed_setup.sh
+unleashed
 ```
 ```bash
 sudo systemctl restart klipper
