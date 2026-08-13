@@ -296,6 +296,27 @@ else
   tft_status "Downloading Phrozen module..." 25
 fi
 
+# Hold the display service across the install, or it starts voronFDM out from under us mid-way.
+# KlipperScreen.service is Restart=always / RestartSec=2 with StartLimitIntervalSec=0, and its ExecStart
+# lives INSIDE the tree we are about to unpack: phrozen_dev/KlipperScreen-start.sh. On a clean image that
+# path does not exist, so the unit has been failing 203/EXEC every two seconds since boot -- and the moment
+# fetch-phrozen-fw.sh restores the exec bits, the very next retry succeeds and line 29 of that start script
+# launches voronFDM. It paints its own main page over our progress screen and reports an error, because
+# Klipper is not configured yet; seconds later the install finishes and the printer reboots. Harmless, and
+# alarming to precisely the person least equipped to judge that -- someone setting a printer up for the
+# first time. The longer the install runs, the longer the error sits on the panel, which is why it looked
+# like a slow-download problem.
+#
+# install_tree in fetch-phrozen-fw.sh is written on the assumption that "a first boot never hits this
+# (voronFDM is not started until the install is done)". This stop is what makes that assumption true.
+# Restart=always does not fire after an EXPLICIT stop, so one call holds it for the whole install. The
+# intended start is the `systemctl restart KlipperScreen.service` further down, once the relay shim is
+# installed -- so this also closes a second gap: voronFDM no longer runs even briefly WITHOUT that shim.
+#
+# It has to happen here and not in fetch-phrozen-fw.sh: that script runs under `su - mks`, which has no
+# non-interactive sudo (its own install-watchdog.sh call fails for the same reason, see below).
+systemctl stop KlipperScreen.service 2>/dev/null || true
+
 # Same script either way: FW_ZIP set uses the stick, FW_ZIP empty downloads.
 INSTALLED=0
 if su - "$AUSER" -c "FW_ZIP='$ZIP' bash '$DIR/fetch-phrozen-fw.sh'"; then
@@ -324,6 +345,11 @@ else
     su - "$AUSER" -c "FW_ZIP='$ZIP' bash '$DIR/fetch-phrozen-fw.sh'" && { INSTALLED=1; break; }
   done
 fi
+
+# Undo the hold if the install never happened. Everything that starts the display service again lives in
+# the success branch below, so without this a printer that failed to get the module would sit with a dark
+# panel and no clue why -- a worse failure than the one this section is trying to report.
+[ "$INSTALLED" = 1 ] || systemctl start KlipperScreen.service 2>/dev/null || true
 
 if [ "$INSTALLED" = 1 ]; then
     # BEFORE voronFDM is ever started below: neutralise the setup wizard the freshly unpacked phrozen_dev
