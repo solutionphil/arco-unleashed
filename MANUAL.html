@@ -1163,7 +1163,13 @@ there until the MCUs are flashed in the next step.</p>
 essential</h2>
 <p>Open the setup menu — everything from here on runs from it:</p>
 <div class="sourceCode" id="cb19"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
+<p><em>(If your shell says it does not know that command, you are on a
+printer set up from an older image: the shortcut is installed on first
+boot, so it is not there yet. The long form still works —
+<code>bash ~/arco-unleashed/scripts/unleashed_setup.sh</code> — and menu
+item <strong>3</strong> puts it in place, along with anything else the
+kit expects and your printer is missing.)</em></p>
 <p align="center">
 <img src="assets/manual/menu-main.png" alt="Arco Unleashed setup menu" width="820">
 </p>
@@ -1265,7 +1271,7 @@ dragging it.</p>
 in, switch on, wait for the boot, connect with PuTTY again (<a
 href="#step-5">Step 5</a>) and run:</p>
 <div class="sourceCode" id="cb20"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <p>→ <code>1</code> (Flash MCUs) → the toolhead F103. The toolhead stays
 open from here: the flasher stops Klipper, so nothing homes and nothing
 heats — just leave the part-cooling fan unplugged until the covers go
@@ -1382,7 +1388,7 @@ Give the printer a minute to finish booting, connect again as in <a
 href="#step-5">Step 5</a>, and re-open the menu — you can do this at any
 time, from now on:</p>
 <div class="sourceCode" id="cb22"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <p>This is what it has to offer.</p>
 <p>The menu groups it: <strong>ESSENTIAL</strong> (1 — Flash MCUs,
 done), <strong>MAINTENANCE</strong> (2 — backup / restore your settings
@@ -1542,7 +1548,7 @@ is verified — or go straight to your own first print in Step 10.</p>
 menu and take <strong>2 — Backup / restore settings</strong>, then
 <strong>copy the backup to a USB stick</strong>:</p>
 <div class="sourceCode" id="cb25"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <p>The menu calls it <em>“do this once, right after setup”</em> — this
 is that moment. Your calibration numbers exist from here on, nothing can
 guess them back, and the local copy lives on the very eMMC it is meant
@@ -2549,7 +2555,7 @@ before the bridge could install it, or after a Phrozen firmware update
 replaces <code>printer.cfg</code>. Bringing the bridge up to date and
 restarting the klipper <strong>service</strong> repairs it:</p>
 <div class="sourceCode" id="cb45"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/unleashed_setup.sh</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <div class="sourceCode" id="cb46"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
