@@ -552,9 +552,10 @@ is how you know the automatic restart is done — then continue with [Step 5](#s
 
 Two things you may be offered here, and should decline:
 
-- **Any built-in "print test"** from the first run or a factory reset. The bundled test file was compiled
-  for the old Klipper and cannot run on v0.13. Your first print comes from OrcaSlicer in
-  [Step 10](#step-10).
+- **Any built-in "print test"** from the first run or a factory reset. Not because the file is wrong —
+  this kit replaces it with its own, cut for the profile you are about to run — but because the MCUs are
+  not flashed until [Step 6](#step-6), so the printer cannot move yet whatever you feed it. Your first
+  print comes from OrcaSlicer in [Step 10](#step-10).
 - **Phrozen's setup wizard** (language → name → chute calibration → homing). It is switched off
   deliberately, because it ends in a homing move that cannot finish before Step 6. If one appears anyway,
   do not work through it — power-cycle once or twice and it clears.
@@ -948,10 +949,13 @@ SAVE_CONFIG              ; writes the results and restarts Klipper
 **Done when** `SAVE_CONFIG` has restarted Klipper and Mainsail comes back **ready**. No z-offset step: the
 Arco probes with a **load cell**, so the Z reference is found automatically.
 
-> 🛑 **Skip any "print test" the factory reset offers.** The bundled test file was compiled for the old
-> Klipper and cannot run on v0.13, so the flow stalls on it. Skipping it costs nothing — your first print
-> comes from OrcaSlicer in Step 10. *(The same warning appears in Step 4; it is repeated
-> here because this is where it usually bites.)*
+> **About the "print test" the factory reset offers.** The old warning here said the bundled file
+> could not run at all. That is no longer true: this kit replaces both built-in test prints with its own
+> — the single-colour one and the four-colour one, each cut for the profile you have just calibrated —
+> and a guard puts them back after any Phrozen firmware update, so they stay current.
+> What has **not** been tested is Phrozen's own factory-reset print flow on the display, which used to
+> stall here. So: if you want the test print, start `FDM_TEST.gcode` **from Mainsail** — that route is
+> verified — or go straight to your own first print in Step 10.
 
 **Now back up what you just measured.** Open the setup menu and take **2 — Backup / restore settings**,
 then **copy the backup to a USB stick**:

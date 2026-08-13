@@ -1060,9 +1060,11 @@ automatic restart is done — then continue with <a href="#step-5">Step
 <p>Two things you may be offered here, and should decline:</p>
 <ul>
 <li><strong>Any built-in “print test”</strong> from the first run or a
-factory reset. The bundled test file was compiled for the old Klipper
-and cannot run on v0.13. Your first print comes from OrcaSlicer in <a
-href="#step-10">Step 10</a>.</li>
+factory reset. Not because the file is wrong — this kit replaces it with
+its own, cut for the profile you are about to run — but because the MCUs
+are not flashed until <a href="#step-6">Step 6</a>, so the printer
+cannot move yet whatever you feed it. Your first print comes from
+OrcaSlicer in <a href="#step-10">Step 10</a>.</li>
 <li><strong>Phrozen’s setup wizard</strong> (language → name → chute
 calibration → homing). It is switched off deliberately, because it ends
 in a homing move that cannot finish before Step 6. If one appears
@@ -1525,12 +1527,16 @@ Klipper and Mainsail comes back <strong>ready</strong>. No z-offset
 step: the Arco probes with a <strong>load cell</strong>, so the Z
 reference is found automatically.</p>
 <blockquote>
-<p>🛑 <strong>Skip any “print test” the factory reset offers.</strong>
-The bundled test file was compiled for the old Klipper and cannot run on
-v0.13, so the flow stalls on it. Skipping it costs nothing — your first
-print comes from OrcaSlicer in Step 10. <em>(The same warning appears in
-Step 4; it is repeated here because this is where it usually
-bites.)</em></p>
+<p><strong>About the “print test” the factory reset offers.</strong> The
+old warning here said the bundled file could not run at all. That is no
+longer true: this kit replaces both built-in test prints with its own —
+the single-colour one and the four-colour one, each cut for the profile
+you have just calibrated — and a guard puts them back after any Phrozen
+firmware update, so they stay current. What has <strong>not</strong>
+been tested is Phrozen’s own factory-reset print flow on the display,
+which used to stall here. So: if you want the test print, start
+<code>FDM_TEST.gcode</code> <strong>from Mainsail</strong> — that route
+is verified — or go straight to your own first print in Step 10.</p>
 </blockquote>
 <p><strong>Now back up what you just measured.</strong> Open the setup
 menu and take <strong>2 — Backup / restore settings</strong>, then
