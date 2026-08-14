@@ -21,9 +21,9 @@ set -e
 # ends this script in silence -- and that is precisely what a tester saw on 2026-08-14: the script
 # produced NO output at all where a healthy printer prints four lines, so nobody could tell whether the
 # patches were applied, skipped, or half-done. (They were half-done.) Name the line and the exit code.
+_arco_ln="?"
 trap 'rc=$?; [ "$rc" -eq 0 ] || echo "apply-phrozen-patches: ABORTED at line $_arco_ln (exit $rc) — the patches below that point did NOT run." >&2' EXIT
 trap '_arco_ln=$LINENO' ERR
-_arco_ln="?"
 
 PD="${1:-$HOME/klipper/klippy/extras/phrozen_dev}"
 [ -f "$PD/base.py" ] && [ -f "$PD/cmds.py" ] || {
