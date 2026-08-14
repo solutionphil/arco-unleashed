@@ -98,6 +98,21 @@ jobs:
       - name: Anchors and step numbers
         run: python3 .github/ci/check-docs.py
 
+      # The documents overlap on purpose and drift for free. This fails on text that has quietly
+      # acquired a second owner, and -- when there is a base commit to compare against -- points out
+      # sentences elsewhere that closely matched the wording just changed here. The second half is a
+      # note, not a failure: QUICKSTART restating MANUAL is what QUICKSTART is for.
+      - name: Documents telling the same thing twice
+        run: |
+          base='${{ github.event.pull_request.base.sha || github.event.before }}'
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "No usable base commit — running the duplication check only."
+            python3 .github/ci/check-docs-drift.py
+          else
+            python3 .github/ci/check-docs-drift.py --base "$base"
+          fi
+
       # The .html files are generated from the markdown with pandoc and shipped on the USB stick --
       # read exactly when the reader has no network to check anything against. A QUICKSTART.html six
       # days older than QUICKSTART.md has already gone out once. Hard failure on main, where the
