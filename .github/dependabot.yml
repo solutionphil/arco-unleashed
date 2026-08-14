@@ -1,0 +1,21 @@
+# Dependabot has exactly one job in this repository: keep the GitHub Actions used by the
+# workflows current. There are no package manifests here -- no requirements.txt, no
+# package.json, no go.mod -- so no other ecosystem has anything to look at. Adding one
+# would produce a permanently empty check rather than coverage.
+#
+# The four actions it watches live in .github/workflows: checkout, setup-python,
+# upload-pages-artifact and deploy-pages.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One pull request for all of them instead of one each -- four separate PRs a month for
+    # version bumps in a two-workflow repository is noise, not diligence.
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
