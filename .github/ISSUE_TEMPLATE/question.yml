@@ -1,0 +1,48 @@
+name: Question / stuck during install
+description: Not sure something is broken — you just need the next step.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Three documents cover the install, in increasing detail:
+        [QUICKSTART](../blob/main/QUICKSTART.md) (checklist) ·
+        [MANUAL](../blob/main/MANUAL.md) (every step, with pictures) ·
+        [INSTALL-FLOWCHARTS](../blob/main/INSTALL-FLOWCHARTS.md) (the same paths, drawn).
+
+        If your question is "which of these do I even follow", the first diagram in the flowcharts
+        answers exactly that.
+
+  - type: dropdown
+    id: path
+    attributes:
+      label: Which install path are you on?
+      options:
+        - "A — self-flash from the running printer"
+        - "B — eMMC module replacement / recovery"
+        - "C — base image + KIAUH (building the stack myself)"
+        - "D — reverting to stock Buster"
+        - "Still deciding"
+    validations:
+      required: true
+
+  - type: input
+    id: step
+    attributes:
+      label: Which step are you at?
+      description: The step number from QUICKSTART or MANUAL, if you are following one.
+      placeholder: "e.g. MANUAL Step 6 — Flash the MCUs"
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you are looking at, and what you are unsure about.
+    validations:
+      required: true
+
+  - type: textarea
+    id: seen
+    attributes:
+      label: What the printer shows
+      description: Console output, display photo, whatever is in front of you. Optional but usually decisive.
