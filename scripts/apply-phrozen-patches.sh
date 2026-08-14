@@ -17,6 +17,14 @@
 #
 # Usage:  bash apply-phrozen-patches.sh [path-to-phrozen_dev]
 set -e
+# A guard that dies without saying why is worse than no guard. Under `set -e` any failing command below
+# ends this script in silence -- and that is precisely what a tester saw on 2026-08-14: the script
+# produced NO output at all where a healthy printer prints four lines, so nobody could tell whether the
+# patches were applied, skipped, or half-done. (They were half-done.) Name the line and the exit code.
+_arco_ln="?"
+trap 'rc=$?; [ "$rc" -eq 0 ] || echo "apply-phrozen-patches: ABORTED at line $_arco_ln (exit $rc) — the patches below that point did NOT run." >&2' EXIT
+trap '_arco_ln=$LINENO' ERR
+
 PD="${1:-$HOME/klipper/klippy/extras/phrozen_dev}"
 [ -f "$PD/base.py" ] && [ -f "$PD/cmds.py" ] || {
   echo "ERROR: phrozen_dev base.py/cmds.py not found in $PD"
@@ -62,6 +70,13 @@ grep -q 'register_command("HOMING_OVERRIDE_END"' "$PD/cmds.py" || { echo "WARN: 
 [ ! -f "$GM" ] || grep -q "gcode_macro SHAPER_END" "$GM" || { echo "WARN: patch 4 (SHAPER_END handshake) not present"; ok=0; }
 [ ! -f "$GM" ] || ! grep -q 'g_accel_to_decel VALUE={printer.toolhead.max_accel_to_decel}' "$GM" || { echo "WARN: patch 5 (accel_to_decel v0.13) not applied"; ok=0; }
 rm -rf "$PD/__pycache__"
+
+# `sed -i` rewrites base.py and cmds.py in place, and the rootfs is mounted commit=120 -- so for the
+# next two minutes the only copy of an 800 KB source file Klipper cannot start without lives in page
+# cache. Lose power in that window and it comes back short, NUL-padded, and fatal
+# ("source code string cannot contain null bytes"). Only on a real change: syncing the whole filesystem
+# on every klipper start would be a per-boot cost for nothing.
+[ -z "$TS" ] || sync
 
 if [ "$ok" = 1 ]; then
   [ -n "$TS" ] && echo "Applied Arco Unleashed v0.13 patches (backups: *.pre-patch-$TS.bak)." \

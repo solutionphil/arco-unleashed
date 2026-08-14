@@ -130,6 +130,13 @@ update(){
   fi
   if git merge --ff-only "origin/$BRANCH"; then
     chmod +x scripts/*.sh image-toolbox/*.sh unleashed-x-kaos/scripts/*.sh 2>/dev/null || true
+    # Get the pull onto the eMMC before anything invites a power-cycle. The rootfs is mounted
+    # commit=120, so up to TWO MINUTES of writes live only in page cache -- and after_update() below
+    # ends by asking for exactly that power-cycle. arco-firstrun.sh has synced around this hazard from
+    # the start; this path did not, and on 2026-08-14 a tester's printer came back from an update with
+    # a cmds.py of 800422 bytes instead of 800809, the tail of it NUL bytes, which klippy refuses
+    # outright. Files written just before a plug-pull do not come back short by accident.
+    sync
     echo "Updated to ${BRANCH} @ $(git rev-parse --short HEAD)."
     after_update
   else
@@ -167,6 +174,10 @@ after_update(){
       echo "Self-heal: this update brought something that is not set up on this printer yet:"
       grep -E '^  MISSING|^Missing' "/tmp/.arco-guards.$$" | sed 's/^/  /'
       if : > "$RECONCILE_MARK" 2>/dev/null; then
+        # The marker is the whole point of this branch, and it is the one file guaranteed to be seconds
+        # old when the plug is pulled. Unsynced, commit=120 loses it and the reconcile silently never
+        # happens -- the printer comes back looking updated and is not.
+        sync
         echo
         echo "  >> Please POWER-CYCLE the printer once."
         echo "     It is applied automatically on the next start. Nothing else to do, and"
