@@ -1,0 +1,154 @@
+# CI — static checks only.
+#
+# What this can prove: the shell parses, the Python imports, the documents still point at each other,
+# nothing obviously proprietary slipped in. What it CANNOT prove: that any of it works on an Arco.
+# There is no hardware here, no image bake, no flash. A green tick means "worth testing", not "tested".
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Absolute gate. A shell script in this kit runs as root on someone else's printer; one that
+      # does not even parse has no business being on main.
+      - name: Syntax (bash -n)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::does not parse"; fail=1; }
+          done < <(git ls-files '*.sh')
+          if [ "$fail" = 0 ]; then echo "All $(git ls-files '*.sh' | wc -l) shell scripts parse."; fi
+          exit "$fail"
+
+      - name: Ensure shellcheck
+        run: command -v shellcheck >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y shellcheck; }
+
+      # Error severity only, measured against a baseline of known-and-explained findings, so this
+      # fails on something NEW rather than on the backlog. See .github/ci/shellcheck-baseline.txt.
+      - name: ShellCheck (errors, vs baseline)
+        run: |
+          shellcheck -f gcc -S error -- $(git ls-files '*.sh') 2>/dev/null \
+            | sed -E 's/^([^:]+):[0-9]+:[0-9]+: [a-z]+: .*\[(SC[0-9]+)\]$/\1 \2/' \
+            | sort -u > /tmp/sc-current.txt || true
+          grep -vE '^\s*(#|$)' .github/ci/shellcheck-baseline.txt | sort -u > /tmp/sc-baseline.txt
+          new="$(comm -13 /tmp/sc-baseline.txt /tmp/sc-current.txt)"
+          if [ -n "$new" ]; then
+            echo "New error-severity findings (not in the baseline):"
+            echo "$new" | sed 's/^/  /'
+            echo
+            echo "Fix them, or add the line to .github/ci/shellcheck-baseline.txt with the reason."
+            exit 1
+          fi
+          echo "No new error-severity findings."
+
+      # The rest of the backlog: reported, never blocking. It is a to-do list, not a verdict.
+      - name: ShellCheck backlog (report only)
+        if: always()
+        run: |
+          {
+            echo "### ShellCheck backlog"
+            echo
+            echo "Warning severity and above, excluding what already passed the gate above."
+            echo
+            echo '```'
+            shellcheck -f gcc -S warning -- $(git ls-files '*.sh') 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The extras in scripts/ are imported by Klipper itself at startup. A syntax error there does
+      # not produce a broken feature -- it produces a printer that does not come up.
+      - name: Compile
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            python -m py_compile "$f" || { echo "::error file=$f::does not compile"; fail=1; }
+          done < <(git ls-files '*.py')
+          if [ "$fail" = 0 ]; then echo "All $(git ls-files '*.py' | wc -l) Python files compile."; fi
+          exit "$fail"
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Anchors and step numbers
+        run: python3 .github/ci/check-docs.py
+
+      # The .html files are generated from the markdown with pandoc and shipped on the USB stick --
+      # read exactly when the reader has no network to check anything against. A QUICKSTART.html six
+      # days older than QUICKSTART.md has already gone out once. Hard failure on main, where the
+      # maintainer owns both halves; a note on pull requests, where contributors are asked to change
+      # only the markdown and leave regeneration to a maintainer.
+      - name: Markdown / HTML drift
+        run: |
+          base='${{ github.event.pull_request.base.sha || github.event.before }}'
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base commit to compare against — skipped."; exit 0
+          fi
+          changed="$(git diff --name-only "$base" '${{ github.sha }}')"
+          drift=0
+          for d in README MANUAL QUICKSTART; do
+            echo "$changed" | grep -qx "$d.md"   || continue
+            echo "$changed" | grep -qx "$d.html" && continue
+            drift=1
+            if [ '${{ github.event_name }}' = pull_request ]; then
+              echo "::notice file=$d.md::$d.md changed but $d.html did not — a maintainer regenerates it (pandoc)."
+            else
+              echo "::error file=$d.md::$d.md changed but $d.html did not. Run image-toolbox/build-docs-html.sh."
+            fi
+          done
+          if [ "$drift" = 1 ] && [ '${{ github.event_name }}' != pull_request ]; then exit 1; fi
+          if [ "$drift" = 0 ]; then echo "Markdown and HTML are in step."; fi
+          exit 0
+
+      # Last line of defence for something that must never become public: names, symbols and
+      # artefacts from the reverse-engineering work. The dev repository gates the generated documents
+      # before they are distributed; this gates the public repository itself, which a direct commit
+      # would otherwise bypass.
+      #
+      # The tokens deliberately live in a repository secret rather than in this file. Writing them
+      # here would publish, in the public repository, exactly the strings the gate exists to keep out
+      # of it. Set RE_TOKENS (Settings -> Secrets -> Actions) to the list, one per line; without it
+      # the step skips instead of pretending to check.
+      - name: Reverse-engineering token gate
+        env:
+          RE_TOKENS: ${{ secrets.RE_TOKENS }}
+        run: |
+          if [ -z "${RE_TOKENS:-}" ]; then
+            echo "RE_TOKENS is not set — gate skipped (see the comment in ci.yml)."
+            exit 0
+          fi
+          fail=0
+          while IFS= read -r tok; do
+            [ -n "$tok" ] || continue
+            if git grep -lFi -- "$tok" -- . ':!.github/workflows/ci.yml' > /tmp/hits.txt 2>/dev/null && [ -s /tmp/hits.txt ]; then
+              echo "::error::a guarded token appears in:"; sed 's/^/    /' /tmp/hits.txt
+              fail=1
+            fi
+          done <<< "$RE_TOKENS"
+          if [ "$fail" = 0 ]; then echo "Clean — no guarded tokens in tracked files."; fi
+          exit "$fail"
