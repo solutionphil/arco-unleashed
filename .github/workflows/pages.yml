@@ -43,6 +43,64 @@ jobs:
           cp -r assets _site/assets
           touch _site/.nojekyll          # keep GitHub from running Jekyll over it
 
+      # The documents cross-reference each other as "README.md#anchor" -- correct on GitHub, which
+      # renders markdown, and survivable on the USB stick, where the .md file at least exists and
+      # opens as text. On this site it is a 404: only the rendered .html is deployed. The first
+      # deployment shipped exactly that, and the link from QUICKSTART to the OrcaSlicer section
+      # dead-ended.
+      #
+      # Rewritten in the deployed copy only. The repository keeps links that work where they were
+      # written, and the anchors survive the move because the cross-referenced headings carry an
+      # explicit <a id="..."></a> that pandoc copies into the HTML verbatim.
+      #
+      # Order matters: the three documents that are NOT on this site go first. They are sent to
+      # GitHub instead, since rewriting them to .html would only trade one 404 for another.
+      - name: Point cross-references at files that exist here
+        run: |
+          GH=https://github.com/solutionphil/arco-unleashed/blob/main
+          for f in _site/README.html _site/MANUAL.html _site/QUICKSTART.html; do
+            sed -i -E "s#href=\"(INSTALL-FLOWCHARTS\.md|THIRD-PARTY-NOTICES\.md|mainsail-theme/README\.md)#href=\"$GH/\1#g" "$f"
+            sed -i -E 's#href="(README|MANUAL|QUICKSTART)\.md#href="\1.html#g' "$f"
+          done
+
+      # Verify rather than trust, because the failure mode is silent: a link that renders perfectly
+      # and goes nowhere. Fails the deployment on a surviving .md link or an anchor with no target.
+      - name: Verify every internal link resolves
+        run: |
+          python3 - <<'PY'
+          import re, sys, pathlib
+          site = pathlib.Path("_site")
+          pages = {p.name: p.read_text(encoding="utf-8") for p in site.glob("*.html")}
+          ids = {n: set(re.findall(r'id="([^"]+)"', t)) for n, t in pages.items()}
+          bad = []
+          for name, text in pages.items():
+              for href in re.findall(r'href="([^"]+)"', text):
+                  if href.startswith(("http://", "https://", "#", "mailto:")):
+                      continue
+                  if ".md" in href:
+                      bad.append(f"{name}: still points at markdown -> {href}")
+                      continue
+                  target, _, anchor = href.partition("#")
+                  if not target.endswith(".html"):
+                      continue
+                  if target not in pages:
+                      bad.append(f"{name}: no such page on the site -> {href}")
+                  elif anchor and anchor not in ids[target]:
+                      bad.append(f"{name}: anchor does not exist in {target} -> #{anchor}")
+          for b in bad:
+              print(f"::error::{b}")
+          print(f"{sum(len(re.findall(r'href=', t)) for t in pages.values())} links checked, {len(bad)} broken.")
+          sys.exit(1 if bad else 0)
+          PY
+
+      # Installed rather than assumed. The first deployment shipped every photograph at camera
+      # resolution because the runner image does not carry ImageMagick and the step below quietly
+      # fell back -- a graceful skip that produced a 26 MB manual page and said so only in the log.
+      - name: Ensure ImageMagick
+        run: |
+          command -v magick >/dev/null || command -v convert >/dev/null \
+            || { sudo apt-get update -qq && sudo apt-get install -y imagemagick; }
+
       # The manual embeds 26 MB of photographs at camera resolution -- fine on a USB stick, slow over
       # a phone connection in a workshop. Downscaling happens to the deployed copy only; the repository
       # and the shipped documents keep the originals.
@@ -52,8 +110,11 @@ jobs:
           if command -v magick >/dev/null; then im="magick"
           elif command -v convert >/dev/null; then im="convert"
           fi
+          # Reached only if the install above failed outright. Shipping big images beats failing the
+          # deployment, but it must not pass unnoticed a second time, so this warns in the summary.
           if [ -z "$im" ]; then
-            echo "No ImageMagick on the runner — shipping originals."
+            echo "No ImageMagick despite the install step — shipping originals at full size."
+            echo "::warning::ImageMagick unavailable; site images were not downscaled."
             exit 0
           fi
           before="$(du -sh _site/assets | cut -f1)"
