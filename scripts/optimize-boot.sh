@@ -713,6 +713,31 @@ fi
 #    the panel still said INVALID, one refresh flipping both components to valid with real versions.
 #    Two testers reported it as a fault. The danger is not the label -- it is that INVALID is exactly
 #    the state in which Moonraker offers "Hard Recover", which deletes phrozen_dev.
+# 6b. Seed the console filter that hides phrozen_dev's self-narration in Mainsail and Fluidd. Both keep
+#     their settings in Moonraker's database rather than a file, so this cannot be dropped in at bake
+#     time -- it needs Moonraker answering. Same unit shape as the refresh watcher below and for the same
+#     reason: Type=simple, so waiting for Moonraker never holds up the boot.
+if [ -f "$SELFDIR/apply-console-filters.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/arco-console-filters.service" <<EOF
+[Unit]
+Description=Arco Unleashed - seed the Phrozen-noise console filter into Mainsail and Fluidd
+After=moonraker.service network.target
+Wants=moonraker.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash $SELFDIR/apply-console-filters.sh
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable arco-console-filters.service >/dev/null 2>&1 || true
+  echo "  console filter seeder installed + enabled (Phrozen noise, additive, both UIs)"
+fi
+
 if [ -f "$SELFDIR/arco-update-refresh.sh" ]; then
   install -Dm644 /dev/stdin "$SD/arco-update-refresh.service" <<EOF
 [Unit]
