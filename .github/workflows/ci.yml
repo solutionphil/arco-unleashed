@@ -109,6 +109,13 @@ jobs:
           if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
             echo "No base commit to compare against — skipped."; exit 0
           fi
+          # The base can be named and still be gone. After a force push, github.event.before is the
+          # commit the branch used to be at, which a rewritten history no longer contains -- git then
+          # exits 128 on "bad object" and fails the run for a reason that has nothing to do with the
+          # documents. There is genuinely nothing to compare in that case, so say so and move on.
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "Base commit $base is not in this history (force push?) — skipped."; exit 0
+          fi
           changed="$(git diff --name-only "$base" '${{ github.sha }}')"
           drift=0
           for d in README MANUAL QUICKSTART; do
