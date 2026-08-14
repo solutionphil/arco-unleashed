@@ -1,0 +1,12 @@
+# Known error-severity shellcheck findings, as "<path> <SC-code>".
+#
+# CI fails on any error-level finding NOT listed here. Removing a line is always safe; adding one
+# should be a deliberate decision with the reason written next to it.
+#
+# Both entries below are SC1087 ("use braces when expanding arrays") on a variable followed by a
+# LITERAL square bracket -- a grep regex character class in one case, a Klipper section name in the
+# other. Bash does not treat "$var[...]" as an array subscript (that needs "${var[...]}"), so both
+# lines do exactly what they read as. They are listed rather than rewritten because these scripts are
+# hardware-tested and the change would be cosmetic.
+unleashed-x-kaos/scripts/kaos-home-hook.sh SC1087
+unleashed-x-kaos/scripts/kaos-sideload.sh SC1087
