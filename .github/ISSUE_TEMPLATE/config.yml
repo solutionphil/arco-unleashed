@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting — Appendix B
+    url: https://github.com/solutionphil/arco-unleashed/blob/main/MANUAL.md#appendix-b
+    about: The failure you are looking at is probably already written up here, with the fix.
+  - name: FAQ — Appendix C
+    url: https://github.com/solutionphil/arco-unleashed/blob/main/MANUAL.md#appendix-c
+    about: Answers to the questions that come up before and after the install.
+  - name: Which install path is mine?
+    url: https://github.com/solutionphil/arco-unleashed/blob/main/INSTALL-FLOWCHARTS.md
+    about: Every path in and out of Unleashed, drawn as a flowchart.
+  - name: KAOS itself
+    url: https://gitlab.com/sanders.chris/phrozenarco
+    about: KAOS is Chris Sanders' project. Bugs in KAOS belong in his repository, not this one.

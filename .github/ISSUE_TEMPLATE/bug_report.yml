@@ -1,0 +1,129 @@
+name: Bug report
+description: Something in the kit, the image or the AddOn layer does not do what the docs say.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you file this**, two places answer most reports faster than an issue can:
+        [MANUAL › Appendix B — Troubleshooting](../blob/main/MANUAL.md#appendix-b) and
+        [Appendix C — FAQ](../blob/main/MANUAL.md#appendix-c).
+
+        If the printer is *broken right now* and you just want it back: the setup menu has
+        **Emergency repair — one action, no diagnosis required**. Run that first, then file this
+        with what it printed.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before filing
+      options:
+        - label: I searched the existing issues and this is not already reported.
+          required: true
+        - label: I read Appendix B (Troubleshooting) and it does not cover this.
+          required: true
+        - label: This is a Phrozen Arco with the MKS board (RK3328, STM32F407 + MKS_THR STM32F103).
+          required: true
+
+  - type: dropdown
+    id: path
+    attributes:
+      label: Which install path did you take?
+      description: The four paths from [INSTALL-FLOWCHARTS](../blob/main/INSTALL-FLOWCHARTS.md).
+      options:
+        - "A — self-flash from the running printer"
+        - "B — eMMC module replacement / recovery"
+        - "C — base image + KIAUH (built the stack myself)"
+        - "D — reverting to stock Buster"
+        - "Not installed yet — this happened while preparing"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Kit version
+      description: |
+        On the printer: `git -C ~/arco-unleashed rev-parse --short HEAD`
+        Paste the commit, plus the release or image name you installed from.
+      placeholder: "e.g. 8493efd, image full/1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ams
+    attributes:
+      label: AMS
+      options:
+        - "No AMS attached"
+        - "AMS attached, ams flag ON"
+        - "AMS attached, ams flag OFF"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kaos
+    attributes:
+      label: Unleashed × KAOS
+      description: "`KAOS_STATUS` says which commit is installed and whether it is active."
+      options:
+        - "KAOS off / never installed"
+        - "KAOS on"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what the printer did instead. Exact error text beats a paraphrase.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: If a document says otherwise, name it and the step — that makes it a doc bug too.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: klippy
+    attributes:
+      label: klippy.log
+      description: |
+        **Attach the file — do not paste it.** Drag it into this box.
+        Mainsail → *Machine* → *klippy.log* → download. Or `~/printer_data/logs/klippy.log`.
+        Without it, anything Klipper-side is guesswork.
+    validations:
+      required: true
+
+  - type: textarea
+    id: guards
+    attributes:
+      label: Output of the guard check
+      description: |
+        `bash ~/arco-unleashed/scripts/check-guards.sh`
+        A printer that has run for a while can be missing a guard the current kit assumes is there,
+        and nothing says so until the exact failure that guard exists to catch.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Photos of the display, `systemd-analyze blame` for a slow boot, what you already tried.
