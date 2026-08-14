@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arco Unleashed — Bookworm Edition</title>
+<meta name="description" content="Take the Phrozen Arco off Debian Buster and Klipper v0.11 and onto Debian Bookworm with Klipper v0.13 — display, both MCUs, AMS and PhrozenGo all still working.">
+<link rel="icon" href="assets/logo.png">
+<style>
+  :root {
+    --brand: #2f52d6;
+    --brand-ink: #ffffff;
+    --bg: #f7f8fb;
+    --surface: #ffffff;
+    --ink: #14161c;
+    --ink-soft: #4a5060;
+    --line: #dfe3ec;
+    --warn-bg: #fff8e6;
+    --warn-line: #e8c877;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --brand: #7f95ea;
+      --brand-ink: #0c0f18;
+      --bg: #0d1016;
+      --surface: #151a24;
+      --ink: #e8ebf2;
+      --ink-soft: #a2aabd;
+      --line: #262d3b;
+      --warn-bg: #241f10;
+      --warn-line: #6b5722;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--brand); }
+
+  header { text-align: center; padding: 56px 0 40px; }
+  header img { width: min(560px, 100%); height: auto; }
+  header h1 {
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    margin: 22px 0 6px;
+    letter-spacing: -0.02em;
+  }
+  header p.lede {
+    margin: 0 auto;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+  }
+
+  .specs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; margin: 26px 0 0; padding: 0; list-style: none;
+  }
+  .specs li {
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 13px; font-size: .85rem; color: var(--ink-soft);
+    background: var(--surface); white-space: nowrap;
+  }
+
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 30px 0 0; }
+  .btn {
+    display: inline-block; padding: 11px 22px; border-radius: 10px;
+    text-decoration: none; font-weight: 600; border: 1px solid var(--brand);
+  }
+  .btn-primary { background: var(--brand); color: var(--brand-ink); }
+  .btn-ghost { color: var(--brand); background: transparent; }
+
+  h2 { font-size: 1.15rem; letter-spacing: .04em; text-transform: uppercase;
+       color: var(--ink-soft); margin: 56px 0 16px; }
+
+  .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+  .card {
+    display: block; padding: 22px; text-decoration: none; color: inherit;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .card:hover { border-color: var(--brand); transform: translateY(-2px); }
+  .card .kicker { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+                  color: var(--brand); font-weight: 700; }
+  .card h3 { margin: 8px 0 6px; font-size: 1.12rem; }
+  .card p { margin: 0; color: var(--ink-soft); font-size: .94rem; }
+
+  .note {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: var(--radius); padding: 18px 22px; margin: 40px 0 0;
+    font-size: .93rem; color: var(--ink);
+  }
+  .note strong { color: var(--ink); }
+
+  footer {
+    margin: 60px 0 40px; padding-top: 24px; border-top: 1px solid var(--line);
+    color: var(--ink-soft); font-size: .87rem;
+  }
+  footer p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="assets/logo.png" alt="Arco Unleashed — Bookworm Edition">
+    <h1>Take your Phrozen Arco off Buster.</h1>
+    <p class="lede">
+      The factory stack is frozen at Debian Buster and Klipper v0.11, and Buster is end-of-life.
+      This puts the printer on <strong>Debian Bookworm with Klipper v0.13</strong> — and keeps the
+      serial touch display, both MCUs, the chamber light, input shaper, the optional AMS and the
+      PhrozenGo app working.
+    </p>
+
+    <ul class="specs">
+      <li>Debian Bookworm · kernel 6.18</li>
+      <li>Klipper v0.13</li>
+      <li>Mainsail + Fluidd</li>
+      <li>Full SSH / root</li>
+      <li>AGPL-3.0</li>
+    </ul>
+
+    <div class="cta">
+      <a class="btn btn-primary" href="QUICKSTART.html">Start here</a>
+      <a class="btn btn-ghost" href="https://github.com/solutionphil/arco-unleashed">Code on GitHub</a>
+      <a class="btn btn-ghost" href="https://github.com/solutionphil/arco-unleashed/releases">Releases</a>
+    </div>
+  </header>
+
+  <h2>The documentation</h2>
+  <div class="cards">
+    <a class="card" href="QUICKSTART.html">
+      <div class="kicker">Checklist</div>
+      <h3>Quick Start</h3>
+      <p>The whole install as things to tick off. Uses the manual's step numbers, so you can drop into
+         the long version whenever a step needs more than a line.</p>
+    </a>
+    <a class="card" href="MANUAL.html">
+      <div class="kicker">The full walkthrough</div>
+      <h3>Manual</h3>
+      <p>Every step in full, with photographs and screenshots — plus removing the eMMC, troubleshooting
+         and the FAQ as appendices.</p>
+    </a>
+    <a class="card" href="README.html">
+      <div class="kicker">Reference</div>
+      <h3>What you get</h3>
+      <p>Every macro, menu entry and toggle the kit adds, and why each one exists. No install
+         walkthrough — that is what the other two are for.</p>
+    </a>
+    <a class="card" href="https://github.com/solutionphil/arco-unleashed/blob/main/INSTALL-FLOWCHARTS.md">
+      <div class="kicker">Diagrams</div>
+      <h3>Install flowcharts</h3>
+      <p>All four paths in and out, drawn: self-flash, eMMC swap, building it yourself, and going back
+         to stock. Rendered on GitHub.</p>
+    </a>
+  </div>
+
+  <div class="note">
+    <strong>Before you flash anything.</strong> Two things on a factory Arco cannot be downloaded again
+    once the eMMC is overwritten: the AMS server files, and your own calibration. Both are rescued in
+    Step 1 of the manual — do that first, on the printer while it still boots.
+  </div>
+
+  <footer>
+    <p><strong>Arco Unleashed is an independent, community-made project.</strong> It is not developed,
+      supported, sponsored, endorsed by, or affiliated with Phrozen Tech Co., Ltd. or ThroughTek Co., Ltd.
+      No proprietary Phrozen or ThroughTek software is bundled, hosted or mirrored here — those parts
+      reach the printer from your own copy, or from Phrozen's own public repository, pinned and
+      checksum-verified.</p>
+    <p><em>Phrozen</em>, <em>Arco</em> and <em>PhrozenGo</em> are trademarks of their respective owners,
+      used here only for identification.</p>
+    <p>Replacing the factory OS and firmware will very likely void your warranty. Your machine, your risk.</p>
+    <p>Licensed under AGPL-3.0. Documentation built from the repository — this page and the documents it
+      links are generated from the same markdown that ships with the kit.</p>
+  </footer>
+
+</div>
+</body>
+</html>

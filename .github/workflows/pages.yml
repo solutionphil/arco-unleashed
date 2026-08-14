@@ -1,0 +1,87 @@
+# Publish the documentation as a GitHub Pages site.
+#
+# Nothing is authored here. The three documents are the same pandoc-rendered HTML that ships beside
+# the kit and on the USB stick, copied from the repository root -- so the site cannot say something
+# different from what the printer's owner has in front of them. Only index.html is specific to the
+# web, and it lives in .github/pages/ rather than the repository root so it never reaches a printer.
+#
+# Requires one setting once: Settings -> Pages -> Source = "GitHub Actions".
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.html'
+      - 'assets/**'
+      - '.github/pages/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead, and do not cancel one half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble _site
+        run: |
+          mkdir -p _site
+          cp .github/pages/index.html _site/
+          cp README.html MANUAL.html QUICKSTART.html _site/
+          cp -r assets _site/assets
+          touch _site/.nojekyll          # keep GitHub from running Jekyll over it
+
+      # The manual embeds 26 MB of photographs at camera resolution -- fine on a USB stick, slow over
+      # a phone connection in a workshop. Downscaling happens to the deployed copy only; the repository
+      # and the shipped documents keep the originals.
+      - name: Downscale images for the web
+        run: |
+          im=""
+          if command -v magick >/dev/null; then im="magick"
+          elif command -v convert >/dev/null; then im="convert"
+          fi
+          if [ -z "$im" ]; then
+            echo "No ImageMagick on the runner — shipping originals."
+            exit 0
+          fi
+          before="$(du -sh _site/assets | cut -f1)"
+          # Photographs: resize and requantise. At quality 85 the board silkscreen, the connector
+          # labels and the eMMC sticker all stay readable, at roughly a third of the bytes.
+          find _site/assets -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) -print0 \
+            | while IFS= read -r -d '' f; do
+                "$im" "$f" -resize '1600x1600>' -quality 85 -strip "$f" || echo "  left as-is: $f"
+              done
+          # Screenshots: resize only. These are text on flat colour, where requantising is exactly
+          # the wrong trade -- it costs legibility and saves almost nothing.
+          find _site/assets -type f -iname '*.png' -print0 \
+            | while IFS= read -r -d '' f; do
+                "$im" "$f" -resize '1600x1600>' -strip "$f" || echo "  left as-is: $f"
+              done
+          echo "assets: $before -> $(du -sh _site/assets | cut -f1)"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
