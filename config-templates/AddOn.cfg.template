@@ -73,6 +73,20 @@ gcode:
   SET_PIN PIN=beeper VALUE=0.1
   G4 P50
   SET_PIN PIN=beeper VALUE=0
+  # The beep is the one moment somebody is guaranteed to be looking at the console, so let it say what
+  # the beep MEANS. An earlier draft printed the Klipper version here instead; the version is already in
+  # the login banner and the update manager, and "ready" is the thing this moment is actually about.
+  #
+  # RESPOND PREFIX= rather than M118: M118 puts "echo: " in front of every line, which would leave the
+  # rule above the name two characters out of line with the one below it.
+  #
+  # The rule is 46 characters and the two inner lines are centred on it by hand -- 80-column terminals
+  # like PuTTY's default must not wrap this, and in a fixed-width console being two characters off is
+  # visible. The dots are U+00B7, the same separator the login banner uses.
+  RESPOND PREFIX= MSG="──────────────────────────────────────────────"
+  RESPOND PREFIX= MSG="         A R C O   U N L E A S H E D"
+  RESPOND PREFIX= MSG="     · ·· ···  Printer is ready  ··· ·· ·"
+  RESPOND PREFIX= MSG="──────────────────────────────────────────────"
 #@ENDFEAT
 
 #@FEAT board_fan | Board fan (PA2), PID-controlled
