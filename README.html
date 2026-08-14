@@ -911,6 +911,10 @@ scope, not update-safe).</p>
 </details>
 <h2 id="orcaslicer-multicolor-ams-auto-mode">OrcaSlicer — multicolor
 &amp; AMS auto-mode</h2>
+<details>
+<summary>
+Show how the auto-mode works, and the one thing to watch
+</summary>
 <p>The Arco is a single-nozzle multicolor printer (filament-swap, like a
 Bambu AMS).</p>
 <p><strong>You need exactly one OrcaSlicer profile.</strong> Not one for
@@ -961,7 +965,12 @@ first time, if none exists yet. Homing is automatic. It needs the
 <code>auto_mode</code> and <code>ams</code> features in
 <code>AddOn.cfg</code>, both on by default, and the
 <code>gcode_shell_command</code> extension.</p>
+</details>
 <h3 id="adaptive-bed-mesh-optional">Adaptive bed mesh (optional)</h3>
+<details>
+<summary>
+Show what it costs and what it leaves behind
+</summary>
 <p>Instead of loading the saved full-bed mesh, Klipper can probe
 <strong>only the print area</strong> on each print. You trade the
 instant <code>G30</code> load for <strong>30–60 s of probing per
@@ -974,10 +983,15 @@ reads.</p>
 <p>How to switch, and the one thing to check on your first slice:
 <strong><a href="MANUAL.html#machine-gcode">MANUAL › Step
 10</a></strong>.</p>
+</details>
 <h3
 id="pause-filament-change-handled-automatically-for-ams-and-standalone">Pause
 &amp; filament change (handled automatically for AMS and
 standalone)</h3>
+<details>
+<summary>
+Show what the printer does on a pause or a colour change
+</summary>
 <p><strong>You do not need mode-specific <em>Pause</em> or <em>Change
 filament</em> G-code.</strong> One profile covers both cases, because
 the printer-side macros read the <code>ams</code> flag themselves: a
@@ -996,6 +1010,7 @@ past its start G-code, <code>FILA_STATUS</code> on demand, and
 <code>adc</code>, <code>threshold</code>,
 <code>protection_active</code>) for your own macros. It is read-only —
 detection and pausing stay with Phrozen’s module.</p>
+</details>
 <h2 id="belts-and-idlers">Belts and idlers</h2>
 <details>
 <summary>

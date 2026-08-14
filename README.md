@@ -440,6 +440,10 @@ built-in themes — keeping those pristine would need a Mainsail fork (out of sc
 </details>
 
 ## OrcaSlicer — multicolor & AMS auto-mode
+
+<details>
+<summary>Show how the auto-mode works, and the one thing to watch</summary>
+
 The Arco is a single-nozzle multicolor printer (filament-swap, like a Bambu AMS).
 
 **You need exactly one OrcaSlicer profile.** Not one for AMS and one without, and nothing to switch
@@ -484,7 +488,13 @@ The start G-code heats the **bed straight to print temperature** and holds the *
 automatic. It needs the `auto_mode` and `ams` features in `AddOn.cfg`, both on by default, and the
 `gcode_shell_command` extension.
 
+</details>
+
 ### Adaptive bed mesh (optional)
+
+<details>
+<summary>Show what it costs and what it leaves behind</summary>
+
 Instead of loading the saved full-bed mesh, Klipper can probe **only the print area** on each print. You
 trade the instant `G30` load for **30–60 s of probing per print**, and get a mesh measured where the part
 actually sits. Adaptive meshes are transient (`adaptive-XXXX`) and never overwrite your saved `phrozen`
@@ -493,7 +503,13 @@ is what emits the object bounding boxes adaptive meshing reads.
 
 How to switch, and the one thing to check on your first slice: **[MANUAL › Step 10](MANUAL.md#machine-gcode)**.
 
+</details>
+
 ### Pause & filament change (handled automatically for AMS and standalone)
+
+<details>
+<summary>Show what the printer does on a pause or a colour change</summary>
+
 **You do not need mode-specific *Pause* or *Change filament* G-code.** One profile covers both cases,
 because the printer-side macros read the `ams` flag themselves: a colour change purges the slice's flush
 volume through the AMS, or runs the full manual retract → load → purge → resume without one. Pause behaves
@@ -506,6 +522,8 @@ prints **unprotected**, and stock firmware never says so. This kit does: a conso
 past its start G-code, `FILA_STATUS` on demand, and `printer['arco_fila_status']`
 (`filament_present`, `adc`, `threshold`, `protection_active`) for your own macros. It is read-only —
 detection and pausing stay with Phrozen's module.
+
+</details>
 
 ## Belts and idlers
 
