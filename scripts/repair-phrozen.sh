@@ -30,7 +30,15 @@ PIN=c1289f07b0a00e2bf126643544e3e48fc31fbc79
 TARBALL="https://codeload.github.com/phrozen3d/klipper/tar.gz/$PIN"
 VFDM_SHA=b7f827fbcef26e1836357d1c466f9b57fe73bf2a84904438c5e8d4acac74faea
 PD="$HOME/klipper/klippy/extras/phrozen_dev"
-KIT="$(cd "$(dirname "$0")/.." && pwd)"
+# The kit is NOT simply "one level up from this script". Run from /tmp -- which is exactly how a tester
+# receives it during a fault -- that resolves to "/", so step 4 looks for //scripts/... and skips the
+# v0.13 patches with a warning nobody reads in a hurry. That happened on the first real use and left a
+# pristine but UNPATCHED cmds.py on a v0.13 Klipper. Try the script's own kit first (correct when it is
+# installed in one), then the standard location, and accept only a candidate that holds the patcher.
+KIT=""
+for _c in "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)" "$HOME/arco-unleashed"; do
+  [ -n "$_c" ] && [ -f "$_c/scripts/apply-phrozen-patches.sh" ] && { KIT="$_c"; break; }
+done
 DRY="${DRY_RUN:-0}"
 
 [ -d "$PD" ] || { echo "ERROR: $PD does not exist — nothing to repair here."; exit 1; }
@@ -83,10 +91,13 @@ if [ "$DRY" = 1 ]; then echo; echo "  Dry run — nothing changed."; exit 0; fi
 
 echo
 echo "=== 4. Re-apply the v0.13 patches (the repository copy is UNPATCHED) ==="
-if [ -f "$KIT/scripts/apply-phrozen-patches.sh" ]; then
+if [ -n "$KIT" ]; then
+  echo "  kit: $KIT"
   bash "$KIT/scripts/apply-phrozen-patches.sh" 2>&1 | sed 's/^/  /'
 else
-  echo "  WARNING: $KIT/scripts/apply-phrozen-patches.sh missing — apply them by hand!"
+  echo "  WARNING: no kit found — the module is now PRISTINE BUT UNPATCHED, which a v0.13"
+  echo "           Klipper will not accept. Run this by hand before restarting:"
+  echo "               bash ~/arco-unleashed/scripts/apply-phrozen-patches.sh"
 fi
 
 echo
