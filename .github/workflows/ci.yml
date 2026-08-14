@@ -125,35 +125,36 @@ jobs:
           if [ "$drift" = 0 ]; then echo "Markdown and HTML are in step."; fi
           exit 0
 
-      # Last line of defence for something that must never become public: names, symbols and
-      # artefacts from the reverse-engineering work. The dev repository gates the generated documents
-      # before they are distributed; this gates the public repository itself, which a direct commit
+      # Last line of defence for a short list of internal names that must never appear in a public
+      # document. The maintainer's build tooling applies the same check to the generated documents
+      # before they are distributed; this applies it to the repository itself, which a direct commit
       # would otherwise bypass.
       #
-      # The tokens deliberately live in a repository secret rather than in this file. Writing them
-      # here would publish, in the public repository, exactly the strings the gate exists to keep out
-      # of it. Set RE_TOKENS (Settings -> Secrets -> Actions) to the list, one per line; without it
+      # The list deliberately lives in a repository secret rather than in this file. Writing it here
+      # would publish, in the public repository, exactly the strings the check exists to keep out of
+      # it. Set GUARDED_STRINGS (Settings -> Secrets -> Actions) to the list, one per line; without it
       # the step skips instead of pretending to check.
       #
       # SCOPE: the documents that get distributed, and nothing else. This is not tidiness -- a
       # repository-wide grep was tried and is unusable, for three separate reasons found by running it:
       #
-      #   * It reads binary files. The byte sequences "PTR_" and "DAT_" occur inside a JPEG and a PNG
-      #     in assets/, purely by chance.
-      #   * It flags the kit's own scripts for names that are public product names rather than
-      #     decompiler symbols -- the distinction the guarded list is built around, and one that has
-      #     already been got wrong once in this project.
+      #   * It reads binary files. Two of the guarded strings are short generic prefixes, and both
+      #     occur by pure chance inside the compressed data of an image in assets/. That alone would
+      #     have failed every run, forever.
+      #   * It flags the kit's own scripts for a public product name. Telling a public name apart from
+      #     an internal one is the whole point of the list, and it has already been got wrong once in
+      #     this project, in the other direction.
       #   * It flags the documents that DESCRIBE this rule. CONTRIBUTING.md has to be able to say what
       #     contributors must not do.
       #
-      # A token list tuned for prose is wrong for source and binaries. So this checks what the dev
-      # repository's own gate checks: the text that leaves the building.
-      - name: Reverse-engineering token gate
+      # A list tuned for prose is the wrong instrument for source and binaries. So this checks what the
+      # build tooling checks: the text that leaves the building.
+      - name: Guarded strings
         env:
-          RE_TOKENS: ${{ secrets.RE_TOKENS }}
+          GUARDED_STRINGS: ${{ secrets.GUARDED_STRINGS }}
         run: |
-          if [ -z "${RE_TOKENS:-}" ]; then
-            echo "RE_TOKENS is not set — gate skipped (see the comment in ci.yml)."
+          if [ -z "${GUARDED_STRINGS:-}" ]; then
+            echo "GUARDED_STRINGS is not set — check skipped (see the comment in ci.yml)."
             exit 0
           fi
           docs="README.md MANUAL.md QUICKSTART.md INSTALL-FLOWCHARTS.md THIRD-PARTY-NOTICES.md
@@ -167,8 +168,8 @@ jobs:
               echo "::error::a guarded token appears in:"; sed 's/^/    /' /tmp/hits.txt
               fail=1
             fi
-          done <<< "$RE_TOKENS"
+          done <<< "$GUARDED_STRINGS"
           if [ "$fail" = 0 ]; then
-            echo "Clean — no guarded tokens in:$present"
+            echo "Clean — no guarded strings in:$present"
           fi
           exit "$fail"
