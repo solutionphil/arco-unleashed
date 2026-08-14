@@ -127,21 +127,17 @@ Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs 
 You get a finished image (a `.img.gz`, or a pre-flashed spare eMMC module). The whole software stack is
 already on it — you only need to flash it, set WiFi, and flash your printer's MCUs.
 
-> 🛑 **Before you flash anything, rescue the AMS server.** On the **still-running original printer**:
+> 🛑 **Before you flash anything, rescue the AMS server.** One command on the **still-running original
+> printer**, written out with the SSH details in **[MANUAL › Step 1](MANUAL.md#step-1)** — do not run it
+> from memory, it takes the stick's path as an argument.
 >
-> ```bash
-> bash ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB
-> ```
->
-> That writes `arco-phrozen-ams.tar.gz` onto your stick, and the new system re-installs it by itself on
+> It writes `arco-phrozen-ams.tar.gz` onto your stick, and the new system re-installs it by itself on
 > first boot. It saves **two files** — `phrozen_master` and `~/hdlDat` — which live only in Phrozen's
 > original OS. They are in no download and in none of Phrozen's packages, and the flash erases them for
 > good. Without them AMS detection hangs and the display will not return home after calibration.
 >
 > It is **not** a backup of the printer. For a way back to the factory system, image the whole eMMC onto
 > the stick first — [MANUAL › Step 2](MANUAL.md#step-2), no teardown needed.
->
-> Full walkthrough with the SSH details: [MANUAL › Step 1](MANUAL.md#step-1).
 
 ## Installing
 
@@ -480,44 +476,23 @@ The macro `PHROZEN_AMS_START` is what reads the flag and decides:
 | **off** | single-color | `P0 M3` (standalone, toolhead runout protection) |
 | **off** | multicolor | aborts with an error (multicolor needs the AMS) |
 
-**Complete Machine start G-code** (already in the kit profile — paste this whole block into Orca's
-*Machine start G-code* field if you set up your own printer):
-```gcode
-M107
-G90
-M104 S140 ; nozzle warm-up (stays cool = no ooze during probe)
-M140 S[bed_temperature_initial_layer_single] ; bed straight to print temp (no 65C detour)
-M109 S140
-M190 S[bed_temperature_initial_layer_single] ; heat-soak at target temp
-PG28
-;AUTO_LEVELING_2
-G30
-G21
-M83
-M104 S[nozzle_temperature_initial_layer] ; nozzle up to print temp
-M109 S[nozzle_temperature_initial_layer]
-{if size(filament_diameter) > 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}
-{if size(filament_diameter) == 1}
-T0
-{endif}
-```
-Above heats the **bed straight to your print temperature** (no wasteful 65 °C-then-cool-down wait) and
-keeps the **nozzle at a probe-safe 140 °C** during `PG28` home + probe (so it can't ooze onto the
-load-cell), then raises the nozzle to print temp. **`G30`** loads your saved `phrozen` bed mesh instantly
-(and calibrates + saves it the first time if none exists yet). The **`PHROZEN_AMS_START`** line is the AMS auto-mode; the closing
-`{if size(filament_diameter)…}` selects `T0` for single-color prints. Needs the `auto_mode` + `ams` features
-in `AddOn.cfg` (on by default) and the `gcode_shell_command` extension; homing is automatic.
+**The four Machine G-code fields live in the manual**, each given in full and ready to copy, with a
+screenshot of the tab it goes in: **[MANUAL › Step 10](MANUAL.md#step-10)**. The imported profile already
+carries them — you only type them out if you are setting up a printer of your own.
 
-**Set the other Machine G-code fields too** (the imported profile already has them; set them if you paste
-into your own): **End G-code** = `PRINT_END` · **Pause** = `M601` (→ `PAUSE` alias) · **Change filament** =
-`PHROZEN_TOOLCHANGE FLUSH=[flush_length]`. In **Others**, tick **Label objects** (`gcode_label_objects`) — required for the adaptive
-bed mesh (per-object bounding boxes via `EXCLUDE_OBJECT_DEFINE`) and it enables Mainsail per-object
-exclusion. (The AMS `ams` flag is separate — set once via SSH, see *The flag* above.) Pause /
-filament-change adapt automatically to the `ams` flag — see *Pause &amp; filament change* below.
+They are not repeated here on purpose. This page is reference; a second copy of a G-code block is a
+second copy that can go stale, and this one is 17 lines that have to match a running printer exactly.
+
+What is worth knowing about that block from here: the start G-code heats the **bed straight to print
+temperature** and holds the **nozzle at a probe-safe 140 °C** through home and probe, so it cannot ooze
+onto the load cell. **`G30`** then loads your saved `phrozen` mesh instantly — and calibrates and saves it
+the first time, if none exists yet. `PHROZEN_AMS_START` is the auto-mode line from the table above. It
+needs the `auto_mode` and `ams` features in `AddOn.cfg`, both on by default, and the
+`gcode_shell_command` extension. Homing is automatic.
 
 ### Adaptive bed mesh (optional)
 Rather than loading the saved full-bed mesh, Klipper can probe **only the print area** on each print.
-Replace the **`G30`** line above with:
+Replace the **`G30`** line in the start G-code with:
 ```gcode
 M106 S255
 BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
