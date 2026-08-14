@@ -653,10 +653,11 @@ the <code>P0</code> gcode). <code>AddOn.cfg</code> provides clickable
 <code>AMS_ON</code>/<code>AMS_OFF</code>/<code>AMS_STATUS</code> macros
 for Mainsail (needs the <code>gcode_shell_command</code> extension). It
 also writes a macro-readable <code>ams</code> flag that <strong>steers
-OrcaSlicer</strong> automatically (P0 M1/M2/M3 picked at print start —
-see <a href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>).
-Note: a factory-NEW AMS additionally needs one-time provisioning
-(firmware flash/pairing).</li>
+OrcaSlicer</strong> automatically — the print mode is picked at print
+start, see <a
+href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>. Note: a
+factory-NEW AMS additionally needs one-time provisioning (firmware
+flash/pairing).</li>
 </ul>
 </details>
 <p><a id="beacon-as-new-probing-device-for-meshing--experimental"></a></p>
@@ -941,45 +942,16 @@ Setting the fields by hand instead, or checking an older profile against
 the current one, is <strong><a href="MANUAL.html#machine-gcode">MANUAL ›
 Step 10</a></strong>: all four given in full, with a screenshot of the
 tab each belongs in.</p>
-<p>The macro <code>PHROZEN_AMS_START</code> is what reads the flag and
-decides:</p>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th>AMS flag</th>
-<th>Slice</th>
-<th>Print starts in</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>on</strong></td>
-<td>multicolor</td>
-<td><code>P0 M1</code> (color changes via <code>Tn</code>)</td>
-</tr>
-<tr>
-<td><strong>on</strong></td>
-<td>single-color</td>
-<td><code>P0 M2</code> (auto-refill / endless spool — load the
-<strong>same</strong> color)</td>
-</tr>
-<tr>
-<td><strong>off</strong></td>
-<td>single-color</td>
-<td><code>P0 M3</code> (standalone, toolhead runout protection)</td>
-</tr>
-<tr>
-<td><strong>off</strong></td>
-<td>multicolor</td>
-<td>aborts with an error (multicolor needs the AMS)</td>
-</tr>
-</tbody>
-</table>
+<p>All of that happens inside the start G-code:
+<code>PHROZEN_AMS_START</code> reads the flag and the print begins in
+the right mode. Nothing to pick, nothing to remember — and if you slice
+multicolour with no AMS attached, it stops and says so rather than
+starting something it cannot finish.</p>
+<p>One thing does <strong>not</strong> announce itself, though: with the
+AMS fitted and a single-colour slice, the printer runs an
+<strong>endless spool</strong> and refills from the other slots when one
+runs out. <strong>Load them with the same colour</strong> — otherwise a
+long print changes shade partway through, and nothing warns you.</p>
 <p>The start G-code heats the <strong>bed straight to print
 temperature</strong> and holds the <strong>nozzle at a probe-safe 140
 °C</strong> through home and probe, so it cannot ooze onto the load

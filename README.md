@@ -258,7 +258,7 @@ update exists.
   `~/hdlDat/Phrozen_Dev.json` work-mode; the runtime lever is the `P0` gcode). `AddOn.cfg` provides
   clickable `AMS_ON`/`AMS_OFF`/`AMS_STATUS` macros for Mainsail (needs the `gcode_shell_command`
   extension). It also writes a macro-readable `ams` flag that **steers OrcaSlicer** automatically
-  (P0 M1/M2/M3 picked at print start — see [OrcaSlicer](#orcaslicer--multicolor--ams-auto-mode)).
+  — the print mode is picked at print start, see [OrcaSlicer](#orcaslicer--multicolor--ams-auto-mode).
   Note: a factory-NEW AMS additionally needs one-time provisioning (firmware flash/pairing).
 
 </details>
@@ -470,14 +470,13 @@ in — import it via *File → Import → Import Configs…*. Setting the fields
 older profile against the current one, is **[MANUAL › Step 10](MANUAL.md#machine-gcode)**: all four given in
 full, with a screenshot of the tab each belongs in.
 
-The macro `PHROZEN_AMS_START` is what reads the flag and decides:
+All of that happens inside the start G-code: `PHROZEN_AMS_START` reads the flag and the print begins in
+the right mode. Nothing to pick, nothing to remember — and if you slice multicolour with no AMS attached,
+it stops and says so rather than starting something it cannot finish.
 
-| AMS flag | Slice | Print starts in |
-|---|---|---|
-| **on** | multicolor | `P0 M1` (color changes via `Tn`) |
-| **on** | single-color | `P0 M2` (auto-refill / endless spool — load the **same** color) |
-| **off** | single-color | `P0 M3` (standalone, toolhead runout protection) |
-| **off** | multicolor | aborts with an error (multicolor needs the AMS) |
+One thing does **not** announce itself, though: with the AMS fitted and a single-colour slice, the printer
+runs an **endless spool** and refills from the other slots when one runs out. **Load them with the same
+colour** — otherwise a long print changes shade partway through, and nothing warns you.
 
 The start G-code heats the **bed straight to print temperature** and holds the **nozzle at a probe-safe
 140 °C** through home and probe, so it cannot ooze onto the load cell. **`G30`** then loads your saved
