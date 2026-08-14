@@ -561,9 +561,13 @@ position back to back and returns to the home screen by itself. It does
 <code>PID_NOZZLE</code> from Mainsail afterwards, then
 <code>SAVE_CONFIG</code>. There is <strong>no z-offset step</strong> —
 the Arco probes with a load cell.</p>
-<p><strong>Skip any “print test” it offers.</strong> That bundled file
-was compiled for the old Klipper and cannot run, so the flow stalls on
-it.</p>
+<p><strong>Decline the “print test” the display offers.</strong> Not
+because the file is bad — this kit replaces both built-in test prints
+with its own. It is Phrozen’s factory-reset print flow <em>on the
+display</em> that is untested and used to stall here. Want the test
+print? Start <code>FDM_TEST.gcode</code> <strong>from Mainsail</strong>
+instead — that route is verified — or go straight to your own first
+print in step 10.</p>
 <p>Then save what you just measured — setup menu → <strong>2 — Backup /
 restore settings</strong> → also <strong>copy it to a USB
 stick</strong>, because the local copy lives on the very eMMC it is

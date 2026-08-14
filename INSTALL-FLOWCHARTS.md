@@ -349,7 +349,7 @@ flowchart TD
     C1 -->|"Easiest — from the display"| C2["Factory-reset auto-calibration:<br/>input shaper, bed mesh and purge<br/>position back to back"]
     C1 -->|"One at a time"| C3["The display's individual<br/>calibration routines"]
     C1 -->|"By hand"| C4["Mainsail: SHAPER_CALIBRATE,<br/>bed mesh, purge position"]
-    C2 --> SKIP["Skip any print test it offers —<br/>that bundled file was compiled for<br/>the old Klipper and stalls the flow"]
+    C2 --> SKIP["Decline the display's print test —<br/>that flow is untested and stalls.<br/>Start FDM_TEST.gcode from Mainsail instead"]
     C3 --> SKIP
     C4 --> SKIP
     SKIP --> PID["PID is not covered by any of them:<br/>run PID_BED and PID_NOZZLE<br/>in Mainsail, then SAVE_CONFIG"]
@@ -553,7 +553,7 @@ flowchart TD
     M -->|"Command format mismatch"| M2["One MCU still has old firmware —<br/>re-run that one"]
 
     T1 -->|"After an update, or the printer halted"| U1["Menu r — Emergency repair.<br/>Then menu 3 to check the guards"]
-    T1 -->|"Calibration will not finish"| C1["Skip the built-in print test —<br/>it was compiled for the old Klipper"]
+    T1 -->|"Calibration will not finish"| C1["Decline the display's print test —<br/>run FDM_TEST.gcode from Mainsail"]
 ```
 
 ---

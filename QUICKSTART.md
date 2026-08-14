@@ -226,8 +226,10 @@ input shaper, bed mesh and purge position back to back and returns to the home s
 **not** do PID: run `PID_BED` and `PID_NOZZLE` from Mainsail afterwards, then `SAVE_CONFIG`. There is **no
 z-offset step** — the Arco probes with a load cell.
 
-**Skip any "print test" it offers.** That bundled file was compiled for the old Klipper and cannot run, so
-the flow stalls on it.
+**Decline the "print test" the display offers.** Not because the file is bad — this kit replaces both
+built-in test prints with its own. It is Phrozen's factory-reset print flow *on the display* that is
+untested and used to stall here. Want the test print? Start `FDM_TEST.gcode` **from Mainsail** instead —
+that route is verified — or go straight to your own first print in step 10.
 
 Then save what you just measured — setup menu → **2 — Backup / restore settings** → also **copy it to a
 USB stick**, because the local copy lives on the very eMMC it is protecting.
