@@ -1170,6 +1170,8 @@ it — it adds a preset that inherits from it and changes only what is needed he
 Either one fills in all four G-code fields for you, and you can stop reading here. *Label objects*, which
 adaptive meshing needs, is already on in the official Arco print profiles.
 
+<a id="machine-gcode"></a>
+
 ### Or set the four fields by hand
 
 Open the printer preset with the **pencil** icon next to the printer name:
@@ -1234,10 +1236,19 @@ itself.
 > M106 S0
 > ```
 >
-> The fan lines keep the nozzle tip clean while probing. **Tick *Label objects*** as well (below) —
-> adaptive meshing reads object bounding boxes from the `EXCLUDE_OBJECT_DEFINE` lines that checkbox
-> emits, and without it Klipper silently probes the whole bed, which looks exactly like adaptive meshing
-> not working. Full detail: *Adaptive bed mesh* in the [README](README.md#adaptive-bed-mesh-optional).
+> The fan lines keep the nozzle tip clean while probing — Phrozen wraps its own mesh probe the same way,
+> and the plain `G30` load needs no fan because it does not probe.
+>
+> **Tick *Label objects*** as well (below). Adaptive meshing reads object bounding boxes from the
+> `EXCLUDE_OBJECT_DEFINE` lines that checkbox emits, and without it Klipper silently probes the whole
+> bed — which looks exactly like adaptive meshing not working.
+>
+> **Then check one thing on your first slice:** the `EXCLUDE_OBJECT_DEFINE` lines must sit **before**
+> `BED_MESH_CALIBRATE` in the sliced file. If they do not, set `enable_object_processing: True` under
+> `[file_manager]` in `moonraker.conf`.
+>
+> What it costs and what it leaves behind: *[Adaptive bed mesh](README.md#adaptive-bed-mesh-optional)*
+> in the README.
 
 #### Machine end G-code
 

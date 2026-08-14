@@ -511,22 +511,24 @@ routes</td>
 page is <strong>reference</strong> — the menu, the slicer profile, the
 optional features — not a fourth copy of the procedure.</p>
 <h3 id="the-three-things-people-miss">The three things people miss</h3>
-<p><strong>Bring the printer to Phrozen V199 first.</strong> That
+<blockquote>
+<p>⚠️ <strong>Bring the printer to Phrozen V199 first.</strong> That
 firmware carries the touch-panel firmware this project expects, and the
 panel is the one part Arco Unleashed never touches or ships. Start from
-something older and the display can misbehave, on a machine where the
+something older and the display can misbehave — on a machine where the
 display is how you follow the install.</p>
-<p><strong><code>arco-phrozen-ams.tar.gz</code> exists nowhere
+<p>⚠️ <strong><code>arco-phrozen-ams.tar.gz</code> exists nowhere
 else.</strong> <code>collect_data_arco.sh</code> makes it on your
 <em>still-running</em> printer, and the flash erases the original for
 good. It is in no download and in none of Phrozen’s packages. Everything
 else on the stick comes out of <strong><a
 href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
 — extract it to the top level and you are done.</p>
-<p><strong>Flashing the MCUs is not optional.</strong> It is the one
+<p>⚠️ <strong>Flashing the MCUs is not optional.</strong> It is the one
 step that opens the printer (two buttons inside the toolhead), and until
 it is done Klipper cannot start and the display sits on an error screen.
 That is expected, not a fault.</p>
+</blockquote>
 <h3 id="reaching-the-printer-afterwards">Reaching the printer
 afterwards</h3>
 <p>Once it is installed, the printer answers to
@@ -933,9 +935,12 @@ multicolour print stops at the first colour change.</p>
 <p><strong>Profile.</strong> Stock OrcaSlicer already ships the official
 <strong>Phrozen Arco</strong> profile (vendor <code>Phrozen</code>, no
 fork needed). The kit adds an enhanced variant in <a
-href="orca/"><code>orca/</code></a> carrying the start-gcode below —
-import it via <em>File → Import → Import Configs…</em>, or paste that
-block into your own profile.</p>
+href="orca/"><code>orca/</code></a> with the Machine G-code already
+filled in — import it via <em>File → Import → Import Configs…</em>.
+Setting the fields by hand instead, or checking an older profile against
+the current one, is <strong><a href="MANUAL.html#machine-gcode">MANUAL ›
+Step 10</a></strong>: all four given in full, with a screenshot of the
+tab each belongs in.</p>
 <p>The macro <code>PHROZEN_AMS_START</code> is what reads the flag and
 decides:</p>
 <table>
@@ -975,77 +980,46 @@ decides:</p>
 </tr>
 </tbody>
 </table>
-<p><strong>The four Machine G-code fields live in the manual</strong>,
-each given in full and ready to copy, with a screenshot of the tab it
-goes in: <strong><a href="MANUAL.html#step-10">MANUAL › Step
-10</a></strong>. The imported profile already carries them — you only
-type them out if you are setting up a printer of your own.</p>
-<p>They are not repeated here on purpose. This page is reference; a
-second copy of a G-code block is a second copy that can go stale, and
-this one is 17 lines that have to match a running printer exactly.</p>
-<p>What is worth knowing about that block from here: the start G-code
-heats the <strong>bed straight to print temperature</strong> and holds
-the <strong>nozzle at a probe-safe 140 °C</strong> through home and
-probe, so it cannot ooze onto the load cell.
-<strong><code>G30</code></strong> then loads your saved
-<code>phrozen</code> mesh instantly — and calibrates and saves it the
-first time, if none exists yet. <code>PHROZEN_AMS_START</code> is the
-auto-mode line from the table above. It needs the <code>auto_mode</code>
-and <code>ams</code> features in <code>AddOn.cfg</code>, both on by
-default, and the <code>gcode_shell_command</code> extension. Homing is
-automatic.</p>
+<p>The start G-code heats the <strong>bed straight to print
+temperature</strong> and holds the <strong>nozzle at a probe-safe 140
+°C</strong> through home and probe, so it cannot ooze onto the load
+cell. <strong><code>G30</code></strong> then loads your saved
+<code>phrozen</code> mesh instantly — calibrating and saving it the
+first time, if none exists yet. Homing is automatic. It needs the
+<code>auto_mode</code> and <code>ams</code> features in
+<code>AddOn.cfg</code>, both on by default, and the
+<code>gcode_shell_command</code> extension.</p>
 <h3 id="adaptive-bed-mesh-optional">Adaptive bed mesh (optional)</h3>
-<p>Rather than loading the saved full-bed mesh, Klipper can probe
-<strong>only the print area</strong> on each print. Replace the
-<strong><code>G30</code></strong> line in the start G-code with:</p>
-<pre class="gcode"><code>M106 S255
-BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
-M106 S0</code></pre>
-<p>The <code>M106 S255</code>/<code>M106 S0</code> runs the part fan
-during probing to keep the nozzle tip clean (Phrozen wraps its mesh
-probe the same way; the <code>G30</code> load doesn’t probe, so it needs
-no fan). Also <strong>enable OrcaSlicer’s <em>Label objects</em>
-checkbox</strong> (<em>Others → Label objects</em>). Adaptive meshing
-reads the object bounding boxes from the
-<code>EXCLUDE_OBJECT_DEFINE</code> lines that checkbox emits —
-<strong>without it Klipper falls back to probing the whole bed</strong>.
-After one test slice, confirm the <code>EXCLUDE_OBJECT_DEFINE</code>
-lines sit <strong>before</strong> <code>BED_MESH_CALIBRATE</code> in the
-sliced G-code; if not, set Moonraker
-<code>[file_manager] enable_object_processing: True</code>. Adaptive
-meshes are transient (<code>adaptive-XXXX</code>) and never overwrite
-your saved <code>phrozen</code> profile. Trade-off: probes each print
-(~30–60 s) vs. the instant <code>G30</code> load.</p>
+<p>Instead of loading the saved full-bed mesh, Klipper can probe
+<strong>only the print area</strong> on each print. You trade the
+instant <code>G30</code> load for <strong>30–60 s of probing per
+print</strong>, and get a mesh measured where the part actually sits.
+Adaptive meshes are transient (<code>adaptive-XXXX</code>) and never
+overwrite your saved <code>phrozen</code> profile, so switching back is
+just switching back. It needs OrcaSlicer’s <em>Label objects</em>
+checkbox — that is what emits the object bounding boxes adaptive meshing
+reads.</p>
+<p>How to switch, and the one thing to check on your first slice:
+<strong><a href="MANUAL.html#machine-gcode">MANUAL › Step
+10</a></strong>.</p>
 <h3
 id="pause-filament-change-handled-automatically-for-ams-and-standalone">Pause
 &amp; filament change (handled automatically for AMS and
 standalone)</h3>
-<p>You don’t need mode-specific <em>Pause</em> / <em>Change
-filament</em> G-code — the printer-side macros adapt to the
-<code>ams</code> flag automatically: - <strong>Color / filament
-change:</strong> Orca’s <code>change_filament_gcode</code> is
-<strong><code>PHROZEN_TOOLCHANGE FLUSH=[flush_length]</code></strong>,
-which is AMS-aware. With the AMS it retracts and purges the slice’s
-flush volume (a sized <code>P10</code> spit) while Orca’s
-<code>Tn</code> drives the actual cut / load / purge. Without the AMS it
-retracts and calls the <strong><code>M600</code></strong> macro — a full
-manual retract → load → purge → resume. (<code>M600</code> also reads
-the <code>ams</code> flag: full manual flow when off, a no-op when on
-since changes go via <code>Tn</code>.) - <strong>Pause:</strong> Orca’s
-stock <code>machine_pause_gcode</code> is
-<strong><code>M601</code></strong>, which is <em>not</em> a Klipper
-command — the kit ships an <strong><code>M601</code> →
-<code>PAUSE</code></strong> alias (in <code>AddOn.cfg</code>) so an Orca
-pause-at-layer works instead of hitting “Unknown command”.
-<code>PAUSE</code> behaves the same with or without the AMS. (Keep the
-profile’s <code>machine_pause_gcode</code> as <code>M601</code> — the
-alias handles it — or set it to <code>PAUSE</code> directly.) -
-<strong>Runout:</strong> the toolhead sensor is watched by Phrozen’s own
-module — but only after the print mode has been set, which is what
-<code>PHROZEN_AMS_START</code> does. A start G-code without it prints
-<strong>unprotected</strong>, and stock says nothing.
-<code>[arco_fila_status]</code> reports it: a console warning once the
-job is past its start G-code, <code>FILA_STATUS</code> on demand, and
+<p><strong>You do not need mode-specific <em>Pause</em> or <em>Change
+filament</em> G-code.</strong> One profile covers both cases, because
+the printer-side macros read the <code>ams</code> flag themselves: a
+colour change purges the slice’s flush volume through the AMS, or runs
+the full manual retract → load → purge → resume without one. Pause
+behaves the same either way — the kit maps Orca’s <code>M601</code> onto
+Klipper’s <code>PAUSE</code>, which stock Klipper does not have, so a
+pause-at-layer works instead of hitting <em>Unknown command</em>.</p>
+<p><strong>Runout protection depends on the start G-code.</strong> The
+toolhead sensor is watched by Phrozen’s module, but only once a print
+mode has been set — which is what <code>PHROZEN_AMS_START</code> does. A
+start G-code without it prints <strong>unprotected</strong>, and stock
+firmware never says so. This kit does: a console warning once the job is
+past its start G-code, <code>FILA_STATUS</code> on demand, and
 <code>printer['arco_fila_status']</code> (<code>filament_present</code>,
 <code>adc</code>, <code>threshold</code>,
 <code>protection_active</code>) for your own macros. It is read-only —
@@ -1180,9 +1154,9 @@ href="https://github.com/solutionphil/arco-unleashed">github.com/solutionphil/ar
 MCU firmware is GPL-3.0) — see <a
 href="THIRD-PARTY-NOTICES.md">THIRD-PARTY-NOTICES.md</a>.</p>
 <blockquote>
-<p>[!CAUTION] Working with electricity and electronic components can be
-dangerous. Always ensure you take the necessary safety precautions when
-handling electrical devices.</p>
+<p>⚠️ <strong>Working with electricity and electronic components can be
+dangerous.</strong> Always ensure you take the necessary safety
+precautions when handling electrical devices.</p>
 <p>This software and associated documentation are provided “as is”
 without warranty of any kind, either express or implied, including but
 not limited to the implied warranties of merchantability and fitness for

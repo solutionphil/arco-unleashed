@@ -1875,6 +1875,7 @@ leaving your saved mesh untouched</td>
 <p>Either one fills in all four G-code fields for you, and you can stop
 reading here. <em>Label objects</em>, which adaptive meshing needs, is
 already on in the official Arco print profiles.</p>
+<p><a id="machine-gcode"></a></p>
 <h3 id="or-set-the-four-fields-by-hand">Or set the four fields by
 hand</h3>
 <p>Open the printer preset with the <strong>pencil</strong> icon next to
@@ -1936,13 +1937,22 @@ screenshot above shows. Replace the <code>G30</code> line with:</p>
 <pre class="gcode"><code>M106 S255
 BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
 M106 S0</code></pre>
-<p>The fan lines keep the nozzle tip clean while probing. <strong>Tick
-<em>Label objects</em></strong> as well (below) — adaptive meshing reads
-object bounding boxes from the <code>EXCLUDE_OBJECT_DEFINE</code> lines
-that checkbox emits, and without it Klipper silently probes the whole
-bed, which looks exactly like adaptive meshing not working. Full detail:
-<em>Adaptive bed mesh</em> in the <a
-href="README.html#adaptive-bed-mesh-optional">README</a>.</p>
+<p>The fan lines keep the nozzle tip clean while probing — Phrozen wraps
+its own mesh probe the same way, and the plain <code>G30</code> load
+needs no fan because it does not probe.</p>
+<p><strong>Tick <em>Label objects</em></strong> as well (below).
+Adaptive meshing reads object bounding boxes from the
+<code>EXCLUDE_OBJECT_DEFINE</code> lines that checkbox emits, and
+without it Klipper silently probes the whole bed — which looks exactly
+like adaptive meshing not working.</p>
+<p><strong>Then check one thing on your first slice:</strong> the
+<code>EXCLUDE_OBJECT_DEFINE</code> lines must sit
+<strong>before</strong> <code>BED_MESH_CALIBRATE</code> in the sliced
+file. If they do not, set <code>enable_object_processing: True</code>
+under <code>[file_manager]</code> in <code>moonraker.conf</code>.</p>
+<p>What it costs and what it leaves behind: <em><a
+href="README.html#adaptive-bed-mesh-optional">Adaptive bed mesh</a></em>
+in the README.</p>
 </blockquote>
 <h4 id="machine-end-g-code">Machine end G-code</h4>
 <pre class="gcode"><code>PRINT_END</code></pre>
