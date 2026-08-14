@@ -166,71 +166,6 @@
       vertical-align: middle;
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
-    /* CSS for syntax highlighting */
-    html { -webkit-text-size-adjust: 100%; }
-    pre > code.sourceCode { white-space: pre; position: relative; }
-    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-    pre > code.sourceCode > span:empty { height: 1.2em; }
-    .sourceCode { overflow: visible; }
-    code.sourceCode > span { color: inherit; text-decoration: inherit; }
-    div.sourceCode { margin: 1em 0; }
-    pre.sourceCode { margin: 0; }
-    @media screen {
-    div.sourceCode { overflow: auto; }
-    }
-    @media print {
-    pre > code.sourceCode { white-space: pre-wrap; }
-    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-    }
-    pre.numberSource code
-      { counter-reset: source-line 0; }
-    pre.numberSource code > span
-      { position: relative; left: -4em; counter-increment: source-line; }
-    pre.numberSource code > span > a:first-child::before
-      { content: counter(source-line);
-        position: relative; left: -1em; text-align: right; vertical-align: baseline;
-        border: none; display: inline-block;
-        -webkit-touch-callout: none; -webkit-user-select: none;
-        -khtml-user-select: none; -moz-user-select: none;
-        -ms-user-select: none; user-select: none;
-        padding: 0 4px; width: 4em;
-        color: #aaaaaa;
-      }
-    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
-    div.sourceCode
-      {   }
-    @media screen {
-    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-    }
-    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-    code span.at { color: #7d9029; } /* Attribute */
-    code span.bn { color: #40a070; } /* BaseN */
-    code span.bu { color: #008000; } /* BuiltIn */
-    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-    code span.ch { color: #4070a0; } /* Char */
-    code span.cn { color: #880000; } /* Constant */
-    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-    code span.dt { color: #902000; } /* DataType */
-    code span.dv { color: #40a070; } /* DecVal */
-    code span.er { color: #ff0000; font-weight: bold; } /* Error */
-    code span.ex { } /* Extension */
-    code span.fl { color: #40a070; } /* Float */
-    code span.fu { color: #06287e; } /* Function */
-    code span.im { color: #008000; font-weight: bold; } /* Import */
-    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-    code span.op { color: #666666; } /* Operator */
-    code span.ot { color: #007020; } /* Other */
-    code span.pp { color: #bc7a00; } /* Preprocessor */
-    code span.sc { color: #4070a0; } /* SpecialChar */
-    code span.ss { color: #bb6688; } /* SpecialString */
-    code span.st { color: #4070a0; } /* String */
-    code span.va { color: #19177c; } /* Variable */
-    code span.vs { color: #4070a0; } /* VerbatimString */
-    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <style>
     /* Arco Unleashed — branded theme for pandoc-generated docs (README.html / MANUAL.html).
@@ -525,10 +460,11 @@ spare eMMC module). The whole software stack is already on it — you only
 need to flash it, set WiFi, and flash your printer’s MCUs.</p>
 <blockquote>
 <p>🛑 <strong>Before you flash anything, rescue the AMS server.</strong>
-On the <strong>still-running original printer</strong>:</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span></code></pre></div>
-<p>That writes <code>arco-phrozen-ams.tar.gz</code> onto your stick, and
+One command on the <strong>still-running original printer</strong>,
+written out with the SSH details in <strong><a
+href="MANUAL.html#step-1">MANUAL › Step 1</a></strong> — do not run it
+from memory, it takes the stick’s path as an argument.</p>
+<p>It writes <code>arco-phrozen-ams.tar.gz</code> onto your stick, and
 the new system re-installs it by itself on first boot. It saves
 <strong>two files</strong> — <code>phrozen_master</code> and
 <code>~/hdlDat</code> — which live only in Phrozen’s original OS. They
@@ -538,8 +474,6 @@ will not return home after calibration.</p>
 <p>It is <strong>not</strong> a backup of the printer. For a way back to
 the factory system, image the whole eMMC onto the stick first — <a
 href="MANUAL.html#step-2">MANUAL › Step 2</a>, no teardown needed.</p>
-<p>Full walkthrough with the SSH details: <a
-href="MANUAL.html#step-1">MANUAL › Step 1</a>.</p>
 </blockquote>
 <h2 id="installing">Installing</h2>
 <p><strong>The printer flashes itself.</strong> You put the image on a
@@ -1041,56 +975,29 @@ decides:</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Complete Machine start G-code</strong> (already in the kit
-profile — paste this whole block into Orca’s <em>Machine start
-G-code</em> field if you set up your own printer):</p>
-<pre class="gcode"><code>M107
-G90
-M104 S140 ; nozzle warm-up (stays cool = no ooze during probe)
-M140 S[bed_temperature_initial_layer_single] ; bed straight to print temp (no 65C detour)
-M109 S140
-M190 S[bed_temperature_initial_layer_single] ; heat-soak at target temp
-PG28
-;AUTO_LEVELING_2
-G30
-G21
-M83
-M104 S[nozzle_temperature_initial_layer] ; nozzle up to print temp
-M109 S[nozzle_temperature_initial_layer]
-{if size(filament_diameter) &gt; 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}
-{if size(filament_diameter) == 1}
-T0
-{endif}</code></pre>
-<p>Above heats the <strong>bed straight to your print
-temperature</strong> (no wasteful 65 °C-then-cool-down wait) and keeps
-the <strong>nozzle at a probe-safe 140 °C</strong> during
-<code>PG28</code> home + probe (so it can’t ooze onto the load-cell),
-then raises the nozzle to print temp. <strong><code>G30</code></strong>
-loads your saved <code>phrozen</code> bed mesh instantly (and calibrates
-+ saves it the first time if none exists yet). The
-<strong><code>PHROZEN_AMS_START</code></strong> line is the AMS
-auto-mode; the closing <code>{if size(filament_diameter)…}</code>
-selects <code>T0</code> for single-color prints. Needs the
-<code>auto_mode</code> + <code>ams</code> features in
-<code>AddOn.cfg</code> (on by default) and the
-<code>gcode_shell_command</code> extension; homing is automatic.</p>
-<p><strong>Set the other Machine G-code fields too</strong> (the
-imported profile already has them; set them if you paste into your own):
-<strong>End G-code</strong> = <code>PRINT_END</code> ·
-<strong>Pause</strong> = <code>M601</code> (→ <code>PAUSE</code> alias)
-· <strong>Change filament</strong> =
-<code>PHROZEN_TOOLCHANGE FLUSH=[flush_length]</code>. In
-<strong>Others</strong>, tick <strong>Label objects</strong>
-(<code>gcode_label_objects</code>) — required for the adaptive bed mesh
-(per-object bounding boxes via <code>EXCLUDE_OBJECT_DEFINE</code>) and
-it enables Mainsail per-object exclusion. (The AMS <code>ams</code> flag
-is separate — set once via SSH, see <em>The flag</em> above.) Pause /
-filament-change adapt automatically to the <code>ams</code> flag — see
-<em>Pause &amp; filament change</em> below.</p>
+<p><strong>The four Machine G-code fields live in the manual</strong>,
+each given in full and ready to copy, with a screenshot of the tab it
+goes in: <strong><a href="MANUAL.html#step-10">MANUAL › Step
+10</a></strong>. The imported profile already carries them — you only
+type them out if you are setting up a printer of your own.</p>
+<p>They are not repeated here on purpose. This page is reference; a
+second copy of a G-code block is a second copy that can go stale, and
+this one is 17 lines that have to match a running printer exactly.</p>
+<p>What is worth knowing about that block from here: the start G-code
+heats the <strong>bed straight to print temperature</strong> and holds
+the <strong>nozzle at a probe-safe 140 °C</strong> through home and
+probe, so it cannot ooze onto the load cell.
+<strong><code>G30</code></strong> then loads your saved
+<code>phrozen</code> mesh instantly — and calibrates and saves it the
+first time, if none exists yet. <code>PHROZEN_AMS_START</code> is the
+auto-mode line from the table above. It needs the <code>auto_mode</code>
+and <code>ams</code> features in <code>AddOn.cfg</code>, both on by
+default, and the <code>gcode_shell_command</code> extension. Homing is
+automatic.</p>
 <h3 id="adaptive-bed-mesh-optional">Adaptive bed mesh (optional)</h3>
 <p>Rather than loading the saved full-bed mesh, Klipper can probe
 <strong>only the print area</strong> on each print. Replace the
-<strong><code>G30</code></strong> line above with:</p>
+<strong><code>G30</code></strong> line in the start G-code with:</p>
 <pre class="gcode"><code>M106 S255
 BED_MESH_CALIBRATE ADAPTIVE=1 ADAPTIVE_MARGIN=5
 M106 S0</code></pre>
