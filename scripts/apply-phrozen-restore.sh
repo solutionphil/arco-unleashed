@@ -39,7 +39,25 @@ BK="${ARCO_PHROZEN_BK:-$HOME/.arco-phrozen-backup}"
 # That matters most in the other direction: a module without it must never be allowed to overwrite a
 # backup that has it, or the last good copy is lost silently.
 has_master(){ [ -x "$1/frp-oms/phrozen_master" ] || [ -f "$1/frp-oms/phrozen_master" ]; }
-complete(){ [ -f "$1/cmds.py" ] && [ -f "$1/base.py" ] && [ -f "$1/__init__.py" ]; }
+
+# Existence is not health, and treating it as health destroyed a tester's last good copy on 2026-08-14.
+# His cmds.py came back from an update 800422 bytes instead of 800809, the tail of it NUL bytes. Every
+# file test this function used to run passed, so the next boot happily mirrored the damaged module over
+# the safety copy — and now BOTH were broken, with klippy refusing the module outright ("source code
+# string cannot contain null bytes"). Nothing in the kit could put it back.
+# A file holding NUL bytes cannot be a Python source file, full stop, so the verdict is unambiguous and
+# there are no false positives to weigh: this checks only the three .py files, never the binaries or
+# serial-screen/use_conf.txt, which legitimately contain NUL bytes on a healthy printer.
+complete(){
+  local f a b
+  for f in cmds.py base.py __init__.py; do
+    [ -s "$1/$f" ] || return 1
+    a=$(LC_ALL=C tr -d '\000' < "$1/$f" | wc -c) || return 1
+    b=$(wc -c < "$1/$f") || return 1
+    [ "$a" -eq "$b" ] || return 1
+  done
+  return 0
+}
 
 # Copy via a staging directory and swap, so an interrupted run can never leave a half-written module
 # behind (which would be worse than the missing one it replaced).
@@ -71,16 +89,20 @@ fi
 if complete "$BK"; then
   mkdir -p "$(dirname "$PD")"
   if mirror "$BK" "$PD"; then
-    echo "  phrozen_dev: RESTORED from $BK — a Klipper update had removed it"
+    echo "  phrozen_dev: RESTORED from $BK — the installed module was missing or damaged"
   else
     echo "  phrozen_dev: restore from $BK FAILED" >&2
   fi
   exit 0
 fi
 
-echo "  phrozen_dev: missing, and there is no safety copy in $BK." >&2
-echo "  phrozen_dev: printer.cfg declares [phrozen_dev], so Klipper will not start. Re-install the module" >&2
-echo "  phrozen_dev: from Phrozen's Arco_FW_V*.zip via the setup menu (unleashed_setup.sh)." >&2
+echo "  phrozen_dev: missing or damaged, and the safety copy in $BK is no better." >&2
+echo "  phrozen_dev: printer.cfg declares [phrozen_dev], so Klipper will not start." >&2
+echo "  phrozen_dev: If the files are DAMAGED rather than gone, this replaces just the broken ones from" >&2
+echo "  phrozen_dev: Phrozen's own public repository, keeping everything a re-install would take away:" >&2
+echo "  phrozen_dev:     bash ~/arco-unleashed/scripts/repair-phrozen.sh" >&2
+echo "  phrozen_dev: If they are GONE, re-install from Phrozen's Arco_FW_V*.zip via the setup menu" >&2
+echo "  phrozen_dev: (type: unleashed)." >&2
 echo "  phrozen_dev: The AMS server frp-oms/phrozen_master is NOT in that zip — it comes from the printer's" >&2
 echo "  phrozen_dev: original OS. Restore it from your own arco-phrozen-ams.tar.gz (collect_data_arco.sh)." >&2
 # Never fail the unit: klippy's own config error names the problem more precisely than we can.
