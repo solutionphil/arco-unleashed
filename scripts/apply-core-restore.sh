@@ -52,7 +52,10 @@ fi
 [ -n "$NEED" ] || exit 0
 
 git config --global --add safe.directory "$KL" 2>/dev/null || true
-# shellcheck disable=SC2086 -- NEED is a deliberate list of paths, none of which can contain spaces.
+# NEED is a deliberate list of paths, none of which can contain spaces, so the split is wanted here.
+# (The reason goes ABOVE the directive, not after it: ShellCheck treats trailing prose on a directive
+# line as a malformed directive and reports it as a parse error, which `bash -n` never sees.)
+# shellcheck disable=SC2086
 git -C "$KL" checkout HEAD -- $NEED 2>&1 | sed 's/^/    /'
 echo "    restored:$NEED (MCU timing comes from the arco_mcu_timing extra — mcu.py stays pristine)"
 
