@@ -1024,8 +1024,9 @@ First steps after switching, all in Mainsail/Fluidd: `STEPPER_BUZZ` both Z stepp
 `Z_TILT_ADJUST` → `BEACON_CAL` → `BEACON_MESH`.
 
 ### Sensorless XY homing — *for when a switch has failed*
-Setup menu → **`s) Sensorless XY homing`**. X and Y stop by detecting motor load (Trinamic StallGuard)
-instead of by a microswitch. Z is untouched and keeps its load-cell probe.
+Setup menu → **`s) Sensorless XY homing`** — it changes how X and Y find home, and nothing else: Z is
+untouched and keeps its load-cell probe. What it actually does, and when it is worth having:
+[README › Sensorless XY homing](README.md#sensorless-xy-homing--a-repair-option-not-an-upgrade).
 
 > **This is an alternative, not an upgrade.** The microswitches are the default and the recommendation:
 > they stop at the same physical place every time, for free, with nothing to tune. **If your switches

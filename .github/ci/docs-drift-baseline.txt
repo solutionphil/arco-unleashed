@@ -4,15 +4,13 @@
 # these two documents may both carry this text, and that whoever changes one will change the other.
 # Removing a line is always safe -- the check simply starts reporting the pair again.
 #
-# Four entries when this was written. Three are warnings that have to be readable without following a
-# link; the fourth is a command whose omission cannot be undone. None of them is a copy that could
-# quietly stop matching the machine, which is the class this gate exists to prevent.
-
-# "X and Y stop by detecting motor load (Trinamic StallGuard) instead of a microswitch."
-# The one-sentence description of what sensorless homing IS, in the reference and in the manual.
-# Recorded rather than de-duplicated because both documents need it in place to make sense on their
-# own -- but it is the weakest entry here, and folding it into one owner would be an improvement.
-README.md MANUAL.md 395b130608d9
+# Three entries. Two are warnings that have to be readable without following a link; the third is a
+# command whose omission cannot be undone. None of them is a copy that could quietly stop matching
+# the machine, which is the class this gate exists to prevent.
+#
+# A fourth was recorded here briefly -- the sentence describing what sensorless homing is, verbatim in
+# both README and MANUAL -- and then removed by giving it one owner instead. That is the better answer
+# whenever it is available: the README says what the feature is, the manual says what to do about it.
 
 # The hardware-specific warning: MKS board, RK3328, F407 + MKS_THR F103, AP6212 WiFi. Someone must
 # not get three steps in before learning this is not a generic Klipper kit, on either document.
