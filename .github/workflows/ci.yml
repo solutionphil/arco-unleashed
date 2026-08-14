@@ -138,8 +138,9 @@ jobs:
       # SCOPE: the documents that get distributed, and nothing else. This is not tidiness -- a
       # repository-wide grep was tried and is unusable, for three separate reasons found by running it:
       #
-      #   * It reads binary files. The byte sequences "PTR_" and "DAT_" occur inside a JPEG and a PNG
-      #     in assets/, purely by chance.
+      #   * It reads binary files. Two of the guarded strings are short generic prefixes, and both
+      #     occur by pure chance inside the compressed data of an image in assets/. That alone would
+      #     have failed every run, forever.
       #   * It flags the kit's own scripts for names that are public product names rather than
       #     decompiler symbols -- the distinction the guarded list is built around, and one that has
       #     already been got wrong once in this project.
