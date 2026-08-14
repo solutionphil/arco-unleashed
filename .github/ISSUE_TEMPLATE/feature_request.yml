@@ -1,0 +1,50 @@
+name: Feature request
+description: Something the kit should do and does not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Worth knowing before you write: this kit deliberately does **not** carry everything.
+        Anything proprietary from Phrozen is fetched by the owner, never redistributed here, and
+        [KAOS](https://gitlab.com/sanders.chris/phrozenarco) is sideloaded from its author's own
+        repository rather than vendored. A request that would change either of those is a licensing
+        question first and a feature second — say so and we will treat it that way.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation on the printer, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should happen instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
+      description: The manual workaround, an existing macro that half-covers it, an add-on you use.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the kit?
+      options:
+        - "AddOn macros (AddOn.cfg)"
+        - "Setup menu / scripts"
+        - "Image build / flashing / self-flash"
+        - "WiFi, portal, network"
+        - "Display (TFT) / voronFDM"
+        - "AMS"
+        - "Mainsail / Fluidd theme"
+        - "Documentation"
+        - "Something else"
+    validations:
+      required: true
