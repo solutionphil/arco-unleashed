@@ -80,13 +80,23 @@ gcode:
   # RESPOND PREFIX= rather than M118: M118 puts "echo: " in front of every line, which would leave the
   # rule above the name two characters out of line with the one below it.
   #
-  # The rule is 46 characters and the two inner lines are centred on it by hand -- 80-column terminals
-  # like PuTTY's default must not wrap this, and in a fixed-width console being two characters off is
-  # visible. The dots are U+00B7, the same separator the login banner uses.
+  # The rule is 46 characters and the inner lines are centred on it by hand -- 80-column terminals like
+  # PuTTY's default must not wrap this, and in a fixed-width console being two characters off is visible.
+  # The dots are U+00B7, the same separator the login banner uses.
+  #
+  # 🔴 THE ORDER BELOW IS DELIBERATELY UPSIDE DOWN. Do not "fix" it. The web consoles print newest
+  # first, and all four lines land in the same second, so the block renders bottom-up: the line sent
+  # LAST appears at the TOP. Sent in reading order it came out with "Printer is ready" above the name.
+  # Reversed here, it reads correctly on screen:
+  #
+  #     · ·· ···  Printer is ready  ··· ·· ·
+  #     ──────────────────────────────────────────────
+  #     A R C O   U N L E A S H E D
+  #     ──────────────────────────────────────────────
   RESPOND PREFIX= MSG="──────────────────────────────────────────────"
   RESPOND PREFIX= MSG="         A R C O   U N L E A S H E D"
-  RESPOND PREFIX= MSG="     · ·· ···  Printer is ready  ··· ·· ·"
   RESPOND PREFIX= MSG="──────────────────────────────────────────────"
+  RESPOND PREFIX= MSG="     · ·· ···  Printer is ready  ··· ·· ·"
 #@ENDFEAT
 
 #@FEAT board_fan | Board fan (PA2), PID-controlled
