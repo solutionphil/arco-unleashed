@@ -1,5 +1,5 @@
 <!-- Thanks for sending this. CONTRIBUTING.md explains the two rules that are not negotiable
-     (nothing proprietary, nothing from reverse engineering) — worth a look before you fill this in. -->
+     (nothing proprietary, no internal names from the factory software) — worth a look first. -->
 
 ## What this changes
 
@@ -22,7 +22,7 @@ Details:
 
 ## Checklist
 
-- [ ] No Phrozen or ThroughTek files, and nothing derived from decompiled firmware, are added by this PR
+- [ ] No Phrozen or ThroughTek files, and no internal names from the factory software, are added by this PR
 - [ ] `bash -n` passes on every shell script I touched
 - [ ] If I changed `README.md`, `MANUAL.md` or `QUICKSTART.md`, I regenerated the matching `.html`
 - [ ] If I renumbered or moved a MANUAL step, I checked QUICKSTART still points at steps that exist

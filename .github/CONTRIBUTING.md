@@ -24,14 +24,16 @@ it is sideloaded from Chris Sanders' own GitLab at install time and never vendor
 If a change genuinely cannot be made without one of those files, open an issue and describe the
 problem instead — there is usually a fetch-and-verify shape that works.
 
-## 2. Nothing from reverse engineering enters a public file
+## 2. Internal names from the factory software stay out of public files
 
-Parts of this project were understood by decompiling firmware that had no documentation. Symbols,
-addresses, decompiler artefacts and internal names from that work stay out of anything published
-here — code, comments, commit messages and documentation alike.
+Some of what this kit works around is undocumented behaviour of the software the printer shipped with.
+Whatever anyone has worked out about its internals — symbols, addresses, generated identifiers,
+function names — stays out of everything published here: code, comments, commit messages and
+documentation alike.
 
-Describe *behaviour* ("the display re-requests the file list after a reconnect"), not the decompiled
-internals you learned it from.
+Write about what the machine *does* ("the display re-requests the file list after a reconnect"), not
+about the internals behind it. If you cannot describe a fix without naming one, open an issue and
+describe the symptom instead; there is usually a way to say it that works.
 
 ## 3. Say honestly how it was tested
 
