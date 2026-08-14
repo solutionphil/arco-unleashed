@@ -245,12 +245,13 @@ v0.13</strong>. All your factory hardware and features carry over — the
 serial touch display, both MCUs, chamber light, input shaper, the
 optional AMS and the PhrozenGo app — now running on a current,
 maintained and fully open system.</p>
-<h3 id="why-move-off-buster-klipper-v0.11">Why move off Buster + Klipper
-v0.11?</h3>
+<h2 id="why-move-off-buster-klipper-v0.11">Why move off Buster + Klipper
+v0.11?</h2>
 <ul>
 <li><strong>Security &amp; longevity</strong> — Debian Buster is
-<strong>end-of-life</strong> (no more security updates). Bookworm is the
-current, supported Debian with modern Python and packages.</li>
+<strong>end-of-life</strong> (no more security updates). Bookworm is
+Debian’s oldstable release and still gets them, with modern Python and
+packages.</li>
 <li><strong>Klipper v0.13</strong> — years of fixes and features over
 the frozen factory v0.11 (improved input shaper,
 <code>exclude_object</code>, <code>danger_options</code>, faster) — and,
@@ -271,7 +272,7 @@ themed.</li>
 <li><strong>It’s your printer</strong> — full SSH / root access,
 Obico-ready, no cloud lock-in.</li>
 </ul>
-<h3 id="what-the-addon-layer-adds">What the AddOn layer adds</h3>
+<h2 id="what-the-addon-layer-adds">What the AddOn layer adds</h2>
 <p><strong>AMS auto-mode — one OrcaSlicer profile for
 everything.</strong> Slice single-colour or multicolour with the same
 profile; the printer works out which AMS mode to start in, at print
@@ -453,8 +454,8 @@ Keep a backup of the original eMMC (or the stock image) so you can
 restore it if you ever need to return the printer to stock.</p>
 </blockquote>
 <hr />
-<h1 id="flash-run-the-pre-built-image">🟢 Flash &amp; Run — the
-pre-built image</h1>
+<h2 id="flash-run-the-pre-built-image">🟢 Flash &amp; Run — the
+pre-built image</h2>
 <p>You get a finished image (a <code>.img.gz</code>, or a pre-flashed
 spare eMMC module). The whole software stack is already on it — you only
 need to flash it, set WiFi, and flash your printer’s MCUs.</p>
@@ -475,7 +476,7 @@ will not return home after calibration.</p>
 the factory system, image the whole eMMC onto the stick first — <a
 href="MANUAL.html#step-2">MANUAL › Step 2</a>, no teardown needed.</p>
 </blockquote>
-<h2 id="installing">Installing</h2>
+<h3 id="installing">Installing</h3>
 <p><strong>The printer flashes itself.</strong> You put the image on a
 USB stick, run one command over SSH, and the printer overwrites its own
 eMMC on the next boot. No teardown, no PC, nothing to unplug.</p>
@@ -483,7 +484,7 @@ eMMC on the next boot. No teardown, no PC, nothing to unplug.</p>
 is there for recovery if a flash ever fails, for setting up a spare
 module, or for keeping an untouched copy of the factory system — <a
 href="MANUAL.html#appendix-a">MANUAL › Appendix A</a>.</p>
-<h3 id="which-guide">Which guide</h3>
+<h4 id="which-guide">Which guide</h4>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -510,7 +511,7 @@ routes</td>
 <p>Those three are the install instructions. Everything below on this
 page is <strong>reference</strong> — the menu, the slicer profile, the
 optional features — not a fourth copy of the procedure.</p>
-<h3 id="the-three-things-people-miss">The three things people miss</h3>
+<h4 id="the-three-things-people-miss">The three things people miss</h4>
 <blockquote>
 <p>⚠️ <strong>Bring the printer to Phrozen V199 first.</strong> That
 firmware carries the touch-panel firmware this project expects, and the
@@ -529,8 +530,8 @@ step that opens the printer (two buttons inside the toolhead), and until
 it is done Klipper cannot start and the display sits on an error screen.
 That is expected, not a fault.</p>
 </blockquote>
-<h3 id="reaching-the-printer-afterwards">Reaching the printer
-afterwards</h3>
+<h4 id="reaching-the-printer-afterwards">Reaching the printer
+afterwards</h4>
 <p>Once it is installed, the printer answers to
 <strong><code>unleashed.local</code></strong> —
 <code>ssh mks@unleashed.local</code>, or
@@ -726,6 +727,32 @@ retries make it worse. Check with
 <code>STEPPER_BUZZ STEPPER=stepper_z</code> / <code>stepper_z1</code>
 and watch which side of the gantry moves.</p>
 </blockquote>
+<p><strong>What it changes.</strong> Four things have to
+<em>disappear</em> from <code>printer.cfg</code>, which no include can
+do — <code>[probe]</code> (claims the same <code>!PB9</code>),
+<code>[homing_override]</code> (claims <code>G28</code> and drives Z
+against the piezo), <code>stepper_z</code>’s
+<code>position_endstop</code> (Klipper rejects it as unused once the
+endstop is virtual) and <code>stepper_z1</code>’s
+<code>endstop_pin</code> (a second endstop on a probe-homed rail). Each
+is commented with a <code>#:beacon:</code> marker, so <code>off</code>
+is a prefix strip. Everything additive lives in <code>beacon.cfg</code>,
+included <strong>last</strong> so its section merges win.</p>
+<p><strong>Update safety.</strong> The Beacon module is untracked in
+Klipper’s tree, so Klipper updates leave it alone; Moonraker is not
+involved. A <strong>Phrozen update is the dangerous one</strong> — it
+replaces <code>printer.cfg</code> wholesale, which would put the piezo
+config back while a Beacon sits on the toolhead, and the next
+<code>G28</code> would drive Z down waiting for a trigger that cannot
+come. So Beacon mode is re-applied by the <code>ExecStartPre</code>
+config guard on every Klipper start, keyed off a marker file, before
+klippy parses anything. A copy of your <code>beacon.cfg</code> is kept
+outside <code>printer_data/</code> for the same reason.</p>
+<p><strong>First steps after switching</strong> (in Mainsail/Fluidd, not
+on the display): <code>STEPPER_BUZZ</code> both Z steppers →
+<code>G28</code> → <code>Z_TILT_ADJUST</code> → <code>BEACON_CAL</code>
+(contact auto-calibration) → <code>BEACON_MESH</code> (re-scan the mesh
+— the saved one was probed with the piezo).</p>
 </details>
 <h2 id="sensorless-xy-homing-a-repair-option-not-an-upgrade">Sensorless
 XY homing — a repair option, not an upgrade</h2>
@@ -785,32 +812,6 @@ motor <em>slips</em> instead of building the load StallGuard measures,
 so nothing triggers at all — which looks exactly like “sensorless does
 not work on this machine”.</p>
 </blockquote>
-<p><strong>What it changes.</strong> Four things have to
-<em>disappear</em> from <code>printer.cfg</code>, which no include can
-do — <code>[probe]</code> (claims the same <code>!PB9</code>),
-<code>[homing_override]</code> (claims <code>G28</code> and drives Z
-against the piezo), <code>stepper_z</code>’s
-<code>position_endstop</code> (Klipper rejects it as unused once the
-endstop is virtual) and <code>stepper_z1</code>’s
-<code>endstop_pin</code> (a second endstop on a probe-homed rail). Each
-is commented with a <code>#:beacon:</code> marker, so <code>off</code>
-is a prefix strip. Everything additive lives in <code>beacon.cfg</code>,
-included <strong>last</strong> so its section merges win.</p>
-<p><strong>Update safety.</strong> The Beacon module is untracked in
-Klipper’s tree, so Klipper updates leave it alone; Moonraker is not
-involved. A <strong>Phrozen update is the dangerous one</strong> — it
-replaces <code>printer.cfg</code> wholesale, which would put the piezo
-config back while a Beacon sits on the toolhead, and the next
-<code>G28</code> would drive Z down waiting for a trigger that cannot
-come. So Beacon mode is re-applied by the <code>ExecStartPre</code>
-config guard on every Klipper start, keyed off a marker file, before
-klippy parses anything. A copy of your <code>beacon.cfg</code> is kept
-outside <code>printer_data/</code> for the same reason.</p>
-<p><strong>First steps after switching</strong> (in Mainsail/Fluidd, not
-on the display): <code>STEPPER_BUZZ</code> both Z steppers →
-<code>G28</code> → <code>Z_TILT_ADJUST</code> → <code>BEACON_CAL</code>
-(contact auto-calibration) → <code>BEACON_MESH</code> (re-scan the mesh
-— the saved one was probed with the piezo).</p>
 </details>
 <h2 id="homing-a-single-axis">Homing a single axis</h2>
 <details>
