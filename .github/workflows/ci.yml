@@ -134,6 +134,20 @@ jobs:
       # here would publish, in the public repository, exactly the strings the gate exists to keep out
       # of it. Set RE_TOKENS (Settings -> Secrets -> Actions) to the list, one per line; without it
       # the step skips instead of pretending to check.
+      #
+      # SCOPE: the documents that get distributed, and nothing else. This is not tidiness -- a
+      # repository-wide grep was tried and is unusable, for three separate reasons found by running it:
+      #
+      #   * It reads binary files. The byte sequences "PTR_" and "DAT_" occur inside a JPEG and a PNG
+      #     in assets/, purely by chance.
+      #   * It flags the kit's own scripts for names that are public product names rather than
+      #     decompiler symbols -- the distinction the guarded list is built around, and one that has
+      #     already been got wrong once in this project.
+      #   * It flags the documents that DESCRIBE this rule. CONTRIBUTING.md has to be able to say what
+      #     contributors must not do.
+      #
+      # A token list tuned for prose is wrong for source and binaries. So this checks what the dev
+      # repository's own gate checks: the text that leaves the building.
       - name: Reverse-engineering token gate
         env:
           RE_TOKENS: ${{ secrets.RE_TOKENS }}
@@ -142,13 +156,19 @@ jobs:
             echo "RE_TOKENS is not set — gate skipped (see the comment in ci.yml)."
             exit 0
           fi
+          docs="README.md MANUAL.md QUICKSTART.md INSTALL-FLOWCHARTS.md THIRD-PARTY-NOTICES.md
+                README.html MANUAL.html QUICKSTART.html"
+          present=""
+          for d in $docs; do [ -f "$d" ] && present="$present $d"; done
           fail=0
           while IFS= read -r tok; do
             [ -n "$tok" ] || continue
-            if git grep -lFi -- "$tok" -- . ':!.github/workflows/ci.yml' > /tmp/hits.txt 2>/dev/null && [ -s /tmp/hits.txt ]; then
+            if git grep -lFi -- "$tok" -- $present > /tmp/hits.txt 2>/dev/null && [ -s /tmp/hits.txt ]; then
               echo "::error::a guarded token appears in:"; sed 's/^/    /' /tmp/hits.txt
               fail=1
             fi
           done <<< "$RE_TOKENS"
-          if [ "$fail" = 0 ]; then echo "Clean — no guarded tokens in tracked files."; fi
+          if [ "$fail" = 0 ]; then
+            echo "Clean — no guarded tokens in:$present"
+          fi
           exit "$fail"
