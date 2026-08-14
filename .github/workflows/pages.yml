@@ -117,20 +117,42 @@ jobs:
             echo "::warning::ImageMagick unavailable; site images were not downscaled."
             exit 0
           fi
+          echo "using: $($im -version | head -1)"
           before="$(du -sh _site/assets | cut -f1)"
+
+          # Keep the result only when it is actually smaller. Not defensive habit -- a measured
+          # case: ImageMagick 6, which is what the runner installs, re-encoded the 1672px logo to
+          # 1600px and produced a file 1.6% LARGER than the original, while ImageMagick 7 on the
+          # machine this was written on made the same image smaller. Chasing encoder flags per
+          # version is a losing game; comparing the two files is not, and it costs one stat call.
+          shrink() {            # <file> <imagemagick args...>
+            f="$1"; shift
+            tmp="${f%.*}.__opt.${f##*.}"
+            if ! "$im" "$f" "$@" "$tmp" 2>/dev/null || [ ! -s "$tmp" ]; then
+              rm -f "$tmp"; echo "  failed, kept original: ${f#_site/}"; return 0
+            fi
+            if [ "$(stat -c%s "$tmp")" -lt "$(stat -c%s "$f")" ]; then
+              mv "$tmp" "$f"
+            else
+              rm -f "$tmp"; grew=$((grew + 1))
+            fi
+          }
+
+          grew=0
           # Photographs: resize and requantise. At quality 85 the board silkscreen, the connector
           # labels and the eMMC sticker all stay readable, at roughly a third of the bytes.
-          find _site/assets -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) -print0 \
-            | while IFS= read -r -d '' f; do
-                "$im" "$f" -resize '1600x1600>' -quality 85 -strip "$f" || echo "  left as-is: $f"
-              done
+          while IFS= read -r -d '' f; do
+            shrink "$f" -resize '1600x1600>' -quality 85 -strip
+          done < <(find _site/assets -type f \( -iname '*.jpg' -o -iname '*.jpeg' \) -print0)
+
           # Screenshots: resize only. These are text on flat colour, where requantising is exactly
           # the wrong trade -- it costs legibility and saves almost nothing.
-          find _site/assets -type f -iname '*.png' -print0 \
-            | while IFS= read -r -d '' f; do
-                "$im" "$f" -resize '1600x1600>' -strip "$f" || echo "  left as-is: $f"
-              done
+          while IFS= read -r -d '' f; do
+            shrink "$f" -resize '1600x1600>' -strip
+          done < <(find _site/assets -type f -iname '*.png' -print0)
+
           echo "assets: $before -> $(du -sh _site/assets | cut -f1)"
+          echo "$grew file(s) would have grown and were left untouched."
 
       - uses: actions/upload-pages-artifact@v3
         with:
