@@ -99,6 +99,42 @@ gcode:
   RESPOND PREFIX= MSG="     · ·· ···  Printer is ready  ··· ·· ·"
 #@ENDFEAT
 
+#@FEAT welcome | One-time welcome dialog after the first successful start
+# WHEN. Klipper only reaches "ready" once the MCUs answer with matching firmware, so the FIRST ready a
+# printer ever sees is the one after the MCU flash in step 6. That makes the trigger simply "the first
+# time", with no need to detect the flash itself. 10 s rather than the beep's 8 so the chime comes first
+# and the dialog second.
+#
+# 🔴 THE FLAG IS SET BY THE BUTTON, NOT BY SHOWING IT. Prompts are client-side: whoever has no browser
+# open at that moment never sees this one. Marking it shown when it is SENT would burn it on exactly the
+# owner who most needs it -- the one who walked away while the printer booted. Set on OK instead, so an
+# unseen dialog simply returns at the next start.
+[delayed_gcode arco_welcome]
+initial_duration: 10
+gcode:
+  {% if printer.save_variables.variables.welcome_seen|default(0)|int != 1 %}
+    _ARCO_WELCOME
+  {% endif %}
+
+[gcode_macro _ARCO_WELCOME]
+description: internal - the one-time welcome dialog
+gcode:
+    RESPOND TYPE=command MSG="action:prompt_begin Welcome to Arco Unleashed"
+    RESPOND TYPE=command MSG="action:prompt_text Congratulations — you have successfully upgraded your printer."
+    RESPOND TYPE=command MSG="action:prompt_text Two things before the first print:"
+    RESPOND TYPE=command MSG="action:prompt_text 1 — Calibrate the printer. MANUAL, step 8."
+    RESPOND TYPE=command MSG="action:prompt_text 2 — Set up OrcaSlicer with the Unleashed profile. MANUAL, step 10."
+    RESPOND TYPE=command MSG="action:prompt_text Happy printing."
+    RESPOND TYPE=command MSG="action:prompt_footer_button OK|_ARCO_WELCOME_SEEN|primary"
+    RESPOND TYPE=command MSG="action:prompt_show"
+
+[gcode_macro _ARCO_WELCOME_SEEN]
+description: internal - remember the welcome dialog was acknowledged, and close it
+gcode:
+    SAVE_VARIABLE VARIABLE=welcome_seen VALUE=1
+    RESPOND TYPE=command MSG="action:prompt_end"
+#@ENDFEAT
+
 #@FEAT board_fan | Board fan (PA2), PID-controlled
 # When this feature is OFF the menu re-enables Phrozen's [output_pin board_fan] in printer.cfg
 # so the fan still runs (uncontrolled on/off); when ON, that output_pin stays commented (pin clash).
