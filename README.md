@@ -330,6 +330,8 @@ anything. A copy of your `beacon.cfg` is kept outside `printer_data/` for the sa
 
 </details>
 
+<a id="sensorless-xy-homing--a-repair-option-not-an-upgrade"></a>
+
 ## Sensorless XY homing — a repair option, not an upgrade
 
 <details>
