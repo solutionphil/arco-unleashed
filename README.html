@@ -336,11 +336,8 @@ themed.</li>
 <li><strong>It’s your printer</strong> — full SSH / root access,
 Obico-ready, no cloud lock-in.</li>
 </ul>
-<h3
-id="what-the-addon-layer-adds-all-toggleable-from-the-setup-menu">What
-the AddOn layer adds — all toggleable from the setup menu</h3>
-<ul>
-<li><strong>AMS auto-mode — one OrcaSlicer profile for
+<h3 id="what-the-addon-layer-adds">What the AddOn layer adds</h3>
+<p><strong>AMS auto-mode — one OrcaSlicer profile for
 everything.</strong> Slice single-colour or multicolour with the same
 profile; the printer works out which AMS mode to start in, at print
 start, on its own. No second profile, no switching in the slicer, no
@@ -348,41 +345,138 @@ hand-edited G-code. What you <em>do</em> set is the <strong>AMS flag on
 the printer</strong> — once, with <code>AMS_ON</code> or
 <code>AMS_OFF</code>, whenever you physically attach or remove the unit.
 That flag plus what you sliced is all it needs. See <a
-href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>.</li>
-<li><strong>The mesh fix</strong> — <code>G30</code> reliably loads your
-saved bed mesh (the factory behaviour that never stuck).</li>
-<li><strong>Levelling and calibration</strong> —
-<code>Z_TILT_ADJUST</code> for the dual Z,
-<code>SCREWS_TILT_CALCULATE</code> for the manual screws, custom bed
-mesh, and <code>PID_NOZZLE</code> / <code>PID_BED</code>. Each
-<strong>homes first</strong>, which the factory equivalents do not: a
-calibration run from an assumed position measures the wrong thing.
-<code>CALIBRATE_SHAPER_NEW</code> does the same for the input shaper and
-stops the sweep at <strong>130 Hz</strong>: the stock macro runs to 150,
-and on this machine nothing above 130 adds anything worth having.</li>
-<li><strong>Belt tension and idler cleaning</strong> —
-<code>BELT_TENSION</code> homes, then moves the toolhead to where both
-belt spans are equal. That is <strong>not</strong> the home position:
-home sits off-centre in X and Y relative to the belt system, so
-tensioning there works against two unequal spans.
-<code>BELT_WARMUP</code> warms the belts and steppers up first, and
-<code>CLEAN_IDLERS</code> turns the idlers in fixed steps so the pulleys
-can be wiped. <a href="#belts-and-idlers">Details</a>.</li>
-<li><strong>Filament handling</strong> — <code>LOAD_FILAMENT</code> /
-<code>UNLOAD_FILAMENT</code> with priming, <code>M600</code> change,
-<code>M601</code> pause, and <code>FILA_STATUS</code>, which reports
-what the stock firmware keeps to itself: whether filament is present and
-whether runout protection is actually armed.</li>
-<li><strong>Quality-of-life</strong> — chamber-light toggle, PID
-board-fan, piezo chime, <code>exclude_object</code> +
-<code>[respond]</code>, and a branded <strong>Mainsail theme</strong>
-(light / dark).</li>
-<li><strong>Updating the kit itself</strong> — <code>ARCO_UPDATE</code>
-from the Mainsail console, and an entry in Moonraker’s update manager so
-Arco Unleashed appears beside Klipper and Moonraker.</li>
-<li><strong>Privacy</strong> — one switch turns <strong>PhrozenGo / the
-cloud tunnel off</strong> (run Obico instead).</li>
-<li><strong>Optional: Unleashed × KAOS.</strong> Chris Sanders’ <a
+href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>.</p>
+<p><strong>When something goes wrong.</strong> The four the setup menu
+leads with — the reason you can try this at all:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr>
+<td><strong>Save the whole system</strong></td>
+<td>Every file, as one image, onto a USB stick. The same menu restores
+an image, or takes the printer back to Buster.</td>
+</tr>
+<tr>
+<td><strong>Save / restore your settings</strong></td>
+<td>The numbers <em>your</em> machine measured — configuration,
+calibration, the web interface’s own settings, your WiFi. Quick, no
+reboot, and it writes to a USB stick: the copy that survives a
+reflash.</td>
+</tr>
+<tr>
+<td><strong>Emergency repair</strong></td>
+<td>One action, no diagnosis required, for a printer that is halted, has
+no display, or whose update is failing. Fixes what it can, then says
+what broke.</td>
+</tr>
+<tr>
+<td><strong>Check self-heal guards</strong></td>
+<td>Everything this project patches heals itself — but only if a service
+still carries the guard that does it. A kit update adds none, so a
+printer that has run a while can be missing one, and nothing else says
+so.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Printing, calibration and comfort.</strong> Every line here
+is a switch in the setup menu:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr>
+<td><code>G30</code></td>
+<td>loads your saved bed mesh — <strong>the mesh fix</strong>, the
+factory behaviour that never stuck</td>
+</tr>
+<tr>
+<td><code>Z_TILT_ADJUST</code></td>
+<td>dual-Z alignment, homes first</td>
+</tr>
+<tr>
+<td><code>SCREWS_TILT_CALCULATE</code></td>
+<td>manual screw bed levelling</td>
+</tr>
+<tr>
+<td><code>CALIBRATE_SHAPER_NEW</code></td>
+<td>input-shaper calibration, sweeping to 130 Hz</td>
+</tr>
+<tr>
+<td><code>PID_BED</code> · <code>PID_NOZZLE</code></td>
+<td>PID tuning</td>
+</tr>
+<tr>
+<td><code>BELT_TENSION</code></td>
+<td>parks where both belt spans are equal — <a
+href="#belts-and-idlers">details</a></td>
+</tr>
+<tr>
+<td><code>BELT_WARMUP</code></td>
+<td>belt and stepper warm-up before tensioning</td>
+</tr>
+<tr>
+<td><code>CLEAN_IDLERS</code></td>
+<td>turns the idlers in fixed steps, with a Mainsail dialog</td>
+</tr>
+<tr>
+<td><code>M600</code> · <code>M601</code></td>
+<td>filament change and pause, two-stage</td>
+</tr>
+<tr>
+<td><code>LOAD_FILAMENT</code> · <code>UNLOAD_FILAMENT</code></td>
+<td>manual, with priming — single-colour or no AMS</td>
+</tr>
+<tr>
+<td><code>FILA_STATUS</code></td>
+<td>is filament present, and is runout protection actually armed</td>
+</tr>
+<tr>
+<td><code>AMS_ON</code> · <code>AMS_OFF</code> ·
+<code>AMS_STATUS</code></td>
+<td>the AMS flag, set once when you attach or remove the unit</td>
+</tr>
+<tr>
+<td><code>TOGGLE_LIGHT</code></td>
+<td>chamber light</td>
+</tr>
+<tr>
+<td>board fan (PA2)</td>
+<td>PID-controlled instead of always-on</td>
+</tr>
+<tr>
+<td>piezo beeper (PB2)</td>
+<td>short startup chime</td>
+</tr>
+</tbody>
+</table>
+<p>Plus <code>exclude_object</code> and <code>[respond]</code>, a
+branded <strong>Mainsail theme</strong> (light / dark),
+<strong>Fluidd</strong> on <code>:8808</code>, <code>ARCO_UPDATE</code>
+from the Mainsail console with an entry in Moonraker’s update manager,
+and one switch that turns <strong>PhrozenGo and the cloud tunnel
+off</strong> if you would rather run Obico.</p>
+<details>
+<summary>
+<b>Three of those differ from the factory macros on purpose</b>
+</summary>
+<p><strong>They home first</strong>, which the factory equivalents do
+not: a calibration run from an assumed position measures the wrong
+thing.</p>
+<p><strong><code>CALIBRATE_SHAPER_NEW</code> stops the sweep at 130
+Hz.</strong> The stock macro runs to 150, and on this machine nothing
+above 130 adds anything worth having — the extra range is only time on
+the accelerometer. It is not a typo, and it should not be “fixed”.</p>
+<p><strong><code>FILA_STATUS</code> reports what the stock firmware
+keeps to itself:</strong> whether filament is present, and whether
+runout protection is actually armed. Those are two different questions,
+and the factory display answers neither.</p>
+</details>
+<p><strong>Optional: Unleashed × KAOS.</strong> Chris Sanders’ <a
 href="https://gitlab.com/sanders.chris/phrozenarco">KAOS</a> — a
 motion-safety and multicolour layer for the Arco — has a
 <strong>sideloader built into the kit</strong>, sitting dormant until
@@ -395,8 +489,7 @@ first time, and <strong>KAOS itself is never redistributed here</strong>
 — you get it from its author, like Phrozen’s module. The bridge exists
 because KAOS and this kit each replace some of Phrozen’s macros, and
 running them naively together breaks homing; it wires the two so both
-keep working. See <a href="MANUAL.html#step-11">MANUAL › Step 11</a>.</li>
-</ul>
+keep working. See <a href="MANUAL.html#step-11">MANUAL › Step 11</a>.</p>
 <p>Install the <strong>easy way</strong>: flash the pre-built image, set
 Wi-Fi, flash your MCUs — running in minutes.</p>
 <blockquote>
@@ -500,13 +593,9 @@ href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleas
 step that opens the printer (two buttons inside the toolhead), and until
 it is done Klipper cannot start and the display sits on an error screen.
 That is expected, not a fault.</p>
-<h3 id="in-short">In short</h3>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> prepare_unleashed_self_flash.sh</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh          <span class="co"># inspect only — changes nothing</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span>    <span class="co"># then reboot; it writes on the way up</span></span></code></pre></div>
-<p>Afterwards the printer answers to
+<h3 id="reaching-the-printer-afterwards">Reaching the printer
+afterwards</h3>
+<p>Once it is installed, the printer answers to
 <strong><code>unleashed.local</code></strong> —
 <code>ssh mks@unleashed.local</code>, or
 <code>http://unleashed.local/</code> for the web interface. If your
@@ -515,11 +604,19 @@ network blocks mDNS, the address is also written to
 <h2 id="menu-reference">Menu reference</h2>
 <p>The setup menu runs an update check on start (if the kit is a git
 clone) and only prompts y/n when an update exists.</p>
-<pre><code>   ESSENTIAL:     Flash MCUs
-   MAINTENANCE:   Backup / restore YOUR settings (local or USB) · Check self-heal guards
-   SOMETHING BROKE: Emergency repair — one action, no diagnosis required
-   EXTRAS:        AMS on/off · PhrozenGo/Cloud · AddOn.cfg · Beacon probe (experimental)
+<pre><code>   ESSENTIAL:     Flash MCUs                    (Katapult toolhead + F407 DFU)
+   MAINTENANCE:   Save / restore SETTINGS       (the numbers you measured — quick, no reboot)
+                  Save the WHOLE SYSTEM         (every file, as one image — reboots)
+                                                also: restore an image · go back to Buster
+                  Check self-heal guards        (all wired? a kit update adds none)
+   SOMETHING BROKE: Emergency repair            (halted, no display, update failing)
+   EXTRAS:        AMS on / off · PhrozenGo / Cloud · AddOn.cfg + Features
+                  Beacon probe (experimental) · Sensorless XY homing (alternative)
    UPDATE:        check GitHub for a newer version</code></pre>
+<details>
+<summary>
+What each entry does, in full
+</summary>
 <ul>
 <li><strong>Phrozen-update protection</strong> — pressing
 <em>Update</em> on the Phrozen display overwrites the Klipper core +
@@ -625,9 +722,14 @@ see <a href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>).
 Note: a factory-NEW AMS additionally needs one-time provisioning
 (firmware flash/pairing).</li>
 </ul>
+</details>
 <p><a id="beacon-as-new-probing-device-for-meshing--experimental"></a></p>
 <h2 id="beacon-as-new-probing-device-for-meshing-experimental">Beacon as
 new probing device for meshing 🧪 <em>experimental</em></h2>
+<details>
+<summary>
+Show the Beacon section
+</summary>
 <p><code>scripts/beacon_toggle.sh status|on|off</code> · setup menu →
 <strong>b</strong></p>
 <p>Swaps Phrozen’s piezo probe for a <strong>Beacon</strong>
@@ -687,8 +789,13 @@ retries make it worse. Check with
 <code>STEPPER_BUZZ STEPPER=stepper_z</code> / <code>stepper_z1</code>
 and watch which side of the gantry moves.</p>
 </blockquote>
+</details>
 <h2 id="sensorless-xy-homing-a-repair-option-not-an-upgrade">Sensorless
 XY homing — a repair option, not an upgrade</h2>
+<details>
+<summary>
+Show how sensorless homing works, and when to use it
+</summary>
 <p><code>scripts/sensorless_toggle.sh status|on|off</code> · setup menu
 → <strong>s</strong></p>
 <p>X and Y stop by detecting motor load (Trinamic StallGuard) instead of
@@ -767,7 +874,12 @@ on the display): <code>STEPPER_BUZZ</code> both Z steppers →
 <code>G28</code> → <code>Z_TILT_ADJUST</code> → <code>BEACON_CAL</code>
 (contact auto-calibration) → <code>BEACON_MESH</code> (re-scan the mesh
 — the saved one was probed with the piezo).</p>
+</details>
 <h2 id="homing-a-single-axis">Homing a single axis</h2>
+<details>
+<summary>
+Show the single-axis homing detail
+</summary>
 <p><code>G28 X</code> moves Y first. That is deliberate, and it is worth
 knowing before it surprises you: Y travels to its endstop and then 50 mm
 clear, and only then does X home. <code>G28 Y</code> homes Y alone and
@@ -795,7 +907,12 @@ set to the bottom of the travel, which means Klipper refuses anything
 more than 5 mm downward until a real home — but it also means a large
 upward move is still yours to get wrong. <code>G28</code> works from
 anywhere and settles it.</p>
+</details>
 <h2 id="themes-optional">Themes (optional)</h2>
+<details>
+<summary>
+Show the theme options
+</summary>
 <p>An electric-cobalt comic theme matching the Arco Unleashed branding —
 navy glass panels, halftone-burst background, the bookworm logo + a
 Burst “U” favicon.</p>
@@ -854,6 +971,7 @@ switching (<strong>Ctrl+F5</strong>). The active state is kept in
 themes — keeping those pristine would need a Mainsail fork (out of
 scope, not update-safe).</p>
 <p><a id="orcaslicer--multicolor--ams-auto-mode"></a></p>
+</details>
 <h2 id="orcaslicer-multicolor-ams-auto-mode">OrcaSlicer — multicolor
 &amp; AMS auto-mode</h2>
 <p>The Arco is a single-nozzle multicolor printer (filament-swap, like a
@@ -1026,6 +1144,10 @@ job is past its start G-code, <code>FILA_STATUS</code> on demand, and
 <code>protection_active</code>) for your own macros. It is read-only —
 detection and pausing stay with Phrozen’s module.</p>
 <h2 id="belts-and-idlers">Belts and idlers</h2>
+<details>
+<summary>
+Show the belt and idler detail
+</summary>
 <p>Three macros for the mechanics, all of them in <code>AddOn.cfg</code>
 and all toggleable from the setup menu. They derive their limits from
 your own configuration rather than carrying hard-coded coordinates, so a
@@ -1067,7 +1189,12 @@ It pauses <strong>before</strong> each forward pass — that is when you
 hold the bud against the pulley, not while it moves — and only briefly
 at the far end. It refuses while a print is running, and refuses if the
 requested turns would carry Y past the purge unit.</p>
+</details>
 <h2 id="layout">Layout</h2>
+<details>
+<summary>
+Show the repository layout
+</summary>
 <pre><code>config-templates/    printer.cfg + includes + AddOn.cfg + wpa  (templates; secrets/serial removed)
 scripts/  unleashed_setup.sh   the setup MENU; _arco-lib.sh = shared helpers/actions
           fetch-phrozen-fw · usb-fw   &lt;- installs Phrozen&#39;s module: user&#39;s USB zip first, else a confirmed fetch from Phrozen&#39;s own repo)
@@ -1088,6 +1215,7 @@ system/                   USB automount (udev rule + mount service) for the gcod
 collect_data_arco.sh      grab phrozen_master + ~/hdlDat (AMS server, NOT in Arco_FW_V*.zip) from YOUR printer -&gt; USB
 mainsail-theme/           optional Arco Unleashed Mainsail theme (Voron Light/Dark + switcher + mainsail-seed)
 orca/                     OrcaSlicer profile (flag-driven AMS auto-mode; import or copy the start-gcode line)</code></pre>
+</details>
 <h2 id="credits-notes">Credits &amp; notes</h2>
 <ul>
 <li><strong>No Phrozen software is redistributed, hosted or mirrored
