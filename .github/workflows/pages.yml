@@ -33,7 +33,7 @@ jobs:
     name: Build site
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Assemble _site
         run: |
@@ -154,7 +154,7 @@ jobs:
           echo "assets: $before -> $(du -sh _site/assets | cut -f1)"
           echo "$grew file(s) would have grown and were left untouched."
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -167,4 +167,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
