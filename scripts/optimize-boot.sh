@@ -190,6 +190,22 @@ EOF
   echo "  klipper: test-print guard (ExecStartPre) installed"
 fi
 
+# AddOn.cfg feature delivery. New features ship as new #@FEAT blocks, and AddOn.cfg is never regenerated
+# on a printer that already has one -- it holds the owner's settings. The merge used to run only from
+# selfupdate.sh, which Moonraker's update manager does not use: a web-interface update is a plain
+# `git pull`, so the browser button delivered the scripts and skipped the config entirely. As a guard it
+# runs whichever way the update arrived. Numbered 24 so it comes after 23; the wrapper exits in
+# milliseconds without starting python when there is nothing new, which is every boot but a handful.
+# '-' = non-fatal.
+if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-addon-merge.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/24-arco-addon-merge.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-addon-merge.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: AddOn.cfg feature-merge guard (ExecStartPre) installed"
+fi
+
 # ImageId self-heal: ensure /etc/ImageId.json = {"ImageId":16} before EVERY klipper start (missing/wrong
 # -> phrozen work mode stuck UNKNOW). The file lives under /etc, so this ExecStartPre uses the '+' prefix
 # to run as root. Idempotent (grep-gated), '-' non-fatal.
