@@ -1,0 +1,5 @@
+# Drives the "Sponsor" button in the repository header.
+#
+# Needs one setting alongside it: Settings -> General -> Features -> Sponsorships. Without that
+# checkbox GitHub reads this file and shows nothing, which looks exactly like a typo in the name.
+ko_fi: solutionphil

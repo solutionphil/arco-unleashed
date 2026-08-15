@@ -8,6 +8,7 @@
   <img alt="Klipper v0.13" src="https://img.shields.io/badge/Klipper-v0.13-2f52d6">
   <img alt="Debian Bookworm, kernel 6.18" src="https://img.shields.io/badge/Debian-Bookworm%20%C2%B7%20kernel%206.18-a81d33">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0" src="https://img.shields.io/badge/licence-AGPL--3.0-2f52d6"></a>
+  <a href="https://ko-fi.com/solutionphil"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-feed%20the%20bookworm-2f52d6?logo=kofi&amp;logoColor=white"></a>
 </p>
 
 # Arco Unleashed — Bookworm Edition
