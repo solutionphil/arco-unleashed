@@ -4,13 +4,48 @@
 
 C0='\033[0m'; CG='\033[1;32m'; CC='\033[1;36m'; CY='\033[1;33m'; CR='\033[1;31m'; CW='\033[1;37m'
 
-header() {  # $1 = variant subtitle
+# $1 = variant subtitle, optional. The image-path menu no longer passes one: "IMAGE PATH" named a
+# distinction that matters to whoever maintains two menus and to nobody who is standing in front of one.
+header() {
   clear 2>/dev/null || true
   printf "${CC}
    /=================================================\\
    |    ${CW}~~  Arco Unleashed - Bookworm Edition  ~~${CC}    |
    \\=================================================/${C0}\n"
-  printf "${CW}   %s${C0}\n\n" "$1"
+  if [ -n "${1:-}" ]; then printf "${CW}   %s${C0}\n\n" "$1"; else printf "\n"; fi
+}
+
+# ── is the MCU firmware already v0.13? ────────────────────────────────────────────────────────────
+# Menu item 1 used to assert "your MCUs still need v0.13 firmware!" unconditionally, and a tester who
+# had already flashed read it as a fault on his printer. Ask the machine instead.
+#
+# THREE answers, and the third is the point. When klippy is not up the honest answer is "cannot tell" --
+# and that is exactly the moment somebody is deciding whether to flash, so guessing either way is worse
+# than saying so. Every MCU is checked, not just the first: the F407 and the F103 are flashed in
+# separate steps and one of them can fail on its own.
+mcu_state(){
+  python3 - <<'PY' 2>/dev/null || printf 'UNKNOWN\n'
+import json, sys, urllib.parse, urllib.request
+B = "http://127.0.0.1:7125"
+def get(p):
+    with urllib.request.urlopen(B + p, timeout=3) as r:
+        return json.load(r)["result"]
+try:
+    names = [o for o in get("/printer/objects/list")["objects"]
+             if o == "mcu" or o.startswith("mcu ")]
+    if not names:
+        print("UNKNOWN"); sys.exit()
+    st = get("/printer/objects/query?" + "&".join(urllib.parse.quote(n) for n in names))["status"]
+    vers = {n: (st.get(n) or {}).get("mcu_version", "") for n in names}
+    if not all(vers.values()):
+        print("UNKNOWN")                      # answered, but without a version: do not guess
+    elif [n for n, v in vers.items() if not v.startswith("v0.13")]:
+        print("OLD")
+    else:
+        print("OK")
+except Exception:
+    print("UNKNOWN")
+PY
 }
 
 pause(){ printf "\n${CW}   ... press ENTER to continue${C0}"; read -r _; }
