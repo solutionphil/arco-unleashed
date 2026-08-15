@@ -822,5 +822,31 @@ if [ -f "$SELFDIR/wsrelay/relay.py" ] && [ -f "$AHOME/wsrelay/relay.py" ] \
   echo "  wsrelay: relay.py refreshed from the kit (active after the next boot; not restarted on purpose)"
 fi
 
+# Reconcile guard: install it, and record which kit version root has now seen.
+#
+# The stamp is the whole mechanism. apply-reconcile-check.sh compares the kit's current commit against
+# it before every klipper start and arms the reconcile when they differ -- which is how a kit updated
+# from Mainsail or Fluidd (a plain `git pull`, never calling after_update()) still gets its root-side
+# work done. Written LAST, so it only ever records a run that actually reached the end.
+if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-reconcile-check.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/25-arco-reconcile-check.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-reconcile-check.sh
+EOF
+  echo "  klipper: reconcile check (ExecStartPre) installed"
+fi
+_kit_commit=""
+if [ -d "$SELFDIR/../.git" ] && command -v git >/dev/null 2>&1; then
+  git config --global --add safe.directory "$(cd "$SELFDIR/.." && pwd)" 2>/dev/null || true
+  _kit_commit="$(git -C "$SELFDIR/.." rev-parse HEAD 2>/dev/null || true)"
+fi
+[ -n "$_kit_commit" ] || _kit_commit="$(tr -dc '0-9a-f' < "$SELFDIR/../.kit-commit" 2>/dev/null | head -c 40)"
+if [ -n "$_kit_commit" ] && [ -d "$AHOME/printer_data" ]; then
+  printf '%s' "$_kit_commit" > "$AHOME/printer_data/.arco-reconcile-done" 2>/dev/null \
+    && chown "$AUSER":"$AUSER" "$AHOME/printer_data/.arco-reconcile-done" 2>/dev/null
+  rm -f "$AHOME/printer_data/.arco-reconcile-pending" 2>/dev/null
+  echo "  kit: root-side setup recorded for ${_kit_commit:0:8}"
+fi
+
 systemctl daemon-reload 2>/dev/null || true
 echo "  done (takes effect on next boot)."
