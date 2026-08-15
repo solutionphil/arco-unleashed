@@ -554,11 +554,15 @@ a_channel(){
   printf "   NOT undone; it gets listed so you can switch it off yourself.${C0}\n"
   # alpha is offered, not hidden. Hiding it would only mean the people who go looking find it without
   # the warning attached -- and the phrase is what decides who gets in, not the menu.
-  printf "   [b]eta / [a]lpha (needs an access phrase) / [s]table / ENTER=leave as it is: "; read -r x
+  #
+  # Ordered safest first, which is also the promotion chain read backwards. The first version started at
+  # beta because that is the interesting one to whoever built it; for whoever is reading the prompt, the
+  # first option should be the one they most likely want.
+  printf "   [s]table / [b]eta / [a]lpha (needs an access phrase) / ENTER=leave as it is: "; read -r x
   case "$x" in
+    s|S) bash "$DIR/channel.sh" stable;;
     b|B) bash "$DIR/channel.sh" beta;;
     a|A) bash "$DIR/channel.sh" alpha;;
-    s|S) bash "$DIR/channel.sh" stable;;
     *) echo "  (unchanged)";;
   esac
 }
