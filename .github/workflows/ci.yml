@@ -40,6 +40,46 @@ jobs:
           echo "If beta is simply behind, fast-forward it:  git push origin origin/alpha:refs/heads/beta"
           exit 1
 
+  # The three channels only work while they are one line: main an ancestor of beta, beta of alpha. That
+  # is what makes every promotion a plain fast-forward, and it is why none of them ever needs a force
+  # push -- which they are protected against, for the reason recorded in channel.sh.
+  #
+  # It broke on 2026-08-15, quietly and from something harmless: a Ko-fi link was merged straight into
+  # main. Three files, not one line of code, and afterwards main carried two commits the channels did
+  # not. The next promotion would have refused to fast-forward, and the obvious way out of that is
+  # exactly the force push that costs testers their clones. Nothing warned; it was noticed by looking.
+  #
+  # The repair is never a rewrite -- merge main back DOWN into beta and alpha. This says so.
+  channel-chain:
+    name: Channel chain
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'beta')
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: main is an ancestor of beta, beta of alpha
+        run: |
+          for b in main beta alpha; do
+            git fetch --quiet --no-tags origin "$b:refs/remotes/origin/$b" 2>/dev/null || true
+          done
+          fail=0
+          check() {   # $1 = the calmer channel, $2 = the one downstream of it
+            git rev-parse --verify -q "origin/$1" >/dev/null || return 0
+            git rev-parse --verify -q "origin/$2" >/dev/null || return 0
+            git merge-base --is-ancestor "origin/$1" "origin/$2" && return 0
+            echo "::error::$1 carries $(git rev-list --count "origin/$2..origin/$1") commit(s) that $2 does not, so $2 -> $1 is no longer a fast-forward."
+            git log --oneline --no-decorate "origin/$2..origin/$1" | sed 's/^/  /'
+            echo "  Repair by merging DOWN, never by rewriting:"
+            echo "    git fetch origin && git checkout -B _sync origin/$2 && git merge --no-ff origin/$1"
+            echo "    git push origin _sync:refs/heads/$2"
+            fail=1
+          }
+          check main beta
+          check beta alpha
+          [ "$fail" = 0 ] && echo "Channels are in one line: main -> beta -> alpha."
+          exit "$fail"
+
   shell:
     name: Shell
     runs-on: ubuntu-latest
