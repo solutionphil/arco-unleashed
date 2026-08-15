@@ -544,6 +544,22 @@ a_recover(){
   printf "     bash phrozen-recover.sh restore\n"
   printf "     bash phrozen-recover.sh pre-patch <usb path to phrozen_dev>${C0}\n"
 }
+# Deliberately shows the status first and only then offers to move. Which channel a printer is on is
+# the thing an owner actually needs to know here, and a menu entry that switches before saying where you
+# are makes the answer cost a switch.
+a_channel(){
+  bash "$DIR/channel.sh" status
+  printf "\n${CC}   beta carries features that are not proven yet. Nothing is lost by trying it —\n"
+  printf "   'stable' brings the files straight back. Config a beta feature already wrote is\n"
+  printf "   NOT undone; it gets listed so you can switch it off yourself.${C0}\n"
+  printf "   [b]eta / [s]table / ENTER=leave as it is: "; read -r x
+  case "$x" in
+    b|B) bash "$DIR/channel.sh" beta;;
+    s|S) bash "$DIR/channel.sh" stable;;
+    *) echo "  (unchanged)";;
+  esac
+}
+
 a_selfupdate(){
   local KITDIR; KITDIR="$(cd "$DIR/.." && pwd)"
   # A flat copy from the image cannot pull anything, so offering "update now" there would be a button

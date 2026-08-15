@@ -1135,6 +1135,25 @@ That is safe while the holds are in place — apt keeps those eight back and upg
 list is shorter than eight, put them back first with `sudo bash ~/arco-unleashed/scripts/apt-hold.sh` and
 only then upgrade.
 
+**Two update channels: stable and beta.** A fresh image follows `stable`, and that is where it should stay
+unless you want to help test. `beta` is the same kit plus the changes that have not earned their way over
+yet — not a separate fork, so nothing you have is left behind by switching, and `stable` is always an
+ancestor of `beta` rather than a branch off it. Type `unleashed`, then **c**:
+
+```bash
+bash ~/arco-unleashed/scripts/channel.sh          # which channel, and what the other one would change
+bash ~/arco-unleashed/scripts/channel.sh beta     # follow beta from now on
+bash ~/arco-unleashed/scripts/channel.sh stable   # go back
+```
+
+Switching only moves the branch. The update manager follows on its own at the next klipper start, because
+the guard that writes `primary_branch:` into `moonraker.conf` reads it from the branch the kit is on — so
+finish with `sudo systemctl restart klipper`, or the web interface keeps showing the old channel.
+
+One thing switching back does **not** undo: files return, configuration does not. If a beta feature was
+merged into your `AddOn.cfg`, it stays, because that file is yours and nothing here edits it. Going back to
+stable lists what beta added so you can switch those features off yourself under **AddOn features**.
+
 > Earlier images showed Klipper as *invalid* with *"repo is dirty"*, because the MCU timing was patched
 > into the tracked `klippy/mcu.py`. That was more than a cosmetic badge: Moonraker **refuses to update a
 > dirty repo**, so Klipper could never be updated at all. Those three values now come from the untracked
