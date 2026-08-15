@@ -3,7 +3,8 @@
 From a stock Phrozen Arco to **Debian Bookworm · kernel 6.18 · Klipper v0.13**, without opening the
 printer: it flashes its own eMMC from a USB stick.
 
-Seven steps, about **90 minutes**, of which maybe 20 are hands-on — the rest is waiting for the printer.
+Seven steps, about **30 minutes** — or **an hour** if you also take the optional backup in Step 2. Much
+of that is the printer working while you wait, not you typing.
 Every screen is pictured in the **[MANUAL](MANUAL.md)**; the full reference is the **[README](README.md)**.
 
 *The step numbers are the MANUAL's, so you can switch between the two at any point. The gaps — 5, 7, 9,
@@ -25,7 +26,7 @@ Every screen is pictured in the **[MANUAL](MANUAL.md)**; the full reference is t
 **You need:** the printer on your network · a PC · one **empty, freshly formatted FAT32 stick** (≥ 4 GB,
 plugged straight into the printer — **never through a USB hub**) ·
 Phrozen's **`Arco_FW_V*.zip`** *(you download it from Phrozen)* · an SSH client (**PuTTY** on Windows) ·
-a **2.5 mm hex key** for Step 6.
+**2.0 mm and 2.5 mm hex keys** for Step 6.
 
 **Three things are irreversible, so decide now:**
 
@@ -199,7 +200,9 @@ The host runs Klipper v0.13; your MCUs still carry the factory firmware and cann
 unleashed
 ```
 
-Take **1 — Flash MCUs**. The **F407 main board** and the **host MCU** flash over USB with no buttons. The
+Take **1 — Flash MCUs**. Two chips are actually flashed — the **F407 main board** and the **toolhead
+F103**; Klipper's **Linux host MCU** is a process on the host that reports CPU temperature, not a chip,
+and is rebuilt in the same pass. The F407 goes over USB with no buttons. The
 **toolhead F103** needs a one-time hands-on step: remove the front cover (unplug its fan), undo the four
 screws of the back cover, and with the printer **running** and the script waiting at its prompt —
 **hold BOOT → tap RESET while holding it → let go of BOOT → press ENTER.** There is no countdown: the
