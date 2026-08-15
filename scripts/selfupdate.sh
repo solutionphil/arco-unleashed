@@ -78,9 +78,26 @@ adopt(){
     echo "  this copy was built from ${base:0:8}"
   fi
   git reset --mixed -q "$base" || { echo "  could not set the baseline"; return 1; }
-  git branch -q -f main "$base" 2>/dev/null || true
+  # update-ref, NOT `git branch -f`: git refuses to force-move a branch that is currently checked out,
+  # and after `git init` with init.defaultBranch=main that is precisely the branch being created here.
+  # The old line hid that behind `2>/dev/null || true`, and the next line then pointed HEAD at a branch
+  # that had never been written. update-ref has no such restriction.
+  git update-ref refs/heads/main "$base" || { echo "  could not create the main branch"; return 1; }
   git symbolic-ref HEAD refs/heads/main
   git branch -q --set-upstream-to=origin/main main 2>/dev/null || true
+  # Never report success without checking it. This function used to print "Adopted. Updates work from
+  # now on." unconditionally -- and on 2026-08-14 a tester's printer had a .git/refs/heads/main that a
+  # power cut had left as an EMPTY FILE. Every git command answered "reference broken", Moonraker showed
+  # the kit as version "?" and INVALID, and nothing anywhere connected the two. One cheap check turns an
+  # hour of guessing into a sentence, and names the repair instead of describing the damage.
+  if ! git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    echo "  ADOPTION INCOMPLETE — HEAD does not resolve to a commit." >&2
+    echo "  The branch reference is missing or unreadable. Repair it with:" >&2
+    echo "    cd $PWD && rm -f .git/refs/heads/main \\" >&2
+    echo "      && git update-ref refs/heads/main origin/main \\" >&2
+    echo "      && git symbolic-ref HEAD refs/heads/main && git reset --hard main" >&2
+    return 1
+  fi
   echo "Adopted. Updates work from now on."
   if ! git diff --quiet 2>/dev/null; then
     echo "Note: some files differ from that baseline — your own edits, or files the image adjusted."
