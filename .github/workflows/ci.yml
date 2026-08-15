@@ -18,6 +18,28 @@ permissions:
   contents: read
 
 jobs:
+  # Refuse alpha -> main, because GitHub keeps offering it. Every push to alpha raises a "Compare &
+  # pull request" banner on the repository front page, and its button proposes a pull request into the
+  # DEFAULT branch -- skipping beta, which is the whole point of having three channels.
+  #
+  # A mis-click there is not obviously wrong when you look at it: GitHub reported MERGEABLE / CLEAN for
+  # a pull request on 2026-08-15 that carried a whole feature under the title of a README badge.
+  # "Clean" means free of conflicts, not correct. So the check has to be mechanical.
+  #
+  # Only this one direction. beta -> main is a fast-forward push rather than a pull request, and a
+  # feature branch may legitimately target any of the three.
+  channel-order:
+    name: Channel order
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.head_ref == 'alpha' && github.base_ref == 'main'
+    steps:
+      - name: alpha does not go straight to main
+        run: |
+          echo "::error::A change moves alpha -> beta -> main. This pull request skips beta."
+          echo "If it is ready for testers, open it against 'beta' instead."
+          echo "If beta is simply behind, fast-forward it:  git push origin origin/alpha:refs/heads/beta"
+          exit 1
+
   shell:
     name: Shell
     runs-on: ubuntu-latest
