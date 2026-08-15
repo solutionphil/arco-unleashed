@@ -37,7 +37,8 @@ menu() {
   printf "    s)  Sensorless XY homing  ${CC}(ALTERNATIVE — switches stay default)${C0}\n"
   printf "                              ${CC}only if a switch or its cable failed${C0}\n\n"
   printf "${CY}   UPDATE:${C0}\n"
-  printf "    6)  Check for updates     ${CC}(kit · git)${C0}\n\n"
+  printf "    6)  Check for updates     ${CC}(kit · git)${C0}\n"
+  printf "    c)  Update channel        ${CC}(stable, or beta to test new features early)${C0}\n\n"
   printf "    q)  Quit\n\n"
   printf "${CW}   WiFi came from the setup portal · phrozen_dev from your USB${C0}\n"
   printf "${CW}   stick · the eMMC auto-resized on first boot. Remember to calibrate.${C0}\n\n"
@@ -60,6 +61,7 @@ while true; do
     b|B) a_beacon;   pause;;
     s|S) a_sensorless; pause;;
     6) a_selfupdate; pause;;
+    c|C) a_channel;  pause;;
     q|Q) echo "Bye."; exit 0;;
     *) ;;
   esac

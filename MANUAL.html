@@ -1799,6 +1799,29 @@ back and upgrades everything else. If the list is shorter than eight,
 put them back first with
 <code>sudo bash ~/arco-unleashed/scripts/apt-hold.sh</code> and only
 then upgrade.</p>
+<p><strong>Two update channels: stable and beta.</strong> A fresh image
+follows <code>stable</code>, and that is where it should stay unless you
+want to help test. <code>beta</code> is the same kit plus the changes
+that have not earned their way over yet — not a separate fork, so
+nothing you have is left behind by switching, and <code>stable</code> is
+always an ancestor of <code>beta</code> rather than a branch off it.
+Type <code>unleashed</code>, then <strong>c</strong>:</p>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/channel.sh          <span class="co"># which channel, and what the other one would change</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/channel.sh beta     <span class="co"># follow beta from now on</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/channel.sh stable   <span class="co"># go back</span></span></code></pre></div>
+<p>Switching only moves the branch. The update manager follows on its
+own at the next klipper start, because the guard that writes
+<code>primary_branch:</code> into <code>moonraker.conf</code> reads it
+from the branch the kit is on — so finish with
+<code>sudo systemctl restart klipper</code>, or the web interface keeps
+showing the old channel.</p>
+<p>One thing switching back does <strong>not</strong> undo: files
+return, configuration does not. If a beta feature was merged into your
+<code>AddOn.cfg</code>, it stays, because that file is yours and nothing
+here edits it. Going back to stable lists what beta added so you can
+switch those features off yourself under <strong>AddOn
+features</strong>.</p>
 <blockquote>
 <p>Earlier images showed Klipper as <em>invalid</em> with <em>“repo is
 dirty”</em>, because the MCU timing was patched into the tracked
@@ -1854,9 +1877,9 @@ printer, from your own installation.</p>
 repairs everything it can without needing to know what broke, and tells
 you what was actually wrong.</p>
 <p><strong>To update Klipper</strong> — safe, for the same reason:</p>
-<div class="sourceCode" id="cb27"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/klipper <span class="kw">&amp;&amp;</span> <span class="fu">git</span> checkout master <span class="kw">&amp;&amp;</span> <span class="fu">git</span> pull <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> systemctl restart klipper</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="co"># (Klipper is not pinned by default any more — pin-klipper-updates.sh is only for holding a version)</span></span></code></pre></div>
 <p>Nothing is lost: every patch is re-applied before klippy loads. Be
 aware you are then off the version this build was tested against.</p>
 <h3 id="verify-the-migration">Verify the migration</h3>
@@ -2382,9 +2405,9 @@ backup on the stick is unaffected.</p>
 auto-mounts at <code>~/printer_data/gcodes/USB</code>. If that folder is
 empty, find the partition with <code>lsblk</code> and mount it
 <strong>to that same path</strong> — the tools look there by name:</p>
-<div class="sourceCode" id="cb37"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
-<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
+<div class="sourceCode" id="cb38"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /home/mks/printer_data/gcodes/USB</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mount /dev/sda1 /home/mks/printer_data/gcodes/USB</span></code></pre></div>
 <p><strong>More than one image on the stick</strong> The tools match by
 pattern (<code>Arco-Unleashed*.img.gz</code>,
 <code>Arco_FW_V*.zip</code>) and take the <strong>first</strong> match,
@@ -2436,8 +2459,8 @@ website</li>
 level</strong> of a FAT32 stick (do not extract it)</li>
 <li>plug the stick into the printer and power-cycle — or, over SSH:</li>
 </ol>
-<div class="sourceCode" id="cb38"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/fetch-phrozen-fw.sh</span></code></pre></div>
 <p>The zip always takes priority over the download, so this also works
 on a printer that does have internet — and it is the only route that
 brings PhrozenGo.</p>
@@ -2465,8 +2488,8 @@ effect</strong> Config repairs are applied by a guard that runs when the
 klipper <strong>service</strong> starts. Klipper’s own
 <code>RESTART</code> and <code>FIRMWARE_RESTART</code> do
 <strong>not</strong> run it:</p>
-<div class="sourceCode" id="cb39"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+<div class="sourceCode" id="cb40"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p><strong>An update brought something that is not set up yet</strong> A
 kit update copies files; it cannot install systemd guards or change
 system settings, because it runs as the printer user and those need
@@ -2484,8 +2507,8 @@ to <code>printer_data/logs/arco-reconcile.log</code>.</p>
 something is missing anyway, menu <strong>3 — Check self-heal
 guards</strong> reports what is wired against what the kit expects and
 offers to fix it, or:</p>
-<div class="sourceCode" id="cb41"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
+<div class="sourceCode" id="cb42"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/arco-unleashed/scripts/optimize-boot.sh</span></code></pre></div>
 <p>It is idempotent — on an up-to-date printer it changes nothing.</p>
 <p><strong>Obico disappeared after a Phrozen firmware update</strong>
 Phrozen’s own start scripts delete <code>moonraker-obico</code> on every
@@ -2501,8 +2524,8 @@ was started from a copy outside the kit (<code>/tmp/scripts/…</code>)
 and tried to work in the wrong place. Current versions detect this and
 update the installed kit anyway; if yours does not, run it from the kit
 itself:</p>
-<div class="sourceCode" id="cb42"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
+<div class="sourceCode" id="cb43"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/arco-unleashed/scripts/update-from-usb.sh</span></code></pre></div>
 <h3 id="backup-and-restore">Backup and restore</h3>
 <p><strong>The printer starts a backup by itself after a
 restore</strong> A backup image contains whatever was armed when it was
@@ -2510,8 +2533,8 @@ taken, and restoring it brings that back. Current versions make the
 arming one-shot, so it lands harmlessly. An image taken before that fix
 still expects a marker file — create it on the stick before restoring
 such an image:</p>
-<div class="sourceCode" id="cb43"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
+<div class="sourceCode" id="cb44"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">touch</span> ~/printer_data/gcodes/USB/.arco-backup-done</span></code></pre></div>
 <p><strong>Which backup file is the good one</strong> The name tells you
 which system it holds — <code>-stock</code> is Phrozen’s,
 <code>-unleashed</code> is this one — and the restore menu spells that
@@ -2520,8 +2543,8 @@ on purpose: a <code>.img.gz</code> <strong>without</strong> its
 <code>.sha256</code> and <code>.rawsize</code> is an interrupted run,
 whatever its size. To check a complete one in a second, without reading
 the whole file:</p>
-<div class="sourceCode" id="cb44"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb45"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/printer_data/gcodes/USB <span class="kw">&amp;&amp;</span> <span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-<span class="pp">*</span>.img.gz.sha256</span></code></pre></div>
 <p><strong>“This image does not fit the eMMC in this printer”</strong>
 The backup came from a machine with a larger eMMC — a 32 GB image cannot
 be written to an 8 GB one. The comparison is against the image’s
@@ -2594,10 +2617,10 @@ names the repair when neither is. That state arises on printers set up
 before the bridge could install it, or after a Phrozen firmware update
 replaces <code>printer.cfg</code>. Bringing the bridge up to date and
 restarting the klipper <strong>service</strong> repairs it:</p>
-<div class="sourceCode" id="cb46"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <div class="sourceCode" id="cb47"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
+<div class="sourceCode" id="cb48"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
 not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
@@ -2661,17 +2684,17 @@ keeps a later Unleashed backup from rotating it away, and what the menu
 reads to label it for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb49"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb50"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the
@@ -2699,14 +2722,14 @@ only mount FAT32.</p>
 has to, so this only concerns an image you made by hand here. If yours
 is over the limit, cut it into parts the restore will accept — on Linux
 or macOS:</p>
-<div class="sourceCode" id="cb50"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span> <span class="at">-b</span> 3788M <span class="at">--numeric-suffixes</span><span class="op">=</span>1 <span class="at">-a</span> 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.</span></code></pre></div>
+<div class="sourceCode" id="cb51"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span> <span class="at">-b</span> 3788M <span class="at">--numeric-suffixes</span><span class="op">=</span>1 <span class="at">-a</span> 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.</span></code></pre></div>
 <p>The sidecar then needs the hash of the whole file first, marked as
 such, followed by one line per part:</p>
-<div class="sourceCode" id="cb51"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="bu">printf</span> <span class="st">&#39;# arco-stream-sha256: %s\n&#39;</span> <span class="st">&quot;</span><span class="va">$(</span><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span><span class="st">&#39; &#39;</span> <span class="at">-f1</span><span class="va">)</span><span class="st">&quot;</span> <span class="dt">\</span></span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span>
-<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz.<span class="pp">???</span> <span class="op">&gt;&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb52"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="bu">printf</span> <span class="st">&#39;# arco-stream-sha256: %s\n&#39;</span> <span class="st">&quot;</span><span class="va">$(</span><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span><span class="st">&#39; &#39;</span> <span class="at">-f1</span><span class="va">)</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz.<span class="pp">???</span> <span class="op">&gt;&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span></code></pre></div>
 <p>Put the parts and that one sidecar on the stick — not the original —
 and the restore menu lists it under its plain name. On Windows, where
 there is no comfortable way to do this, use <strong><a

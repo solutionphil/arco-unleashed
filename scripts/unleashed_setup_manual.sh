@@ -23,7 +23,8 @@ menu() {
   printf "${CY}   RECOVERY:${C0}\n"
   printf "    6)  Phrozen-update protection ${CC}(backup / pre-patch / restore)${C0}\n\n"
   printf "${CY}   SCRIPT UPDATE:${C0}\n"
-  printf "    7)  Check for Unleashed updates ${CC}(kit · git)${C0}\n\n"
+  printf "    7)  Check for Unleashed updates ${CC}(kit · git)${C0}\n"
+  printf "    c)  Update channel        ${CC}(stable, or beta to test new features early)${C0}\n\n"
   printf "    q)  Quit\n\n"
   printf "${CW}   DTB and WiFi are baked in. Step 2 unpacks your USB and installs${C0}\n"
   printf "${CW}   the display and AMS server; then restart klipper to bring it up.${C0}\n"
@@ -45,6 +46,7 @@ while true; do
     b|B) a_beacon;  pause;;
     6) a_recover;   pause;;
     7) a_selfupdate; pause;;
+    c|C) a_channel;  pause;;
     q|Q) echo "Bye."; exit 0;;
     *) ;;
   esac
