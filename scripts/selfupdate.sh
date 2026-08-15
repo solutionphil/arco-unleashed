@@ -206,6 +206,17 @@ after_update(){
     fi
     rm -f "/tmp/.arco-guards.$$"
   fi
+  # New features arrive as new #@FEAT blocks, and AddOn.cfg is never regenerated on a printer that
+  # already has one -- it holds the owner's settings. Without this step an update therefore reached
+  # fresh flashes only, which is how the startup banner and the welcome dialog shipped to nobody who
+  # already had a printer. This adds blocks that are ABSENT and never edits one that is present; it
+  # refuses anything that would redefine a section the owner already declares. Safe during a print:
+  # it only writes the file, and klipper reads it at the next service start.
+  if [ -f scripts/addon_merge.py ] && command -v python3 >/dev/null 2>&1; then
+    echo "Config features:"
+    python3 scripts/addon_merge.py apply 2>&1 | sed 's/^/  /'
+    sync
+  fi
   state=$(curl -s --max-time 4 http://127.0.0.1:7125/printer/objects/query?print_stats 2>/dev/null \
           | tr ',{}' '\n' | sed -n 's/.*"state"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' | head -1)
   case "${state:-}" in
