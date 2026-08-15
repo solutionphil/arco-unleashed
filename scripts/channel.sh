@@ -153,7 +153,14 @@ status(){
   local ahead behind
   ahead="$(git rev-list --count "HEAD..origin/$other" 2>/dev/null || echo 0)"
   behind="$(git rev-list --count "origin/$other..HEAD" 2>/dev/null || echo 0)"
-  echo "   Against ${other}: $ahead commit(s) it has that you do not, $behind that you have and it does not."
+  # One sentence per case, in plain words. The first version said "$ahead commit(s) it has that you do
+  # not, $behind that you have and it does not" -- correct, and nobody should have to parse a sentence
+  # to learn whether they are behind.
+  if   [ "$ahead" -eq 0 ] && [ "$behind" -eq 0 ]; then echo "   Same as ${other}."
+  elif [ "$behind" -eq 0 ]; then echo "   ${other} is $ahead commit(s) further on:"
+  elif [ "$ahead" -eq 0 ];  then echo "   You are $behind commit(s) ahead of ${other}."
+  else echo "   ${other} is $ahead commit(s) further on, and you have $behind it does not:"
+  fi
   [ "$ahead" -gt 0 ] && git log --oneline --no-decorate "HEAD..origin/$other" 2>/dev/null | head -10 | sed 's/^/     /'
   return 0
 }
