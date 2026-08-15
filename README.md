@@ -249,7 +249,7 @@ update exists.
   vendor's server (app still works via TUTK); *OTA* toggles Phrozen's auto-update — turn it **OFF** to
   protect your v0.13 from a hostile Phrozen firmware update; *Disable* stops the cloud app entirely
   (no phone-home), frees the webcam + resources, and stops Phrozen from deleting **Obico** on boot.
-  Defaults are as Phrozen ships (all on); local display + light always stay.
+  Defaults are as Phrozen ship them (all on); local display + light always stay.
   > ⚠️ **Installing Obico? Turn PhrozenGo off first.** Phrozen's own KlipperScreen launcher runs
   > `rm -rf ~/moonraker-obico` and `~/moonraker-obico-env` on **every boot**, and PhrozenGo ships
   > **on**, so those lines are live on a fresh printer. Obico installs cleanly, works until the next
@@ -596,7 +596,7 @@ orca/                     OrcaSlicer profile (flag-driven AMS auto-mode; import 
 </details>
 
 ## Credits & notes
-- **No Phrozen software is redistributed, hosted or mirrored here.** Everything Phrozen ships as its own
+- **No Phrozen software is redistributed, hosted or mirrored here.** Everything Phrozen ship as their own
   reaches the printer either from a **USB stick you provide** (their official `Arco_FW_V*.zip`, obtained
   by you from Phrozen) or, after you confirm, straight from **Phrozen's own public repository**: the
   **`phrozen_dev` Python module** (GPL-3.0,
