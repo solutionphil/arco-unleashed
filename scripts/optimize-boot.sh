@@ -436,7 +436,12 @@ EOF
 # is not on the printer, and nothing else has ever touched this file after the build -- so this is the
 # only way a printer already in the field gets a corrected banner. Change one, change the other.
 _motd=/etc/update-motd.d/05-arco-unleashed
-_edition="printf '\\033[1;34m   Bookworm Edition 1.0\\033[0m\\n'"
+# The channel is appended only when it is NOT stable. Reading .git/HEAD with one sed rather than asking
+# git: this runs on every SSH login, a process start is worth avoiding there, and git as the wrong user
+# would refuse the directory as "dubious ownership" and print that instead of a banner. A flat copy has
+# no .git and a detached HEAD holds a sha, not a ref -- both come back empty and read as stable, which
+# is the right answer for both.
+_edition='_ch=$(sed -n "s|^ref: refs/heads/||p" /home/mks/arco-unleashed/.git/HEAD 2>/dev/null); [ "${_ch:-main}" = main ] && _ch="" || _ch=" · $_ch"; printf "\033[1;34m   Bookworm Edition 1.0%s\033[0m\n" "$_ch"'
 _menuline="printf '\\033[0;37m   For the setup menu, type \\033[1;34munleashed\\033[0;37m and press Enter\\033[0m\\n\\n'"
 if [ -f "$_motd" ] && ! { grep -qF "$_edition" "$_motd" && grep -qF "$_menuline" "$_motd"; }; then
   { grep -vE 'Bookworm Edition|etup menu' "$_motd"; printf '%s\n' "$_edition" "$_menuline"; } > "$_motd.arco-new" \

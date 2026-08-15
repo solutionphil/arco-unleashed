@@ -128,6 +128,13 @@ fi
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
 
 check(){
+  # ARCO_UPDATE_CHECK prints this straight into the Mainsail/Fluidd console, which is where a beta
+  # tester actually lives. The setup menu warns once, at the moment of switching, and after that nothing
+  # does -- from then on an unvalidated change arrives through the same button as any other. On beta,
+  # "update available" means something different, so say which channel every single time.
+  [ "$BRANCH" = main ] || {
+    echo "Channel: $BRANCH — changes here are NOT validated yet."
+    echo "Back to stable:  bash ~/arco-unleashed/scripts/channel.sh stable"; }
   git fetch --quiet origin "$BRANCH" || { echo "fetch failed (no network / remote?)"; exit 1; }
   local l r; l=$(git rev-parse HEAD); r=$(git rev-parse "origin/$BRANCH")
   if [ "$l" = "$r" ]; then
