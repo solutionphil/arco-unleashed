@@ -117,7 +117,20 @@ def main():
         return 0
 
     # Mainsail: a dict of groups keyed by id, each carrying its own macro list.
+    #
+    # 🔴 AND THE MODE, or none of it is visible. Mainsail's macro settings have a Management switch with
+    # two positions, and the default -- "Simple" -- renders a flat list of toggles and ignores groups
+    # entirely. The first version of this seeded six groups onto a fresh printer and the owner saw no
+    # change at all, in either the settings or the dashboard, while the database held exactly what it
+    # was supposed to. Fluidd showed the same data immediately, which is what made it look like a
+    # Mainsail fault rather than a missing field.
+    #
+    # The default is the ABSENCE of the key, not the string "simple" -- so there is nothing to read and
+    # compare, and writing it is the only way to be in the mode the groups need. Written only here,
+    # inside the branch that has already established the owner has no groups of their own, so somebody
+    # who chose Simple deliberately keeps it.
     old_ids = {g.get("name"): gid for gid, g in ms_groups.items() if isinstance(g, dict)}
+    ms["mode"] = "expert"
     ms["macrogroups"] = {}
     for name, members in placed:
         ms["macrogroups"][old_ids.get(name) or str(uuid.uuid4())] = {
