@@ -746,8 +746,13 @@ After=moonraker.service network.target
 Wants=moonraker.service
 
 [Service]
-Type=simple
+# oneshot rather than simple, so a SECOND ExecStart is allowed: the macro groups need exactly the same
+# preconditions as the filters -- Moonraker up, its database reachable over HTTP -- and waiting for that
+# twice, in two units, would be two chances to get the ordering wrong. RemainAfterExit stays off; both
+# jobs are one-shot seeds and the unit going inactive afterwards is the correct end state.
+Type=oneshot
 ExecStart=/bin/bash $SELFDIR/apply-console-filters.sh
+ExecStart=-/usr/bin/python3 $SELFDIR/apply-macro-groups.py
 Nice=10
 IOSchedulingClass=idle
 
@@ -756,7 +761,7 @@ WantedBy=multi-user.target
 EOF
   systemctl daemon-reload 2>/dev/null || true
   systemctl enable arco-console-filters.service >/dev/null 2>&1 || true
-  echo "  console filter seeder installed + enabled (Phrozen noise, additive, both UIs)"
+  echo "  web-interface seeder installed + enabled (console filter + macro groups, both UIs)"
 fi
 
 if [ -f "$SELFDIR/arco-update-refresh.sh" ]; then
