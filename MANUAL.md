@@ -1112,6 +1112,29 @@ this build ships, so a jump to a much newer Klipper can need those patches redon
 them on every start, but update deliberately rather than by reflex. If you would rather hold a known-good
 version, `scripts/pin-klipper-updates.sh` does that — it is opt-in, and nothing on the image does it for you.
 
+**"System — OS Packages" is the one entry that cannot work, and that is deliberate.** Moonraker runs as the
+`mks` user, and this image gives it no password-free `sudo`. Its `apt-get update` therefore fails, and the
+UPDATE button ends in *"sudo: a password is required"*. Granting that permission is the usual fix on a
+Klipper machine and the wrong one here: Moonraker answers the whole network without a login, so anyone who
+can reach the printer could then install packages as root. A printer login would become a root login.
+
+Two consequences are worth knowing. The package list is refreshed when the image is built and **not again**
+by itself — so a green *UP-TO-DATE* means "nothing pending as of the build date", and it will keep saying
+that rather than visibly going stale. And eight packages are deliberately held: the kernel, the device tree,
+u-boot and the BCM43430 WiFi firmware. Upgrading those is what replaces the custom device tree with a stock
+one and brings the printer back with no WiFi at all.
+
+Do system updates over SSH instead, where you can type your password:
+
+```bash
+apt-mark showhold          # expect 8 packages before you go further
+sudo apt update && sudo apt full-upgrade
+```
+
+That is safe while the holds are in place — apt keeps those eight back and upgrades everything else. If the
+list is shorter than eight, put them back first with `sudo bash ~/arco-unleashed/scripts/apt-hold.sh` and
+only then upgrade.
+
 > Earlier images showed Klipper as *invalid* with *"repo is dirty"*, because the MCU timing was patched
 > into the tracked `klippy/mcu.py`. That was more than a cosmetic badge: Moonraker **refuses to update a
 > dirty repo**, so Klipper could never be updated at all. Those three values now come from the untracked
