@@ -73,10 +73,23 @@ gcode:
   SET_PIN PIN=beeper VALUE=0.1
   G4 P50
   SET_PIN PIN=beeper VALUE=0
-  # The beep is the one moment somebody is guaranteed to be looking at the console, so let it say what
-  # the beep MEANS. An earlier draft printed the Klipper version here instead; the version is already in
-  # the login banner and the update manager, and "ready" is the thing this moment is actually about.
-  #
+#@ENDFEAT
+
+#@FEAT banner | Console banner at startup ("printer is ready")
+# ITS OWN FEATURE, and its own delayed_gcode, rather than four more lines inside startup_beep. The
+# reason is delivery, not tidiness. AddOn.cfg is NEVER regenerated on a printer that already has one --
+# it holds the owner's settings, so install-addon-cfg.sh only ever creates a missing file. What reaches
+# an existing printer is addon_merge.py, and that works at BLOCK level: it adds features that are
+# absent and never edits one that is present. Lines added inside `beeper` would therefore have arrived
+# on fresh flashes only, which is exactly what happened to the first version of this banner.
+# As a block of its own it reaches everyone, and it can be switched off without losing the chime.
+#
+# Deliberately the same initial_duration as the chime: the beep announces "the printer is usable" and
+# this says it in words. They are independent delayed_gcodes, so their order inside that second is
+# undefined -- which does not matter, one is audible and the other is text.
+[delayed_gcode arco_banner]
+initial_duration: 8
+gcode:
   # RESPOND PREFIX= rather than M118: M118 puts "echo: " in front of every line, which would leave the
   # rule above the name two characters out of line with the one below it.
   #
