@@ -408,7 +408,12 @@ if [ "$INSTALLED" = 1 ]; then
     sleep 1                       # let voronFDM release the serial port before we draw on it
     tft_init
     tft_done "Update complete"
-    tft_hint "wait for restart..."
+    # NOT "wait for restart...", which reads just as easily as "the restart is done" -- and the screen
+    # this one replaces is voronFDM's "update complete - restart printer manually", so the owner may
+    # already have been told to do the opposite. Say who does the restarting and what not to do.
+    # It matters more than wording usually does: pulling the power here is exactly what empties
+    # recently written files, because the rootfs is mounted commit=120.
+    tft_hint "restarts by itself - please wait, do not power off"
     sync
     systemctl reboot
 else
