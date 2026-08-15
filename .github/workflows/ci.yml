@@ -10,7 +10,7 @@ on:
     # beta is a channel real printers follow, not a scratch branch: scripts/channel.sh points a tester's
     # clone at it and Moonraker updates from it. Anything landing here reaches hardware, so it gets the
     # same gates as main. `pull_request` below already covers PRs into either.
-    branches: [main, beta]
+    branches: [main, beta, alpha]
   pull_request:
   workflow_dispatch:
 

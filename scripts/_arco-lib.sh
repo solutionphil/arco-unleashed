@@ -552,9 +552,12 @@ a_channel(){
   printf "\n${CC}   beta carries features that are not proven yet. Nothing is lost by trying it —\n"
   printf "   'stable' brings the files straight back. Config a beta feature already wrote is\n"
   printf "   NOT undone; it gets listed so you can switch it off yourself.${C0}\n"
-  printf "   [b]eta / [s]table / ENTER=leave as it is: "; read -r x
+  # alpha is offered, not hidden. Hiding it would only mean the people who go looking find it without
+  # the warning attached -- and the phrase is what decides who gets in, not the menu.
+  printf "   [b]eta / [a]lpha (needs an access phrase) / [s]table / ENTER=leave as it is: "; read -r x
   case "$x" in
     b|B) bash "$DIR/channel.sh" beta;;
+    a|A) bash "$DIR/channel.sh" alpha;;
     s|S) bash "$DIR/channel.sh" stable;;
     *) echo "  (unchanged)";;
   esac

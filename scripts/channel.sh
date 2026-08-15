@@ -3,7 +3,9 @@
 #
 #   bash channel.sh            what channel am I on, and what would the other one change?
 #   bash channel.sh beta       follow the beta branch from now on
+#   bash channel.sh alpha      experimental; asks for the access phrase
 #   bash channel.sh stable     go back to main
+#   bash channel.sh phrase     (maintainer) turn a new access phrase into the line to commit
 #
 # HOW LITTLE THIS HAS TO DO. The update path already follows whatever branch the clone is on:
 # selfupdate.sh computes BRANCH from HEAD, and apply-update-manager.sh writes `primary_branch:` into
@@ -33,6 +35,19 @@ cd "$KIT"
 C0=$'\033[0m'; CG=$'\033[0;32m'; CY=$'\033[1;33m'; CW=$'\033[1;37m'; CR=$'\033[0;31m'
 STABLE=main
 BETA=beta
+ALPHA=alpha
+
+# ── the alpha gate, and what it is honestly worth ─────────────────────────────────────────────────
+# This repository is PUBLIC. `git checkout -B alpha origin/alpha` works for anybody, so nothing here
+# can be access control and it is not written as if it were. What it is: a lock against activating an
+# experimental channel by accident or on a whim, and a way to make switching a deliberate act somebody
+# had to be invited into. That is the actual risk -- not somebody reading the code, but somebody's
+# working printer quietly following a branch built for breaking things.
+#
+# The salt is not a secret either; it only stops the hash being looked up in a table. Rotate the phrase
+# with `channel.sh phrase`, which prints the replacement line without ever storing the phrase anywhere.
+ALPHA_SALT="arco-alpha-2026"
+ALPHA_HASH="d31a679b6b4f543b1de4d3c7b452c0e52c337695b5c50b1da8973df2a97a15da"
 
 [ -d .git ] || {
   echo "This kit is a flat copy from the image, not a clone, so it has no channels yet."
@@ -76,16 +91,60 @@ leftovers(){ # $1 = ref whose template to compare against
   echo "   do not want them — nothing here edits your config."
 }
 
+hash_of(){ printf '%s' "$ALPHA_SALT:$1" | sha256sum | cut -d' ' -f1; }
+
+# Reads with -s so the phrase is not left on screen or in the scrollback of whoever is watching.
+# Three tries, then it stops -- not because that defeats anybody (see the note on the gate above), but
+# because a prompt that keeps asking reads as broken rather than as refused.
+alpha_gate(){
+  echo "${CR}   ALPHA is experimental.${C0} It carries changes that have not been tried anywhere else"
+  echo "   and it can break a printer that works today. beta is the channel for helping test;"
+  echo "   this one is for helping build."
+  local try ans
+  for try in 1 2 3; do
+    printf "   Access phrase: "; read -rs ans; echo
+    [ -n "$ans" ] || { echo "   (nothing entered)"; continue; }
+    [ "$(hash_of "$ans")" = "$ALPHA_HASH" ] && return 0
+    echo "${CR}   Not that one.${C0}"
+  done
+  echo "   Ask whoever runs the project for the phrase."
+  return 1
+}
+
+# Maintainer helper. Prints the line to commit and never writes the phrase anywhere -- not to a file,
+# not to the shell history, not to the screen.
+phrase(){
+  local a b
+  printf "   New access phrase: "; read -rs a; echo
+  printf "   Again:             "; read -rs b; echo
+  [ -n "$a" ] || { echo "   Empty — nothing to do."; return 1; }
+  [ "$a" = "$b" ] || { echo "${CR}   They do not match.${C0}"; return 1; }
+  echo
+  echo "   Replace this line in scripts/channel.sh and commit it:"
+  echo "${CW}ALPHA_HASH=\"$(hash_of "$a")\"${C0}"
+  echo
+  echo "   The salt stays as it is. Everyone already on alpha keeps working until they switch again."
+}
+
 status(){
   local b; b="$(now)"
   case "$b" in
+    "$ALPHA")  echo "   Channel: ${CR}alpha${C0}  (branch $b) — experimental";;
     "$BETA")   echo "   Channel: ${CY}beta${C0}  (branch $b)";;
     "$STABLE") echo "   Channel: ${CG}stable${C0}  (branch $b)";;
-    *)         echo "   Channel: ${CW}$b${C0} — neither $STABLE nor $BETA. Updates follow this branch.";;
+    *)         echo "   Channel: ${CW}$b${C0} — none of $STABLE/$BETA/$ALPHA. Updates follow this branch.";;
   esac
   echo "   Version: $(git describe --tags 2>/dev/null || echo '?')"
   fetch || return 0
-  local other; [ "$b" = "$BETA" ] && other="$STABLE" || other="$BETA"
+  # Compare against the next channel DOWN the promotion chain (alpha → beta → main), because that is
+  # the one whose difference is meaningful: it is what this printer is carrying ahead of the calmer
+  # channel. From stable the useful comparison is the other way, towards beta.
+  local other
+  case "$b" in
+    "$ALPHA") other="$BETA";;
+    "$BETA")  other="$STABLE";;
+    *)        other="$BETA";;
+  esac
   git rev-parse --verify -q "origin/$other" >/dev/null || {
     echo "   (no origin/$other on GitHub yet)"; return 0; }
   local ahead behind
@@ -119,6 +178,10 @@ switch_to(){ # $1 = branch
 case "${1:-status}" in
   status|"") status;;
   beta)      switch_to "$BETA";;
+  # The gate runs BEFORE anything is fetched or moved, so a wrong phrase leaves the printer exactly
+  # where it was and costs nothing but the prompt.
+  alpha)     alpha_gate && switch_to "$ALPHA";;
   stable|main) switch_to "$STABLE";;
-  *) echo "usage: bash channel.sh [status|beta|stable]"; exit 1;;
+  phrase)    phrase;;
+  *) echo "usage: bash channel.sh [status|beta|alpha|stable|phrase]"; exit 1;;
 esac

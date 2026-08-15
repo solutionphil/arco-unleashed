@@ -1154,6 +1154,12 @@ One thing switching back does **not** undo: files return, configuration does not
 merged into your `AddOn.cfg`, it stays, because that file is yours and nothing here edits it. Going back to
 stable lists what beta added so you can switch those features off yourself under **AddOn features**.
 
+There is a third channel, `alpha`, for changes that have not been tried anywhere yet. It asks for an access
+phrase, which you get by arrangement rather than by asking the printer — beta is the channel for helping to
+test, alpha is for helping to build. A change moves `alpha → beta → stable`, so nothing reaches a stable
+printer that has not survived both. Whichever channel you are on, the login banner says so after the edition
+line, and every update check names it.
+
 > Earlier images showed Klipper as *invalid* with *"repo is dirty"*, because the MCU timing was patched
 > into the tracked `klippy/mcu.py`. That was more than a cosmetic badge: Moonraker **refuses to update a
 > dirty repo**, so Klipper could never be updated at all. Those three values now come from the untracked
