@@ -316,7 +316,7 @@ flowchart TD
     M0(["SSH in as mks<br/>bash ~/arco-unleashed/scripts/unleashed_setup.sh<br/>choose 1 — Flash MCUs"])
     M0 --> SEL{"What to flash?"}
     SEL -->|"F407 main board"| F407["USB DFU, no buttons —<br/>also auto-writes its serial<br/>into printer_MCU.cfg"]
-    SEL -->|"Host MCU"| HOST["Over USB, no buttons"]
+    SEL -->|"Host MCU"| HOST["Rebuilt on the host itself —<br/>Klipper's CPU-temperature process,<br/>not a chip: no USB, no buttons"]
     SEL -->|"F103 toolhead"| K{"Katapult bootloader<br/>already on this toolhead?"}
     SEL -->|"all — the normal choice"| F407
 
@@ -326,9 +326,9 @@ flowchart TD
     BTN --> FL
 
     F407 --> PC
-    HOST --> PC
     FL --> PC["Power the printer fully OFF for ~10 s,<br/>then on. A reboot is not enough —<br/>Klipper is deliberately left stopped"]
     PC --> CHK{"Mainsail on http://printer-ip/<br/>comes up ready, display popup gone?"}
+    HOST --> CHK
     CHK -->|"No — mcu: Unable to connect<br/>or Command format mismatch"| RETRY["Repeat the flash for the MCU that failed"] --> SEL
     CHK -->|"Yes"| OK(["Printer is alive — calibrate next"])
 

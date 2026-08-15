@@ -294,10 +294,12 @@
 <p>From a stock Phrozen Arco to <strong>Debian Bookworm · kernel 6.18 ·
 Klipper v0.13</strong>, without opening the printer: it flashes its own
 eMMC from a USB stick.</p>
-<p>Seven steps, about <strong>90 minutes</strong>, of which maybe 20 are
-hands-on — the rest is waiting for the printer. Every screen is pictured
-in the <strong><a href="MANUAL.html">MANUAL</a></strong>; the full
-reference is the <strong><a href="README.html">README</a></strong>.</p>
+<p>Seven steps, about <strong>30 minutes</strong> — or <strong>an
+hour</strong> if you also take the optional backup in Step 2. Much of
+that is the printer working while you wait, not you typing. Every screen
+is pictured in the <strong><a href="MANUAL.html">MANUAL</a></strong>; the
+full reference is the <strong><a
+href="README.html">README</a></strong>.</p>
 <p><em>The step numbers are the MANUAL’s, so you can switch between the
 two at any point. The gaps — 5, 7, 9, 11 — are the steps this short path
 folds in or leaves out.</em></p>
@@ -322,7 +324,7 @@ firmware package yourself.</p>
 straight into the printer — <strong>never through a USB hub</strong>) ·
 Phrozen’s <strong><code>Arco_FW_V*.zip</code></strong> <em>(you download
 it from Phrozen)</em> · an SSH client (<strong>PuTTY</strong> on
-Windows) · a <strong>2.5 mm hex key</strong> for Step 6.</p>
+Windows) · <strong>2.0 mm and 2.5 mm hex keys</strong> for Step 6.</p>
 <p><strong>Three things are irreversible, so decide now:</strong></p>
 <ol type="1">
 <li>The AMS server exists <strong>only on your printer</strong> and the
@@ -530,15 +532,18 @@ firmware and cannot talk to it. SSH in (<code>mks</code> /
 <code>makerbase</code>) and open the menu:</p>
 <div class="sourceCode" id="cb7"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
-<p>Take <strong>1 — Flash MCUs</strong>. The <strong>F407 main
-board</strong> and the <strong>host MCU</strong> flash over USB with no
-buttons. The <strong>toolhead F103</strong> needs a one-time hands-on
-step: remove the front cover (unplug its fan), undo the four screws of
-the back cover, and with the printer <strong>running</strong> and the
-script waiting at its prompt — <strong>hold BOOT → tap RESET while
-holding it → let go of BOOT → press ENTER.</strong> There is no
-countdown: the chip reads BOOT the instant RESET comes back up, and
-afterwards stays in its bootloader until something resets it again.</p>
+<p>Take <strong>1 — Flash MCUs</strong>. Two chips are actually flashed
+— the <strong>F407 main board</strong> and the <strong>toolhead
+F103</strong>; Klipper’s <strong>Linux host MCU</strong> is a process on
+the host that reports CPU temperature, not a chip, and is rebuilt in the
+same pass. The F407 goes over USB with no buttons. The <strong>toolhead
+F103</strong> needs a one-time hands-on step: remove the front cover
+(unplug its fan), undo the four screws of the back cover, and with the
+printer <strong>running</strong> and the script waiting at its prompt —
+<strong>hold BOOT → tap RESET while holding it → let go of BOOT → press
+ENTER.</strong> There is no countdown: the chip reads BOOT the instant
+RESET comes back up, and afterwards stays in its bootloader until
+something resets it again.</p>
 <p>The teardown is pictured step by step in the <strong><a
 href="MANUAL.html">MANUAL</a></strong>. Power the printer off only while
 the covers are coming off; the flash itself needs it switched on.</p>
