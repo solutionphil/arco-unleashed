@@ -145,6 +145,60 @@ def main():
     call("POST", "/server/database/item",
          {"namespace": "mainsail", "key": "macros", "value": ms})
 
+    # ── the dashboard, which is where the groups actually become visible ──────────────────────────
+    # Seeding groups is only half of it. Every Mainsail group is a dashboard panel named
+    # "macrogroup_<id>", and a panel that no layout mentions is not shown -- so a fresh printer had six
+    # correct groups and a dashboard that looked exactly as before.
+    #
+    # The arrangement below is not invented here: it is the one worked out on the dev printer and read
+    # back out of its database, so it is a considered layout rather than a default nobody chose. Groups
+    # are named rather than numbered, and resolved to THIS printer's ids at write time -- shipping the
+    # dev printer's uuids would produce a layout that references panels no other machine has.
+    #
+    # A group that does not exist here is dropped from the layout rather than left dangling: with KAOS
+    # switched off that group is never created, and its panel would be a reference to nothing.
+    if not (get("mainsail", "dashboard", {}) or {}):
+        by_name = {g["name"]: gid for gid, g in ms["macrogroups"].items()}
+
+        def panels(*names):
+            out = []
+            for n in names:
+                vis = True
+                if isinstance(n, tuple):
+                    n, vis = n
+                if n.startswith("@"):           # @Group name -> macrogroup_<id>, dropped if absent
+                    gid = by_name.get(n[1:])
+                    if not gid:
+                        continue
+                    n = "macrogroup_" + gid
+                out.append({"name": n, "visible": vis})
+            return out
+
+        C1 = ("@Calibration", "@Maintenance", "@Kit & Updates")
+        C2 = ("@Printing", "@Filament & AMS", "@KAOS")
+        call("POST", "/server/database/item", {"namespace": "mainsail", "key": "dashboard", "value": {
+            "nonExpandPanels": {"widescreen": []},
+            # Widescreen has three columns; desktop and tablet two, with the third column's panels
+            # folded into the first.
+            "widescreenLayout1": panels("toolhead-control", "extruder-control", *C1),
+            "widescreenLayout2": panels("temperature", "machine-settings", *C2),
+            "widescreenLayout3": panels("webcam", "miniconsole", "miscellaneous"),
+            "desktopLayout1": panels("webcam", "toolhead-control", "extruder-control",
+                                     "machine-settings", "miscellaneous", *C1),
+            "desktopLayout2": panels("temperature", "miniconsole", *C2),
+            "tabletLayout1": panels("webcam", "toolhead-control", "extruder-control",
+                                    "machine-settings", "miscellaneous", *C1),
+            "tabletLayout2": panels("temperature", "miniconsole", *C2),
+            # Mobile is one column, so everything competes for the same scroll. The webcam and the mini
+            # console are the two that cost the most room for the least use on a phone.
+            "mobileLayout": panels(("webcam", False), "toolhead-control", "extruder-control",
+                                   "machine-settings", "miscellaneous", "temperature",
+                                   ("miniconsole", False),
+                                   "@Printing", "@Filament & AMS", "@Calibration", "@KAOS",
+                                   "@Maintenance", "@Kit & Updates"),
+        }})
+        print("[macro-groups] dashboard arranged (4 layouts).")
+
     # Fluidd: one flat list plus separate categories, and only a single flag -- it knows
     # disabledWhilePrinting but has no separate notion of "allowed while paused". pause_only therefore
     # collapses into "not while printing", which is the safe direction.
