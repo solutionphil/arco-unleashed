@@ -197,7 +197,11 @@ after_update(){
       # else here already uses -- the backup, the flash -- and it asks the owner to know nothing.
       echo "Self-heal: this update brought something that is not set up on this printer yet:"
       grep -E '^  MISSING|^Missing' "/tmp/.arco-guards.$$" | sed 's/^/  /'
-      if : > "$RECONCILE_MARK" 2>/dev/null; then
+      # Parenthesised on purpose: a failing redirection is reported by the SHELL, before the command
+      # runs, so `2>/dev/null` on the command never silences it. Without the subshell an unwritable
+      # printer_data prints a raw "No such file or directory" with a line number, directly above the
+      # sentence that explains the same thing in words.
+      if ( : > "$RECONCILE_MARK" ) 2>/dev/null; then
         # The marker is the whole point of this branch, and it is the one file guaranteed to be seconds
         # old when the plug is pulled. Unsynced, commit=120 loses it and the reconcile silently never
         # happens -- the printer comes back looking updated and is not.

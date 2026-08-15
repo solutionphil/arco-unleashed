@@ -30,6 +30,9 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 KIT="$(cd "$DIR/.." && pwd)"
+# Same marker selfupdate.sh uses, and deliberately outside the kit: an untracked file in the repository
+# is what makes the next pull refuse.
+RECONCILE_MARK="$(cd "$KIT/.." && pwd)/printer_data/.arco-reconcile-pending"
 cd "$KIT"
 
 C0=$'\033[0m'; CG=$'\033[0;32m'; CY=$'\033[1;33m'; CW=$'\033[1;37m'; CR=$'\033[0;31m'
@@ -150,7 +153,14 @@ status(){
   local ahead behind
   ahead="$(git rev-list --count "HEAD..origin/$other" 2>/dev/null || echo 0)"
   behind="$(git rev-list --count "origin/$other..HEAD" 2>/dev/null || echo 0)"
-  echo "   Against ${other}: $ahead commit(s) it has that you do not, $behind that you have and it does not."
+  # One sentence per case, in plain words. The first version said "$ahead commit(s) it has that you do
+  # not, $behind that you have and it does not" -- correct, and nobody should have to parse a sentence
+  # to learn whether they are behind.
+  if   [ "$ahead" -eq 0 ] && [ "$behind" -eq 0 ]; then echo "   Same as ${other}."
+  elif [ "$behind" -eq 0 ]; then echo "   ${other} is $ahead commit(s) further on:"
+  elif [ "$ahead" -eq 0 ];  then echo "   You are $behind commit(s) ahead of ${other}."
+  else echo "   ${other} is $ahead commit(s) further on, and you have $behind it does not:"
+  fi
   [ "$ahead" -gt 0 ] && git log --oneline --no-decorate "HEAD..origin/$other" 2>/dev/null | head -10 | sed 's/^/     /'
   return 0
 }
@@ -169,10 +179,36 @@ switch_to(){ # $1 = branch
   sync
   echo "${CG}   Now on $target — $(git describe --tags 2>/dev/null || echo '?')${C0}"
   leftovers "origin/$target"
-  echo
-  echo "${CW}   Restart klipper to finish:  sudo systemctl restart klipper${C0}"
-  echo "   That is when the guard rewrites moonraker.conf, so the update manager"
-  echo "   follows this channel too. Until then it still shows the old one."
+
+  # ARM THE ROOT-SIDE SETUP. The first version of this script did not, and the hole showed up the first
+  # time it was used on a real printer: the switch worked, moonraker.conf followed, and the login banner
+  # still said nothing about the channel -- because that line lives under /etc and only optimize-boot.sh
+  # writes it, as root, from the reconcile at boot. "Restart klipper to finish" was true for everything a
+  # guard owns and quietly false for everything else.
+  #
+  # It arms UNCONDITIONALLY rather than asking check-guards.sh first. A channel switch can move the kit
+  # any distance in either direction, and check-guards only sees systemd drop-ins -- it once reported
+  # "all present" on a printer whose hostname had never been set. Guessing wrong here is silent, and
+  # optimize-boot.sh is idempotent, so arming when nothing changed costs one boot's worth of no-ops.
+  # The subshell is not decoration. `: > "$f" 2>/dev/null` does NOT silence a failing redirection: the
+  # shell reports that itself, before the command runs, so the 2>/dev/null never applies to it. Without
+  # the parentheses an unwritable path prints a raw "No such file or directory" with a line number
+  # immediately above the sentence explaining the same thing in words.
+  if ( : > "$RECONCILE_MARK" ) 2>/dev/null; then
+    sync                        # the marker is seconds old when the plug is pulled; commit=120
+    echo
+    echo "${CW}   Two things finish this:${C0}"
+    echo "     1) sudo systemctl restart klipper   — moonraker.conf follows the channel"
+    echo "     2) power-cycle the printer once     — everything that needs root, e.g. the"
+    echo "        login banner, which lives under /etc and no guard touches"
+    echo "   In a hurry, 2) can be done now instead:"
+    echo "     sudo bash $DIR/optimize-boot.sh"
+  else
+    echo
+    echo "${CR}   Could not arm the root-side setup${C0} ($RECONCILE_MARK is not writable)."
+    echo "   Run it by hand:  sudo bash $DIR/optimize-boot.sh"
+    echo "   Then:            sudo systemctl restart klipper"
+  fi
 }
 
 case "${1:-status}" in
