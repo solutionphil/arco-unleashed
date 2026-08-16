@@ -917,8 +917,10 @@ gcode:
 # Arco Unleashed: makes the toolhead filament sensor visible. phrozen_dev reads the
 # sensor (MKS_THR:PA2) and pauses on runout, but has no get_status() -- so the state
 # is invisible in Mainsail/Fluidd and unreadable from macros. This extra publishes it
-# read-only: it claims NO pin (a second claim on PA2 would stop klippy from starting)
-# and is not in the pause path, so detection and pausing stay entirely with phrozen_dev.
+# read-only: it claims NO pin (a second claim on PA2 would stop klippy from starting), so
+# runout detection during a print stays entirely with phrozen_dev. The one case this extra
+# does act on is the one phrozen_dev never looks at -- a job that started with an empty
+# toolhead -- and even then it only reports, then hands over to ARCO_FILA_EMPTY below.
 #
 # The part that earns its place: phrozen_dev only watches the sensor after a P0 M1/M2/M3
 # (its work mode 0 = UNKNOW leaves the runout timer disabled). A print started from a
@@ -939,6 +941,54 @@ gcode:
 #warn_on_print_start: True # console warning when a print runs unprotected
 #warn_delay: 300.0         # seconds into the job before that check runs
 #check_interval: 2.0       # seconds between job-state polls
+#ams_port: /dev/ttyACM1    # its existence is what "an AMS is attached" means
+#pause_on_empty: True      # act when a job is printing with an empty toolhead
+#pause_delay: 90.0         # seconds into the job before that check runs
+
+#@FEAT fila_empty_action | What happens when a print runs with an empty toolhead (ARCO_FILA_EMPTY)
+# -----------------------------------------------------------------------------
+# WHAT TO DO ABOUT AN EMPTY TOOLHEAD
+# -----------------------------------------------------------------------------
+# [arco_fila_status] measures and reports; it does not decide. When it finds a job
+# printing with nothing in the toolhead it calls this macro, and this macro is where
+# the answer lives -- so the answer stays yours. Rewrite the gcode below and the
+# behaviour changes; nothing in the extra needs touching.
+#
+# The default answer differs by work mode, because the two cases have different
+# culprits and different remedies:
+#
+#   standalone (mode 3)  M600. The toolhead is where the filament should have been,
+#                        so the fix is at the toolhead: M600 parks, waits for you to
+#                        load, purges and resumes. Its opening 45 mm retract spins an
+#                        empty drive -- harmless, no load on the gears.
+#
+#   AMS (modes 1 and 2)  PAUSE. The AMS owns the feed here, so a manual load flow
+#                        would work against it. Nothing reaching the toolhead means
+#                        the slot for this print is empty; that is fixed at the AMS,
+#                        and RESUME will not help until it is.
+#
+# The cold-nozzle branch is not a nicety: Klipper refuses to extrude below
+# min_extrude_temp (170 in printer.cfg), so calling M600 before the hotend is up
+# aborts the macro with an error instead of pausing the print. This check fires
+# 90 s into a job, which on a cold start can still be inside the heat-up.
+[gcode_macro ARCO_FILA_EMPTY]
+description: Action taken when a print is found running with an empty toolhead
+gcode:
+    # MODE comes from the caller rather than being read back out of [arco_fila_status], so this
+    # macro also works when called by hand and does not depend on that section existing.
+    {% set mode = params.MODE|default(0)|int %}
+    {% set hot = printer[printer.toolhead.extruder].temperature >= printer.configfile.settings.extruder.min_extrude_temp %}
+    {% if mode in (1, 2) %}
+        RESPOND MSG="No filament reached the toolhead and the AMS is what feeds it - check that the slot this print uses actually has filament. Pausing; RESUME will not help until it does."
+        PAUSE
+    {% elif hot %}
+        RESPOND MSG="No filament in the toolhead - starting a filament change. Load filament, then RESUME."
+        M600
+    {% else %}
+        RESPOND MSG="No filament in the toolhead, and the hotend is still below min_extrude_temp - pausing instead of a filament change. Load filament, then RESUME."
+        PAUSE
+    {% endif %}
+#@ENDFEAT
 
 # >>> arco-update-console >>>
 # -----------------------------------------------------------------------------

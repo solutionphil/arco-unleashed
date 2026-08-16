@@ -247,27 +247,29 @@ class ArcoFilaStatus:
             return
         adc = 'n/a' if st['adc'] is None else '%.4f' % st['adc']
         thr = 'n/a' if st['threshold'] is None else '%.4f' % st['threshold']
-        msg = ("arco_fila_status: PAUSING — the toolhead sensor reports NO filament "
-               "%.0f s into this print (adc %s, threshold %s; at or above the threshold means empty). "
-               "Mode: %s." % (self.pause_delay, adc, thr, st['mode_name']))
-        # What to do about it depends on who was supposed to supply the filament, so say that rather
-        # than leaving the owner to work out which of their two possible problems this is.
-        if st['mode'] in (1, 2):
-            if self._ams_present():
-                msg += (" The AMS is connected but nothing reached the toolhead — check that the "
-                        "slot for this print actually has filament in it. Resuming will not help "
-                        "until it does.")
-            else:
-                msg += (" The printer is in AMS mode but no AMS is answering on %s, so nothing was "
-                        "watching for this." % (self.ams_port,))
-        else:
-            msg += " Load filament, then RESUME."
+        msg = ("arco_fila_status: the toolhead sensor reports NO filament %.0f s into this print "
+               "(adc %s, threshold %s; at or above the threshold means empty). Mode: %s."
+               % (self.pause_delay, adc, thr, st['mode_name']))
+        # One thing the macro cannot work out for itself, because it is about a missing device rather
+        # than the mode: an AMS work mode with no AMS on the bus. Nothing was watching, and nothing is
+        # going to feed. Worth saying here, where the port name is known.
+        if st['mode'] in (1, 2) and not self._ams_present():
+            msg += (" The printer is in AMS mode but no AMS is answering on %s, so nothing was "
+                    "watching for this." % (self.ams_port,))
         self.gcode.respond_info(msg)
-        logging.info("arco_fila_status: pausing an empty print (%s)", st)
+        logging.info("arco_fila_status: empty toolhead while printing (%s)", st)
+        # Measuring is this module's job; deciding is not. ARCO_FILA_EMPTY is a #@FEAT macro in
+        # AddOn.cfg, so the owner can change what happens without editing an extra -- and an AddOn.cfg
+        # that predates the macro simply does not have it, which is what the fallback is for.
+        action = "ARCO_FILA_EMPTY MODE=%d" % (st['mode'] or 0,)
+        if self.printer.lookup_object('gcode_macro ARCO_FILA_EMPTY', None) is None:
+            action = "PAUSE"
+            self.gcode.respond_info("arco_fila_status: ARCO_FILA_EMPTY is not defined in "
+                                    "AddOn.cfg - pausing instead.")
         try:
-            self.gcode.run_script("PAUSE")
+            self.gcode.run_script(action)
         except Exception:
-            logging.exception("arco_fila_status: PAUSE failed")
+            logging.exception("arco_fila_status: %s failed", action)
 
     def _warn_if_unprotected(self):
         st = self._read()
