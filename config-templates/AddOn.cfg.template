@@ -7,16 +7,18 @@
 [respond]
 [exclude_object]
 
-# Persistent store for the AMS mode flag 'ams' (1=AMS on, 0=off). Set by AMS_ON/OFF
-# + the SSH menu (ams_toggle.sh), read by PHROZEN_AMS_START + the M600 guard. Core:
-# the auto_mode feature and the M600 guard depend on it.
+# Persistent store for 'ams' (1 = an AMS is attached, 0 = none) and 'phrozengo' (1 = the
+# vendor cloud agent is switched on). Read by PHROZEN_AMS_START, PHROZEN_TOOLCHANGE, the
+# M600 guard and the P114 gate. NEITHER IS A SETTING: 'ams' is kept in step with the AMS
+# device node by [arco_tool_gate], 'phrozengo' is written by the setup menu. Editing them
+# by hand only holds until the next check.
 [save_variables]
 filename: ~/printer_data/config/variables.cfg
 
-# Initialize the AMS mode flag so it is DEFINED out of the box. Without this, on a fresh printer
-# 'ams' is unset until the first AMS_ON/OFF -> AMS_STATUS shows a blank value and PHROZEN_AMS_START
-# only works via its |default(0) fallback. 0 = AMS off (single-color standalone). Sets it ONLY if
-# unset, so it never clobbers a user's AMS_ON/OFF choice; self-heals if variables.cfg is reset.
+# Seed 'ams' so it is DEFINED from the very first boot, before [arco_tool_gate] has had a
+# chance to look. Without it the macros fall back to their |default(0), which is the same
+# answer -- this just keeps the variable visible rather than blank. Sets it ONLY if unset,
+# so it never overwrites what the detection found; self-heals if variables.cfg is reset.
 [delayed_gcode arco_ams_init]
 initial_duration: 2
 gcode:
@@ -681,70 +683,26 @@ gcode:
     RESPOND MSG="UNLOAD: done - pull the filament out."
 #@ENDFEAT
 
-#@FEAT ams | AMS / Chroma Kit macros (AMS_ON/OFF/STATUS)
-# ───── AMS (Chroma Kit) on/off — Arco Unleashed ─────
-# Requires gcode_shell_command.py in ~/klipper/klippy/extras/ (KIAUH: Advanced -> [G] G-Code Shell Command).
-# AMS_ON  = connect + multi-color (P0 M1 can move to the spit area, so it homes first).
-# AMS_OFF = single-color, movement-free, restarts Klipper to apply.
-# The shell command only edits the state files (auto_connect + Phrozen_Dev.json mode); the gcode
-# (P0 M1 / P28 / RESTART) is the runtime lever. A factory-NEW AMS needs one-time provisioning
-# beyond this toggle (the firmware flash / pairing — see the kit notes).
-[gcode_shell_command ams_files]
-command: bash /home/mks/arco-unleashed/scripts/ams_toggle.sh files
-timeout: 30
-verbose: True
-
-[gcode_shell_command ams_status_sh]
-command: bash /home/mks/arco-unleashed/scripts/ams_toggle.sh status
-timeout: 10
-verbose: True
-
-[gcode_macro AMS_ON]
-description: Connect AMS / Chroma Kit (multi-color)
-gcode:
-    # Always home: after a reboot phrozen's SET_KINEMATIC_POSITION marks the axes homed at an
-    # assumed 150,150,150 WITHOUT a real home, so homed_axes cannot be trusted before the P0 M1
-    # spit move -- home unconditionally to guarantee a known position.
-    RESPOND MSG="AMS_ON: homing first (P0 M1 moves to the spit area)"
-    G28
-    RESPOND MSG="Enabling AMS (multi-color)..."
-    RUN_SHELL_COMMAND CMD=ams_files PARAMS=on
-    SAVE_VARIABLE VARIABLE=ams VALUE=1        ; macro-readable flag -> steers Orca start-gcode
-    P0 M1
-    P28
-    # P30 auto-arranges device IDs for multi-AMS chains; a harmless no-op for a single unit.
-    G4 P1000
-    P30
-    # Bring the Tn tool buttons back LIVE (arco_tool_gate hid T1-T15 while ams was off);
-    # no restart -> the just-made P28 connection is left intact.
-    ARCO_TOOLS_SHOW
-    RESPOND MSG="AMS connected (multi-color); P30 arranged device IDs (for multi-AMS chains)."
-
-[gcode_macro AMS_OFF]
-description: Disconnect AMS / single-color (homed, movement-free)
-gcode:
-    {% if 'xyz' not in printer.toolhead.homed_axes %}
-      RESPOND MSG="AMS_OFF: homing first (safety)"
-      G28
-    {% endif %}
-    RESPOND MSG="Disabling AMS (single-color)..."
-    P29                                          ; disconnect AMS cleanly (close serial) - counterpart to AMS_ON's P28
-    RUN_SHELL_COMMAND CMD=ams_files PARAMS=off
-    SAVE_VARIABLE VARIABLE=ams VALUE=0        ; macro-readable flag -> steers Orca start-gcode
-    RESPOND MSG="AMS off, single-color - restarting Klipper to apply"
-    RESTART
-
-[gcode_macro AMS_STATUS]
-description: Show AMS state in the console
-gcode:
-    RUN_SHELL_COMMAND CMD=ams_status_sh
-#@ENDFEAT
+# -----------------------------------------------------------------------------
+# RETIRED: the AMS on/off switch
+# -----------------------------------------------------------------------------
+# AMS_ON / AMS_OFF / AMS_STATUS and their two shell commands are gone. They asked the owner
+# to declare something the printer establishes for itself: the AMS enumerates as a USB
+# serial device, and [arco_tool_gate] keeps the 'ams' variable in step with it. A switch
+# standing next to a fact can only agree with the fact or be wrong, and when it was wrong it
+# was wrong silently -- an AMS that was connected and feeding, with the switch never touched,
+# read as "no AMS" to every macro that asked.
+#
+# The line below tells addon_merge.py to take the block out of an AddOn.cfg that still has
+# one. Keep it: delete the line and the old macros stay on every printer that has not
+# merged yet.
+#@RETIRE ams | AMS on/off switch - the AMS is detected now, so there is nothing to declare
 
 #@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
 # ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
-# The AMS on/off flag is set DELIBERATELY via the SSH menu / AMS_ON|AMS_OFF (it mirrors the
-# physical toolhead conversion - not a casual toggle). This macro reads that flag at print
-# start and applies the right Phrozen mode. OrcaSlicer just calls it (no live USB detection):
+# The 'ams' flag follows the AMS device node, kept in step by [arco_tool_gate] -- nobody sets
+# it, and there is nothing to remember to set. This macro reads it at print start and applies
+# the right Phrozen mode. OrcaSlicer just calls it:
 #
 #   Machine start G-code (after PRINT_START), instead of P0 M1/P28/P2 A1:
 #     {if size(filament_diameter) > 1}PHROZEN_AMS_START MULTI=1{else}PHROZEN_AMS_START MULTI=0{endif}
@@ -783,7 +741,7 @@ gcode:
         {% endif %}
     {% else %}
         {% if multi %}
-            { action_raise_error("Multicolor slice but AMS is OFF in the menu. Run AMS_ON or slice single-color.") }
+            { action_raise_error("Multicolor slice but no AMS is attached. Connect the AMS, or slice single-color.") }
         {% else %}
             M118 Standalone -> P0 M3 (toolhead runout protection)
             P0 M3
@@ -824,8 +782,8 @@ gcode:
 # cloud/app -- pointless console spam + serial re-init when NO AMS is attached
 # (voronFDM itself does not drive this poll). We override the P114 *command*: swallow it when our
 # 'ams' flag is off, pass it to the real handler (P114.1) when an AMS is on. Pure
-# config -- phrozen_dev stays vanilla. Live-toggle: AMS_ON sets ams=1 -> the poll
-# passes again, no Klipper restart. rename_existing must target a "traditional"
+# config -- phrozen_dev stays vanilla. Plugging an AMS in flips the flag within seconds
+# and the poll passes again, no Klipper restart. rename_existing must target a "traditional"
 # gcode name (letter+number), hence P114.1 -- NOT an extended name like _P114.
 # rename_existing resolves in a klippy:connect handler, so the phrozen P114
 # (registered in phrozen_dev __init__) always exists in time regardless of the
@@ -833,14 +791,19 @@ gcode:
 # -----------------------------------------------------------------------------
 [gcode_macro P114]
 rename_existing: P114.1
-description: AMS status poll - passed through only when AMS on AND not mid-print (Arco Unleashed)
+description: AMS status poll - passed through only for the cloud, with an AMS, when idle (Arco Unleashed)
 gcode:
-    # Pass P114 to the real handler ONLY when an AMS is attached AND we are not
-    # printing. Two problems, one gate:
-    #   ams=0            -> swallow SILENTLY: kills the 5-min PhrozenGo cloud-poll spam
-    #                       + serial re-init when no AMS is present. Saying anything here
-    #                       would just re-create that spam under a new name.
-    #   busy (ams=1)     -> swallow, but SAY SO: P114.1 re-initialises the AMS serial port
+    # Pass P114 to the real handler ONLY when something is actually waiting for the
+    # answer, an AMS is attached, and we are not printing. Three conditions:
+    #
+    #   cloud off        -> swallow SILENTLY. PhrozenGo is the only caller that polls on a
+    #                       timer, and it ships switched off, so on a default printer this
+    #                       is the branch that runs. Nothing is listening: P114 reports on
+    #                       the gcode console, and the display neither reads that console
+    #                       nor waits for a reply to what it sends. Saying anything here
+    #                       would just re-create the spam under a new name.
+    #   no AMS           -> swallow SILENTLY, same reasoning: nothing to report on.
+    #   busy             -> swallow, but SAY SO: P114.1 re-initialises the AMS serial port
     #                       (cmds.py Cmds_CmdP114 -> serial.Serial(...)), which stalls the
     #                       gcode queue and leaves surface blobs. Phrozen fixed this in their
     #                       own cmds.py on 2026-04-28 (idle_timeout "Printing" early-return);
@@ -857,7 +820,13 @@ gcode:
     # "Timer too close" trigger). Using print_stats instead would leave exactly those
     # moments unprotected. Phrozen chose the same signal.
     # Trade-off (same as Phrozen's): the cloud/app gets no fresh AMS status while busy.
-    {% if printer.save_variables.variables.ams|default(0)|int == 1 %}
+    #
+    # Both variables are machine-maintained, not settings: 'ams' is kept in step with the
+    # AMS device node by [arco_tool_gate], and 'phrozengo' is written by the setup menu when
+    # the cloud is switched on or off. Neither is meant to be edited by hand.
+    {% set cloud = printer.save_variables.variables.phrozengo|default(0)|int %}
+    {% set ams   = printer.save_variables.variables.ams|default(0)|int %}
+    {% if cloud == 1 and ams == 1 %}
         {% if printer.idle_timeout.state != "Printing" %}
             P114.1 {rawparams}
         {% else %}

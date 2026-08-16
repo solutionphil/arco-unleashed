@@ -122,17 +122,17 @@ class ArcoFilaStatus:
         st = {'available': ph is not None, 'filament_present': None, 'adc': None,
               'threshold': None, 'mode': None, 'mode_name': 'unavailable',
               'protection_active': False,
-              # Two different questions, deliberately both published.
+              # ams_answered — has an AMS actually replied? phrozen_dev only learns that inside P8
+              # (the feed), by sending "SD" and checking for a full status frame, so it stays False
+              # until an AMS print has begun. Worth reporting, useless to gate on: a gate reading it
+              # at klippy:connect would conclude "no AMS" on every printer that has one.
               #
-              # ams_present — is an AMS attached? The serial node exists from the moment it is plugged
-              # in and enumerated, needs no conversation, and is available at any time including at
-              # boot. This is the one macros should gate on.
-              #
-              # ams_answered — has it actually replied? phrozen_dev only learns that inside P8 (the
-              # feed), by sending "SD" and checking for a full status frame, so it stays False until an
-              # AMS print has begun. Useful to report, useless to gate on: a gate reading it at
-              # klippy:connect would conclude "no AMS" on every printer that has one.
-              'ams_present': self._ams_present(),
+              # "Is an AMS attached" is deliberately NOT published here. This module owns filament,
+              # not the AMS, and a fact with two addresses is a fact someone will read from the wrong
+              # one. That question belongs to [arco_tool_gate]: printer.arco_tool_gate.ams_present.
+              # The private check below stays, because the wording of this module's own messages
+              # depends on it -- it is a stateless test of a device node, so there is nothing that
+              # can drift between the two.
               'ams_answered': False}
         if ph is None:
             return st

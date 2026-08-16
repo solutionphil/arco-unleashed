@@ -250,13 +250,12 @@ Configs…* — `(Unleashed)` loads your saved bed mesh at print start, `(Unleas
 the print area each time instead. Or paste the start G-code from the
 **[README](README.md#orcaslicer--multicolor--ams-auto-mode)** into your own profile.
 
-> ⚠️ **Own an AMS? It ships switched off.** Every image does, because most printers have no AMS and one
-> that opens the port with nothing attached just waits and reports errors. Connected but not switched
-> on, **the spools do not turn** — that is the setting, not a fault. Type `AMS_ON` once in the Mainsail
-> console (or use the setup menu). See the MANUAL for what it changes.
+> **Own an AMS? There is nothing to switch.** Plug it in and print. The printer detects the unit and
+> sets its own flag within seconds, so `T1`–`T15` and the right print mode appear on their own. See the
+> MANUAL if you want to know what it looks at.
 
-Set AMS **on** or **off** once in the setup menu whenever you physically attach or remove it; Orca then
-picks single-colour, multicolour or auto-refill by itself.
+Attach or remove the AMS whenever you like; Orca then picks single-colour, multicolour or auto-refill
+by itself, decided at print start.
 
 **Done when:** a sliced file prints.
 

@@ -886,22 +886,22 @@ AMS serial port with nothing on the other end waits, retries and reports errors 
 never attached. So `printer.cfg` ships `[phrozen_dev] auto_connect: false`, and the tool commands `T1`
 to `T15` are removed from Klipper's command table until you say otherwise.
 
-The consequence is easy to misread as a fault: **with the AMS physically connected but never switched
-on, the spools simply do not turn.** Nothing is broken and nothing needs repairing — the printer has not
-been told the unit is there. Switch it on once, from the menu or from the Mainsail console:
+**There is nothing to switch on.** The AMS enumerates as a USB serial device, so the printer can simply
+look instead of asking you: it watches for the unit and keeps the `ams` flag — the one the Orca start
+G-code reads — in step with what is actually plugged in, bringing `T1`–`T15` back within seconds of
+connecting and taking them away again when the unit is removed. Never mid-print: if the port disappears
+while a job is running, both the tools and the flag stay as they are until the job has finished.
 
-```
-AMS_ON
-```
+Earlier versions had `AMS_ON`, `AMS_OFF` and `AMS_STATUS` macros and a menu entry that ran them. They
+are gone. They asked you to declare something the printer establishes better by itself, and a
+declaration that disagrees with the hardware is wrong without saying so — an attached, working AMS
+could read as "no AMS" to every macro that asked, purely because nobody had pressed the button.
+`FILA_STATUS` shows the current reading whenever you want to check.
 
-It homes first (deliberately — the following move goes to the spit area), sets `auto_connect: true`,
-raises the `ams` flag that the Orca start G-code reads, brings `T1`–`T15` back without a restart, and
-connects. `AMS_OFF` reverses all of it. `AMS_STATUS` shows where you stand. Do this **once**, whenever
-you physically attach or remove the unit — not per print.
-
-> If the spools still do not move afterwards, the missing piece is almost always **`phrozen_master`**
-> from [Step 1](#step-1). It exists only on the original printer, no download contains it, and without
-> it AMS detection hangs. `AMS_STATUS` says whether it is installed.
+> If the spools do not move, the missing piece is almost always **`phrozen_master`** from
+> [Step 1](#step-1). It exists only on the original printer, no download contains it, and without it
+> AMS detection hangs. To see whether it is there:
+> `ls ~/klipper/klippy/extras/phrozen_dev/frp-oms/`
 
 **The waste conveyor hangs off the AMS, not the printer.** It connects to the **AMS** with a DC barrel
 plug, and the AMS switches it on and off by itself as it works. There is therefore no setting for it

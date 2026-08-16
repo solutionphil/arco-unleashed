@@ -395,39 +395,9 @@ a_emergency(){
 }
 a_flash(){ bash "$DIR/flash_mcus.sh"; }
 a_serial(){ bash "$DIR/set-mcu-serial.sh"; }
-# AMS on/off. This handler existed for a long time and was reachable from NOWHERE -- no menu key called
-# it -- while README, MANUAL and QUICKSTART all told owners to switch AMS "in the setup menu". Four
-# documents describing a menu item that was not there.
-#
-# Wiring it to ams_toggle.sh alone would still have been wrong, and the script says so itself: it only
-# edits the state files. The runtime switch is the gcode -- G28, then P0 M1/M3, P28, P30 -- plus
-# SAVE_VARIABLE for the Orca start-gcode flag and ARCO_TOOLS_SHOW to restore T1-T15. All of that lives
-# in the AMS_ON / AMS_OFF macros, so the menu runs THOSE, through Moonraker, and the printer ends up in
-# one consistent state instead of half-switched.
-a_ams(){
-  printf "${CW}   AMS / Chroma Kit${C0} — tell the printer whether one is attached.\n"
-  printf "${CC}   Do this once whenever you physically connect or disconnect it. Orca then\n"
-  printf "   picks single-colour, multicolour or auto-refill by itself.${C0}\n"
-  printf "${CY}   THIS MOVES THE PRINTER:${C0} it homes first, then the AMS command moves the\n"
-  printf "   toolhead to the spit area. Keep hands clear.\n"
-  printf "   [o]n (AMS attached) / o[f]f (no AMS) / ENTER=back: "; read -r m
-  local macro=""
-  case "$m" in o|O) macro=AMS_ON;; f|F) macro=AMS_OFF;; *) echo "  (back)"; return 0;; esac
-  # Klipper has to be up to accept it; if it is not, say the one thing that helps rather than failing
-  # with an HTTP error the reader cannot act on.
-  local st; st=$(curl -s --max-time 5 http://localhost:7125/printer/info 2>/dev/null | tr -d ' "' | grep -o 'state:[a-z]*' | cut -d: -f2)
-  if [ "$st" != "ready" ]; then
-    echo "  Klipper is not ready (state: ${st:-no answer}), so the switch cannot run."
-    echo "  Fix that first — the menu's Emergency repair is the one action to try —"
-    echo "  or run $macro yourself in Mainsail once the printer is up."
-    return 1
-  fi
-  echo "  running $macro ..."
-  curl -s --max-time 20 -X POST http://localhost:7125/printer/gcode/script \
-       --data-urlencode "script=$macro" >/dev/null \
-    && echo "  sent. Watch Mainsail's console for the result — it homes before it switches." \
-    || echo "  could not send it; run $macro in Mainsail instead."
-}
+# There was an AMS on/off entry here. It is gone, and nothing replaces it: the printer works out for
+# itself whether an AMS is attached (the unit enumerates as a USB serial device, and arco_tool_gate
+# follows it), so there is no longer a question to put to the owner. Attach the AMS and print.
 a_phrozengo(){ bash "$DIR/phrozengo.sh" menu; }
 # Beacon: an experimental HARDWARE conversion, not a config preference — hence its own entry rather
 # than a checkbox in the feature list. Turning it on with no probe attached would leave the printer

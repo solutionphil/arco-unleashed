@@ -604,7 +604,7 @@ cmd_magic() {                     # $1 = 1 (on) | 0 (off)
         if [ "${ams:-0}" != "1" ]; then
             die "magic_ams needs the AMS flag on, but ams=${ams:-unset}. With no AMS every tool
        change falls back to M600 and T1-T15 are unregistered, so magic_ams cannot do anything.
-       Run AMS_ON in the console first, then retry. To install it anyway (e.g. before the AMS
+       Attach the AMS, wait a few seconds for it to be detected, then retry. To install it anyway
        is attached): KAOS_FORCE=1 $0 magic-on" 1
         fi
     fi
