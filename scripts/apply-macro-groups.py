@@ -87,6 +87,87 @@ GROUPS = [
 FLAGS = {A: (True, True), P: (False, True), I: (False, False)}   # (showInPrinting, showInPause)
 
 
+def topup(have, ms, fl, ms_groups, fl_cats):
+    """Place macros that appeared AFTER the groups were made, without touching anything arranged.
+
+    The seed runs once, on an empty wall, and then never again -- which is what protects an owner's own
+    arrangement. The cost showed up the moment KAOS was switched on: 21 macros appeared that no group
+    claimed, so they sat outside the grouping entirely, and in Fluidd they were not even hidden, because
+    the hidden list had been computed at seed time. A Phrozen firmware update that adds a macro does the
+    same thing.
+
+    🔴 THE RULE IS "UNPLACED ONLY". A macro is added only if it is in no group at all. Somebody who moved
+    KAOS_PAUSE into a group of their own keeps it there and gets no duplicate; somebody who deleted a
+    macro from a group on purpose does not get it pushed back. Nothing is ever removed, reordered, or
+    renamed here -- this only fills holes that nobody has an opinion about yet.
+    """
+    known = {m: c for _, members in GROUPS for m, c in members}
+    ms_by_name = {g.get("name"): g for g in ms_groups.values() if isinstance(g, dict)}
+    ms_placed = {e.get("name") for g in ms_groups.values() if isinstance(g, dict)
+                 for e in g.get("macros", []) if isinstance(e, dict)}
+    added_ms = 0
+    for name, members in GROUPS:
+        g = ms_by_name.get(name)
+        if not g:
+            continue                      # a group we never made, or one KAOS never created -- leave it
+        lst = g.setdefault("macros", [])
+        for m, c in members:
+            if m in have and m not in ms_placed:
+                lst.append({"pos": len(lst) + 1, "name": m, "color": "group", "showInStandby": True,
+                            "showInPrinting": FLAGS[c][0], "showInPause": FLAGS[c][1]})
+                ms_placed.add(m)
+                added_ms += 1
+        # A group's own panel flags have to widen with it: a KAOS group that held only always-safe
+        # macros was marked "show while printing", and the filament ones arriving now must not drag the
+        # whole panel into a print.
+        g["showInPause"] = any(e.get("showInPause") for e in lst) or g.get("showInPause", False)
+        g["showInPrinting"] = any(e.get("showInPrinting") for e in lst) or g.get("showInPrinting", False)
+    if added_ms:
+        call("POST", "/server/database/item", {"namespace": "mainsail", "key": "macros", "value": ms})
+
+    # Fluidd: one flat list. "Placed" means it carries a categoryId; anything else is fair game.
+    stored = fl.get("stored") or []
+    cat_id = {c.get("name"): c.get("id") for c in fl_cats if isinstance(c, dict)}
+    by_name = {e.get("name"): e for e in stored if isinstance(e, dict)}
+    added_fl = 0
+    for name, members in GROUPS:
+        cid = cat_id.get(name)
+        if not cid:
+            continue
+        for m, c in members:
+            if m not in have:
+                continue
+            e = by_name.get(m)
+            if e is not None and e.get("categoryId"):
+                continue                  # already somewhere, including a category of the owner's
+            new = {"alias": "", "visible": True, "disabledWhilePrinting": c != A,
+                   "color": "", "categoryId": cid, "name": m}
+            if e is None:
+                stored.append(new); by_name[m] = new
+            else:
+                e.update(new)
+            added_fl += 1
+    # Macros that are new AND unknown to us are call targets by elimination -- hide them, which is what
+    # keeps the wall from growing back.
+    hidden_fl = 0
+    for m in have:
+        if m.startswith("_") or m in known or m in by_name:
+            continue
+        stored.append({"alias": "", "visible": False, "disabledWhilePrinting": True,
+                       "color": "", "categoryId": None, "name": m})
+        hidden_fl += 1
+    if added_fl or hidden_fl:
+        fl["stored"] = stored
+        call("POST", "/server/database/item", {"namespace": "fluidd", "key": "macros", "value": fl})
+
+    if added_ms or added_fl or hidden_fl:
+        print("[macro-groups] filled in what appeared since: %d into Mainsail groups, %d into Fluidd "
+              "categories, %d newly hidden." % (added_ms, added_fl, hidden_fl))
+    else:
+        print("[macro-groups] groups are already in place and nothing new to sort — unchanged.")
+    return 0
+
+
 def main():
     try:
         objs = call("GET", "/printer/objects/list")["result"]["objects"]
@@ -104,9 +185,7 @@ def main():
     ms_groups = ms.get("macrogroups") or {}
     fl_cats = fl.get("categories") or []
     if (ms_groups or fl_cats) and not FORCE:
-        print("[macro-groups] this printer already has %d Mainsail group(s) and %d Fluidd "
-              "categor(ies) — leaving them alone." % (len(ms_groups), len(fl_cats)))
-        return 0
+        return topup(have, ms, fl, ms_groups, fl_cats)
 
     grouped = {m for _, members in GROUPS for m, _ in members}
     hide = [m for m in visible if m not in grouped]
