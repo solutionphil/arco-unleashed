@@ -24,7 +24,23 @@
 #     #@RETIRE <feature-id> | why it is going
 #
 # and a retired block is removed from AddOn.cfg, in the same run and under the same backup as the
-# additions. Removal is deliberately blunt and deliberately loud: whole block, reported by name, with
+# additions.
+#
+# REPLACING A LOOSE SECTION. Some sections were written outside every #@FEAT block -- the P114 gate
+# is the one that forced this. Block-level delivery could never reach them: a change went to fresh
+# flashes and nowhere else, which is how a printer in the field ended up running a gate two versions
+# old with nobody able to tell. So the template can also carry
+#
+#     #@DROP <section name> | why it is being replaced
+#
+# which removes that loose section, comment header and all, while the same run adds the replacement
+# from a #@FEAT block. The pairing is the safety, and it is checked twice: the named section must
+# appear inside some #@FEAT block of the template, and that block must actually be among the ones
+# being added this run. Either check failing means nothing is removed. An unpaired #@DROP is a
+# delete instruction sitting in a template, one typo from taking a working macro off every printer.
+#
+# A section that already sits inside a #@FEAT block is never touched by #@DROP -- the block
+# machinery owns it -- which is also what makes the operation idempotent once it has run. Removal is deliberately blunt and deliberately loud: whole block, reported by name, with
 # the owner's previous file kept. Two guards sit on it -- a block whose #@ENDFEAT is missing is left
 # alone rather than swallowing the rest of the file, and a retirement never runs on a feature the
 # template still ships, so a stale #@RETIRE cannot quietly delete a live feature.
@@ -48,6 +64,7 @@ import sys, os, re, shutil, glob
 
 FEAT = re.compile(r'^#@FEAT\s+(\S+)\s*\|\s*(.*)$')
 RETIRE = re.compile(r'^#@RETIRE\s+(\S+)\s*\|\s*(.*)$')
+DROP = re.compile(r'^#@DROP\s+(.+?)\s*\|\s*(.*)$')
 END = "#@ENDFEAT"
 OFF = "#:off:"
 # Section headers sit at column 0 in these files; gcode bodies are indented, so this cannot mistake a
@@ -105,6 +122,60 @@ def block_span(lines, fid):
             if lines[j].startswith(END):
                 return (i, j)
         return None          # no #@ENDFEAT at all: refuse rather than eat the rest of the file
+    return None
+
+
+def drops_declared(path):
+    """{section name: reason} the template wants replaced rather than left as it stands."""
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except OSError:
+        return {}
+    out = {}
+    for l in lines:
+        m = DROP.match(l)
+        if m:
+            out[m.group(1)] = m.group(2).strip()
+    return out
+
+
+def feat_ranges(lines):
+    """Line ranges covered by #@FEAT..#@ENDFEAT, so a section inside one can be told from a loose one."""
+    out, i = [], 0
+    while i < len(lines):
+        if FEAT.match(lines[i]):
+            end = len(lines) - 1
+            for j in range(i + 1, len(lines)):
+                if lines[j].startswith(END):
+                    end = j
+                    break
+            out.append((i, end))
+            i = end
+        i += 1
+    return out
+
+
+def section_span(lines, name):
+    """(start, end) of a LOOSE section -- one declared outside every #@FEAT block -- or None.
+
+    The comment block sitting directly above a section is part of it: leaving forty lines of
+    explanation behind, describing a macro that is no longer there, is its own kind of wrong. Only
+    column-0 comments are absorbed; a gcode body's comments are indented, so a previous section
+    cannot be eaten by mistake."""
+    inside = feat_ranges(lines)
+    target = '[%s]' % name
+    for i, l in enumerate(lines):
+        if l.strip() != target:
+            continue
+        if any(a <= i <= b for a, b in inside):
+            return None
+        j = i + 1
+        while j < len(lines) and not (lines[j].startswith('[') or lines[j].startswith('#@')):
+            j += 1
+        k = i
+        while k > 0 and lines[k - 1].startswith('#') and not lines[k - 1].startswith('#@'):
+            k -= 1
+        return (k, j - 1)
     return None
 
 
@@ -167,12 +238,39 @@ def main():
             continue
         drop.append((fid, retire[fid], span))
 
+    # Loose sections -- the ones written outside every #@FEAT block, like the P114 gate. Blocks were
+    # the only unit this script had, so a change to one of those could never reach a printer that
+    # already had an AddOn.cfg: it would ship to fresh flashes and nowhere else.
+    #
+    # A #@DROP is therefore always PAIRED: the section is removed here and the template hands the
+    # replacement back inside a #@FEAT block in the same run. That pairing is enforced below rather
+    # than trusted, because an unpaired #@DROP is just a delete instruction sitting in a template,
+    # one typo away from taking a working macro off every printer in the field.
+    tpl_sections = set()
+    for _, _, body in want:
+        tpl_sections |= sections_in(body)
+    loose = []
+    for name, why in sorted(drops_declared(tpl).items()):
+        if name not in tpl_sections:
+            print("  SKIP %-18s #@DROP with no replacement in any #@FEAT block — refusing to remove it"
+                  % name.split()[-1])
+            continue
+        span = section_span(cfg_lines, name)
+        if span is None:
+            continue          # absent, or already inside a block: either way not ours to touch
+        loose.append((name, why, span))
+
     missing = [(f, d, b) for f, d, b in want if f not in have]
-    if not missing and not drop:
+    if not missing and not drop and not loose:
         print("  AddOn.cfg already carries all %d features — nothing to do." % len(want))
         return 0
 
     declared = declared_everywhere(os.path.dirname(cfg))
+    # A section being dropped this run is no longer a collision for the block that replaces it --
+    # without this the paired add would refuse itself, and the printer would end up with the section
+    # removed and nothing put back.
+    for name, _, _ in loose:
+        declared.pop(name, None)
     add, skip = [], []
     for fid, desc, body in missing:
         if fid in seeded:
@@ -185,26 +283,38 @@ def main():
             continue
         add.append((fid, desc, body))
 
+    # Filtered BEFORE anything is reported: announcing a replacement and withdrawing it two lines
+    # later reads like the script changed its mind about a file it had already touched.
+    unpaired = [n for n, _, _ in loose
+                if not any(n in sections_in(b) for _, _, b in add)]
+    for n in unpaired:
+        skip.append((n.split()[-1],
+                     "its replacement block is not being added this run — not removing it"))
+    loose = [t for t in loose if t[0] not in unpaired]
+
     for fid, why in skip:
         print("  SKIP %-18s %s" % (fid, why))
     for fid, why, _ in drop:
         print("  %s %-18s %s" % ("would remove" if verb == "check" else "removing    ", fid, why))
+    for name, why, _ in loose:
+        print("  %s %-18s %s" % ("would replace" if verb == "check" else "replacing   ",
+                                 name.split()[-1], why))
     for fid, desc, _ in add:
         print("  %s %-18s %s" % ("would add   " if verb == "check" else "adding      ", fid, desc))
 
     if verb == "check":
-        print("  (check only — nothing written. Run with 'apply' to merge %d and retire %d feature(s).)"
-              % (len(add), len(drop)))
+        print("  (check only — nothing written. Run with 'apply' to merge %d, retire %d, replace %d.)"
+              % (len(add), len(drop), len(loose)))
         return 0
-    if not add and not drop:
+    if not add and not drop and not loose:
         print("  nothing to add.")
         return 0
 
     shutil.copy2(cfg, cfg + ".pre-merge.bak")
     kept = cfg_lines
-    if drop:
+    if drop or loose:
         gone = set()
-        for _, _, (a, b) in drop:
+        for _, _, (a, b) in list(drop) + [(n, w, s) for n, w, s in loose]:
             gone.update(range(a, b + 1))
         kept = [l for i, l in enumerate(cfg_lines) if i not in gone]
     with open(cfg, "w", encoding="utf-8") as fh:
@@ -217,8 +327,8 @@ def main():
             fh.write(fid + "\n")
     # os.fsync on the directory as well: this runs immediately before selfupdate.sh asks for a
     # power-cycle, and the rootfs is mounted commit=120. See the sync in selfupdate.sh.
-    print("  merged %d and retired %d feature(s); previous file kept as %s"
-          % (len(add), len(drop), os.path.basename(cfg) + ".pre-merge.bak"))
+    print("  merged %d, retired %d, replaced %d; previous file kept as %s"
+          % (len(add), len(drop), len(loose), os.path.basename(cfg) + ".pre-merge.bak"))
     print("  They take effect when the klipper SERVICE restarts.")
     return 0
 
