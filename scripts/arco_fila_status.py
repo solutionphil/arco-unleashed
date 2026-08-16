@@ -157,6 +157,30 @@ class ArcoFilaStatus:
                 logging.exception("arco_fila_status: reading '%s' failed", self.adc_name)
         return st
 
+    def _can_extrude(self):
+        """Is the active hotend at or above min_extrude_temp? Unknown counts as yes.
+
+        Unknown means the objects could not be read, and in that case the old behaviour -- check on
+        the timer alone -- is the safer of the two: a check that runs slightly early costs a paused
+        print, a check that never runs costs the hours of air this exists to prevent."""
+        try:
+            toolhead = self.printer.lookup_object('toolhead', None)
+            configfile = self.printer.lookup_object('configfile', None)
+            if toolhead is None or configfile is None:
+                return True
+            name = toolhead.get_status(self.reactor.monotonic()).get('extruder')
+            heater = self.printer.lookup_object(name, None)
+            if heater is None:
+                return True
+            temp = heater.get_status(self.reactor.monotonic()).get('temperature')
+            floor = configfile.get_status(None)['settings'][name]['min_extrude_temp']
+            if temp is None or floor is None:
+                return True
+            return float(temp) >= float(floor)
+        except Exception:
+            logging.exception("arco_fila_status: could not read the extrude temperature floor")
+            return True
+
     def _ams_present(self):
         # The AMS is a serial device on /dev/ttyACM1. voronFDM decides the same question the same way
         # -- by whether that node exists -- so this agrees with what the panel shows rather than
@@ -216,7 +240,22 @@ class ArcoFilaStatus:
             self._pause_checked = False
         elif state == 'printing':
             if self.pause_on_empty and not self._pause_checked:
-                if self._pause_deadline is None:
+                # The clock starts when the hotend could actually extrude, NOT when print_stats
+                # first says "printing" -- that is the moment the job was accepted, which can be a
+                # long way from the moment printing begins.
+                #
+                # 🔴 MEASURED, not imagined. On 2026-08-16 this fired 90 s into a job whose start
+                # G-code soaks the bed at target, homes, runs an adaptive bed mesh and only then
+                # brings the nozzle up. At the 90 s mark the hotend was at its 140 C pre-heat and
+                # PHROZEN_AMS_START had not run, so the check reported "no P0 sent — no runout
+                # protection" (true, but only because it was early) and took the cold-nozzle
+                # branch. Both were artefacts of asking too soon.
+                #
+                # min_extrude_temp is the right gate because it is the same threshold the failure
+                # needs: below it nothing can be extruded, so nothing can be printed into air.
+                if not self._can_extrude():
+                    self._pause_deadline = None
+                elif self._pause_deadline is None:
                     self._pause_deadline = eventtime + self.pause_delay
                 elif eventtime >= self._pause_deadline:
                     self._pause_deadline = None
