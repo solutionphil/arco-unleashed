@@ -493,7 +493,10 @@ probe_points:
 
 [phrozen_dev]
 dev_port: /dev/ttyACM1
-auto_connect: false
+# auto_connect is deliberately absent. The module defaults it to off, and the value it reads
+# is assigned to a variable that nothing acts on (its only use in dev.py is commented out) --
+# so setting it either way changed nothing. It used to be flipped when the AMS was switched
+# on by hand, which is how it survived that long without anyone noticing.
 fila_cut_x_pos: 319
 fila_cut_x_pos_up: 1
 fila_cut_y_pos: 260

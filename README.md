@@ -460,10 +460,11 @@ command; it does not any more. The unit is a USB serial device, the printer watc
 flag OrcaSlicer reads follows within seconds — no restart, no menu, nothing to remember. `FILA_STATUS`
 shows what the printer currently thinks, if you want to check.
 
-From the Mainsail Macros panel, or the SSH setup menu. It writes a persistent `ams` flag
-(`[save_variables]`) that survives reboots and updates. Forget it and the symptom is unmistakable: with
-the AMS fitted but the flag off, the tool commands `T1`–`T15` are not even registered, so a multicolour
-print stops at the first colour change.
+The flag lives in `[save_variables]`, so it survives reboots and updates, and `arco_tool_gate` keeps it
+honest: `T1`–`T15` are registered exactly while an AMS is attached. The one case it will not act on is a
+running print — a unit that drops off the bus mid-job leaves both the tools and the flag as they are
+until the job has finished, because taking either away underneath a multicolour print is worse than a
+stale reading.
 
 **Profile.** Stock OrcaSlicer already ships the official **Phrozen Arco** profile (vendor `Phrozen`, no
 fork needed). The kit adds an enhanced variant in [`orca/`](orca/) with the Machine G-code already filled

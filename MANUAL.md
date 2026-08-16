@@ -880,13 +880,12 @@ files. Nothing is undone by pressing ENTER at the wrong moment.
 
 <a id="ams-ships-switched-off"></a>
 
-**`a` — AMS / Chroma Kit on·off. If you own an AMS, this is not optional.** Every image ships with the
-AMS **switched off**, and that is deliberate: most printers do not have one, and a printer that opens an
-AMS serial port with nothing on the other end waits, retries and reports errors for something the owner
-never attached. So `printer.cfg` ships `[phrozen_dev] auto_connect: false`, and the tool commands `T1`
-to `T15` are removed from Klipper's command table until you say otherwise.
+**AMS / Chroma Kit — the menu entry is gone, and so is the need for it.** Most printers do not have an
+AMS, and a printer that opens an AMS serial port with nothing on the other end waits, retries and
+reports errors for something the owner never attached. So the tool commands `T1` to `T15` stay out of
+Klipper's command table until an AMS is actually attached.
 
-**There is nothing to switch on.** The AMS enumerates as a USB serial device, so the printer can simply
+The AMS enumerates as a USB serial device, so the printer can simply
 look instead of asking you: it watches for the unit and keeps the `ams` flag — the one the Orca start
 G-code reads — in step with what is actually plugged in, bringing `T1`–`T15` back within seconds of
 connecting and taking them away again when the unit is removed. Never mid-print: if the port disappears

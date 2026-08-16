@@ -592,16 +592,15 @@ instead. Or paste the start G-code from the <strong><a
 href="README.html#orcaslicer--multicolor--ams-auto-mode">README</a></strong>
 into your own profile.</p>
 <blockquote>
-<p>⚠️ <strong>Own an AMS? It ships switched off.</strong> Every image
-does, because most printers have no AMS and one that opens the port with
-nothing attached just waits and reports errors. Connected but not
-switched on, <strong>the spools do not turn</strong> — that is the
-setting, not a fault. Type <code>AMS_ON</code> once in the Mainsail
-console (or use the setup menu). See the MANUAL for what it changes.</p>
+<p><strong>Own an AMS? There is nothing to switch.</strong> Plug it in
+and print. The printer detects the unit and sets its own flag within
+seconds, so <code>T1</code>–<code>T15</code> and the right print mode
+appear on their own. See the MANUAL if you want to know what it looks
+at.</p>
 </blockquote>
-<p>Set AMS <strong>on</strong> or <strong>off</strong> once in the setup
-menu whenever you physically attach or remove it; Orca then picks
-single-colour, multicolour or auto-refill by itself.</p>
+<p>Attach or remove the AMS whenever you like; Orca then picks
+single-colour, multicolour or auto-refill by itself, decided at print
+start.</p>
 <p><strong>Done when:</strong> a sliced file prints.</p>
 <hr />
 <h2 id="youre-done">You’re done</h2>

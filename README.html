@@ -278,11 +278,10 @@ Obico-ready, no cloud lock-in.</li>
 everything.</strong> Slice single-colour or multicolour with the same
 profile; the printer works out which AMS mode to start in, at print
 start, on its own. No second profile, no switching in the slicer, no
-hand-edited G-code. What you <em>do</em> set is the <strong>AMS flag on
-the printer</strong> — once, with <code>AMS_ON</code> or
-<code>AMS_OFF</code>, whenever you physically attach or remove the unit.
-That flag plus what you sliced is all it needs. See <a
-href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>.</p>
+hand-edited G-code. And nothing to set: the printer sees the AMS on its
+own and keeps its own flag in step, so attaching or removing the unit
+needs no command and no menu. That plus what you sliced is all it needs.
+See <a href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>.</p>
 <p><strong>When something goes wrong.</strong> The four the setup menu
 leads with — the reason you can try this at all:</p>
 <table>
@@ -371,11 +370,6 @@ href="#belts-and-idlers">details</a></td>
 <tr>
 <td><code>FILA_STATUS</code></td>
 <td>is filament present, and is runout protection actually armed</td>
-</tr>
-<tr>
-<td><code>AMS_ON</code> · <code>AMS_OFF</code> ·
-<code>AMS_STATUS</code></td>
-<td>the AMS flag, set once when you attach or remove the unit</td>
 </tr>
 <tr>
 <td><code>TOGGLE_LIGHT</code></td>
@@ -649,15 +643,11 @@ fresh printer. Obico installs cleanly, works until the next &gt;
 restart, and is then simply gone — with nothing in any log to explain
 it. <em>Disable</em> here comments &gt; the lines out. Other Moonraker
 add-ons (Spoolman, Mobileraker) are not touched.</li>
-<li><strong>AMS</strong> (<code>scripts/ams_toggle.sh on|off</code>) —
-toggles AMS / “Chroma Kit” mode (flips <code>auto_connect</code> + the
-<code>~/hdlDat/Phrozen_Dev.json</code> work-mode; the runtime lever is
-the <code>P0</code> gcode). <code>AddOn.cfg</code> provides clickable
-<code>AMS_ON</code>/<code>AMS_OFF</code>/<code>AMS_STATUS</code> macros
-for Mainsail (needs the <code>gcode_shell_command</code> extension). It
-also writes a macro-readable <code>ams</code> flag that <strong>steers
-OrcaSlicer</strong> automatically — the print mode is picked at print
-start, see <a
+<li><strong>AMS</strong> — nothing to switch. The unit enumerates as a
+USB serial device, so the printer detects it and keeps a macro-readable
+<code>ams</code> flag in step, within seconds of plugging in or
+unplugging. That flag <strong>steers OrcaSlicer</strong> automatically —
+the print mode is picked at print start, see <a
 href="#orcaslicer--multicolor--ams-auto-mode">OrcaSlicer</a>. Note: a
 factory-NEW AMS additionally needs one-time provisioning (firmware
 flash/pairing).</li>
@@ -929,18 +919,19 @@ printer picks the right AMS mode at print start by itself.</p>
 slicer, from two things: <strong>what you sliced</strong> (one filament
 or several — the start G-code passes that through) and <strong>whether
 an AMS is attached</strong>, which the printer remembers.</p>
-<p><strong>The one thing you set, and only when the hardware
-changes.</strong> Attaching or removing the AMS is a physical toolhead
-conversion, so the printer has to be told — once, not per print:</p>
-<pre><code>AMS_ON     # after fitting the AMS
-AMS_OFF    # after removing it
-AMS_STATUS # what it thinks right now</code></pre>
-<p>From the Mainsail Macros panel, or the SSH setup menu. It writes a
-persistent <code>ams</code> flag (<code>[save_variables]</code>) that
-survives reboots and updates. Forget it and the symptom is unmistakable:
-with the AMS fitted but the flag off, the tool commands
-<code>T1</code>–<code>T15</code> are not even registered, so a
-multicolour print stops at the first colour change.</p>
+<p><strong>Nothing to set, not even when the hardware changes.</strong>
+Attaching or removing the AMS used to need a command; it does not any
+more. The unit is a USB serial device, the printer watches for it, and
+the flag OrcaSlicer reads follows within seconds — no restart, no menu,
+nothing to remember. <code>FILA_STATUS</code> shows what the printer
+currently thinks, if you want to check.</p>
+<p>The flag lives in <code>[save_variables]</code>, so it survives
+reboots and updates, and <code>arco_tool_gate</code> keeps it honest:
+<code>T1</code>–<code>T15</code> are registered exactly while an AMS is
+attached. The one case it will not act on is a running print — a unit
+that drops off the bus mid-job leaves both the tools and the flag as
+they are until the job has finished, because taking either away
+underneath a multicolour print is worse than a stale reading.</p>
 <p><strong>Profile.</strong> Stock OrcaSlicer already ships the official
 <strong>Phrozen Arco</strong> profile (vendor <code>Phrozen</code>, no
 fork needed). The kit adds an enhanced variant in <a
@@ -1076,7 +1067,7 @@ scripts/  unleashed_setup.sh   the setup MENU; _arco-lib.sh = shared helpers/act
           apt-hold (mask auto-apt/unattended-upgrades + hold kernel/DTB/fw) · fix-gpio-led · resize-emmc · optimize-fs (noatime)
           optimize-boot  -&gt; 40k real-time tuning: performance governor · klippy CPU3 + F407-IRQ affinity · numpy=1 · F407 USB no-suspend · ImageId
           flash_mcus [f407|f103|host] · install-katapult · set-mcu-serial
-          phrozengo · ams_toggle · addon-toggle · addon-features · phrozen-recover · selfupdate
+          phrozengo · addon-toggle · addon-features · phrozen-recover · selfupdate
           beacon_toggle  (EXPERIMENTAL: piezo probe &lt;-&gt; Beacon; reversible printer.cfg surgery)
           arco_*.py  own Klipper extras, untracked + self-healed by apply-arco-extras (ExecStartPre):
                      mcu_timing (MCU timing without patching mcu.py) · tool_gate (hide T1-T15 without an AMS)
