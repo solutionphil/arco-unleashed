@@ -776,6 +776,16 @@ gcode:
     {% endif %}
 #@ENDFEAT
 
+# This macro used to sit outside every #@FEAT block, which meant a change to it reached fresh
+# flashes and nothing else -- a printer in the field kept whatever gate it was first given. The
+# #@DROP below removes that loose copy and the block underneath puts the current one back, in the
+# same run and under the same backup. addon_merge refuses to do the first half without the second.
+#@DROP gcode_macro P114 | loose copy replaced by the p114_gate block, so field printers get it too
+#
+# Being a block also makes it switchable, which it was not before. Switching it OFF hands P114 back
+# to the vendor handler unguarded, including during a print -- that is the half-second dwell and the
+# serial re-init this exists to keep out of a running job. There is no reason to turn it off.
+#@FEAT p114_gate | AMS status poll: pass it on only for the cloud, with an AMS, when idle
 # -----------------------------------------------------------------------------
 # Arco Unleashed: AMS P114-poll gate
 # PhrozenGo (the cloud-bridge) polls `P114` every 5 min to sync AMS status to the
@@ -833,6 +843,7 @@ gcode:
             RESPOND MSG="P114 skipped while the printer is busy - AMS status resumes when it is idle"
         {% endif %}
     {% endif %}
+#@ENDFEAT
 
 # -----------------------------------------------------------------------------
 # Arco Unleashed: hide phantom AMS tools (T1-T15) from Mainsail when no AMS.
