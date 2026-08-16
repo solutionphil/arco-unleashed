@@ -128,6 +128,7 @@ disable_pgo(){
   done
   # Record the choice outside phrozen_dev, so `reapply` can put it back after a replacement.
   mkdir -p "$CFG" 2>/dev/null; : > "$MARKER" 2>/dev/null
+  sync_flag 0
   echo "  -> PhrozenGo cloud DISABLED: no phone-home, OTA off, webcam + resources free for Obico."
   echo "     Local display + light (voronFDM) stay active."
 }
@@ -152,7 +153,18 @@ enable_pgo(){
   privacy_off >/dev/null
   ota_on >/dev/null
   rm -f "$MARKER" 2>/dev/null
+  sync_flag 1
   echo "  -> PhrozenGo cloud RE-ENABLED (cloud + frpc + OTA)."
+}
+
+# Tell Klipper which way the cloud switch went. The P114 gate in AddOn.cfg uses this: with the
+# cloud off nothing is polling for AMS status, so the poll is swallowed rather than paid for. Best
+# effort on purpose -- if Klipper is down the file state above is still correct, and the next run of
+# this script (reapply included) sets the variable.
+sync_flag(){
+  curl -s --max-time 5 -X POST \
+    "http://localhost:7125/printer/gcode/script?script=SAVE_VARIABLE%20VARIABLE=phrozengo%20VALUE=$1" \
+    >/dev/null 2>&1 || true
 }
 
 apply_note(){ echo "  (run: sudo systemctl restart KlipperScreen   — or reboot — to apply fully)"; }

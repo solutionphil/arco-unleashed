@@ -34,7 +34,6 @@ menu() {
   printf "    r)  Emergency repair      ${CR}(halted, no display, update failing)${C0}\n"
   printf "                              ${CC}fixes what it can, then says what broke${C0}\n\n"
   printf "${CY}   EXTRAS:${C0}\n"
-  printf "    a)  AMS on / off          ${CC}(after attaching or removing the AMS)${C0}\n"
   printf "    4)  AddOn.cfg + Features  ${CC}(features · Mainsail theme · Fluidd)${C0}\n"
   printf "    5)  PhrozenGo / Cloud     ${CC}(off for Obico · tunnel off for privacy)${C0}\n"
   printf "    b)  Beacon probe          ${CR}(EXPERIMENTAL — not hardware-tested)${C0}\n"
@@ -60,7 +59,6 @@ while true; do
     3) a_guards;     pause;;
     i|I) a_image_backup; pause;;
     r|R) a_emergency; pause;;
-    a|A) a_ams;      pause;;
     4) a_addon;      pause;;
     5) a_phrozengo;  pause;;
     b|B) a_beacon;   pause;;

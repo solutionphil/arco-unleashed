@@ -49,10 +49,11 @@
 #   #check_interval: 2.0          # seconds between job-state polls
 #   #pause_on_empty: True         # pause a job that starts with an empty toolhead sensor
 #   #pause_delay: 90.0            # seconds into the job before THAT check runs (see below)
-#   #ams_port: /dev/ttyACM1       # its presence is what "an AMS is watching" means in mode 1
+#   #ams_port: /dev/ttyACM1       # its existence is what "an AMS is attached" means
 #
 # Status (printer['arco_fila_status'] / Moonraker):
-#   available, filament_present, adc, threshold, mode, mode_name, protection_active
+#   available, filament_present, adc, threshold, mode, mode_name, protection_active,
+#   ams_present (an AMS is attached), ams_answered (it has actually replied — see _read)
 # Command:
 #   FILA_STATUS  -- print all of the above to the console
 
@@ -120,9 +121,23 @@ class ArcoFilaStatus:
         ph = self._phrozen
         st = {'available': ph is not None, 'filament_present': None, 'adc': None,
               'threshold': None, 'mode': None, 'mode_name': 'unavailable',
-              'protection_active': False}
+              'protection_active': False,
+              # ams_answered — has an AMS actually replied? phrozen_dev only learns that inside P8
+              # (the feed), by sending "SD" and checking for a full status frame, so it stays False
+              # until an AMS print has begun. Worth reporting, useless to gate on: a gate reading it
+              # at klippy:connect would conclude "no AMS" on every printer that has one.
+              #
+              # "Is an AMS attached" is deliberately NOT published here. This module owns filament,
+              # not the AMS, and a fact with two addresses is a fact someone will read from the wrong
+              # one. That question belongs to [arco_tool_gate]: printer.arco_tool_gate.ams_present.
+              # The private check below stays, because the wording of this module's own messages
+              # depends on it -- it is a stateless test of a device node, so there is nothing that
+              # can drift between the two.
+              'ams_answered': False}
         if ph is None:
             return st
+        st['ams_answered'] = bool(getattr(ph, 'G_AMSDevice1IfNormal', False)
+                                  or getattr(ph, 'G_AMSDevice2IfNormal', False))
         present = getattr(ph, 'G_ToolheadIfHaveFilaFlag', None)
         st['filament_present'] = None if present is None else bool(present)
         threshold = getattr(ph, 'G_ToolheadFilaAdcThresholdValue', None)
@@ -142,7 +157,7 @@ class ArcoFilaStatus:
                 logging.exception("arco_fila_status: reading '%s' failed", self.adc_name)
         return st
 
-    def _ams_answering(self):
+    def _ams_present(self):
         # The AMS is a serial device on /dev/ttyACM1. voronFDM decides the same question the same way
         # -- by whether that node exists -- so this agrees with what the panel shows rather than
         # inventing a second opinion.
@@ -168,7 +183,7 @@ class ArcoFilaStatus:
             # Without that check the status claimed protection on a printer whose AMS was not feeding
             # at all: it printed air for hours while FILA_STATUS said ACTIVE. A wrong reassurance is
             # worse than no answer, because it is the one somebody acts on.
-            return self._ams_answering()
+            return self._ams_present()
         return False
 
     # --- unprotected-print warning ------------------------------------------------------
@@ -232,27 +247,29 @@ class ArcoFilaStatus:
             return
         adc = 'n/a' if st['adc'] is None else '%.4f' % st['adc']
         thr = 'n/a' if st['threshold'] is None else '%.4f' % st['threshold']
-        msg = ("arco_fila_status: PAUSING — the toolhead sensor reports NO filament "
-               "%.0f s into this print (adc %s, threshold %s; at or above the threshold means empty). "
-               "Mode: %s." % (self.pause_delay, adc, thr, st['mode_name']))
-        # What to do about it depends on who was supposed to supply the filament, so say that rather
-        # than leaving the owner to work out which of their two possible problems this is.
-        if st['mode'] in (1, 2):
-            if self._ams_answering():
-                msg += (" The AMS is connected but nothing reached the toolhead — check that the "
-                        "slot for this print actually has filament in it. Resuming will not help "
-                        "until it does.")
-            else:
-                msg += (" The printer is in AMS mode but no AMS is answering on %s, so nothing was "
-                        "watching for this." % (self.ams_port,))
-        else:
-            msg += " Load filament, then RESUME."
+        msg = ("arco_fila_status: the toolhead sensor reports NO filament %.0f s into this print "
+               "(adc %s, threshold %s; at or above the threshold means empty). Mode: %s."
+               % (self.pause_delay, adc, thr, st['mode_name']))
+        # One thing the macro cannot work out for itself, because it is about a missing device rather
+        # than the mode: an AMS work mode with no AMS on the bus. Nothing was watching, and nothing is
+        # going to feed. Worth saying here, where the port name is known.
+        if st['mode'] in (1, 2) and not self._ams_present():
+            msg += (" The printer is in AMS mode but no AMS is answering on %s, so nothing was "
+                    "watching for this." % (self.ams_port,))
         self.gcode.respond_info(msg)
-        logging.info("arco_fila_status: pausing an empty print (%s)", st)
+        logging.info("arco_fila_status: empty toolhead while printing (%s)", st)
+        # Measuring is this module's job; deciding is not. ARCO_FILA_EMPTY is a #@FEAT macro in
+        # AddOn.cfg, so the owner can change what happens without editing an extra -- and an AddOn.cfg
+        # that predates the macro simply does not have it, which is what the fallback is for.
+        action = "ARCO_FILA_EMPTY MODE=%d" % (st['mode'] or 0,)
+        if self.printer.lookup_object('gcode_macro ARCO_FILA_EMPTY', None) is None:
+            action = "PAUSE"
+            self.gcode.respond_info("arco_fila_status: ARCO_FILA_EMPTY is not defined in "
+                                    "AddOn.cfg - pausing instead.")
         try:
-            self.gcode.run_script("PAUSE")
+            self.gcode.run_script(action)
         except Exception:
-            logging.exception("arco_fila_status: PAUSE failed")
+            logging.exception("arco_fila_status: %s failed", action)
 
     def _warn_if_unprotected(self):
         st = self._read()

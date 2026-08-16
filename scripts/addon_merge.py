@@ -10,10 +10,24 @@
 # template reached fresh flashes only. The startup banner and the one-time welcome dialog shipped, and
 # every existing printer silently did not get them, including the two testers' and the dev machine's.
 #
-# WHAT IT WILL NOT DO. It never edits a block that is present, never reorders, never removes, and never
-# touches a toggle. Only whole blocks that are absent get appended. That is why the banner was split out
-# of the `beeper` feature into one of its own: a change INSIDE an existing block cannot be delivered
-# this way, and pretending otherwise would mean rewriting the owner's file.
+# WHAT IT WILL NOT DO. It never edits a block that is present, never reorders, and never touches a
+# toggle. Only whole blocks that are absent get appended. That is why the banner was split out of the
+# `beeper` feature into one of its own: a change INSIDE an existing block cannot be delivered this
+# way, and pretending otherwise would mean rewriting the owner's file.
+#
+# RETIRING A FEATURE. Adding was enough until a feature turned out to be wrong rather than merely
+# improvable -- the AMS on/off switch, which asked the owner a question the printer answers better by
+# itself, and could only ever agree with the hardware or be silently wrong. Deleting its block from
+# the template alone would have left it sitting in every existing AddOn.cfg forever, since this file
+# is never regenerated. So the template can also carry
+#
+#     #@RETIRE <feature-id> | why it is going
+#
+# and a retired block is removed from AddOn.cfg, in the same run and under the same backup as the
+# additions. Removal is deliberately blunt and deliberately loud: whole block, reported by name, with
+# the owner's previous file kept. Two guards sit on it -- a block whose #@ENDFEAT is missing is left
+# alone rather than swallowing the rest of the file, and a retirement never runs on a feature the
+# template still ships, so a stale #@RETIRE cannot quietly delete a live feature.
 #
 # THE TWO HAZARDS, and what is actually done about them:
 #
@@ -33,6 +47,7 @@
 import sys, os, re, shutil, glob
 
 FEAT = re.compile(r'^#@FEAT\s+(\S+)\s*\|\s*(.*)$')
+RETIRE = re.compile(r'^#@RETIRE\s+(\S+)\s*\|\s*(.*)$')
 END = "#@ENDFEAT"
 OFF = "#:off:"
 # Section headers sit at column 0 in these files; gcode bodies are indented, so this cannot mistake a
@@ -57,6 +72,40 @@ def blocks(path):
             i = j
         i += 1
     return out
+
+
+def retirements(path):
+    """{feature_id: reason} declared by the template."""
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except OSError:
+        return {}
+    out = {}
+    for l in lines:
+        m = RETIRE.match(l)
+        if m:
+            out[m.group(1)] = m.group(2).strip()
+    return out
+
+
+def block_span(lines, fid):
+    """(start, end_inclusive) of a complete #@FEAT block, or None if absent or unterminated."""
+    for i, l in enumerate(lines):
+        m = FEAT.match(l)
+        if not m or m.group(1) != fid:
+            continue
+        for j in range(i + 1, len(lines)):
+            # The next block starting first means this one was never closed. Its own #@ENDFEAT is
+            # missing, so the next one found belongs to the neighbour -- and removing that span
+            # would take the neighbour with it. Tested: with the #@ENDFEAT of the retired block
+            # deleted by hand, this took PHROZEN_AMS_START and PHROZEN_TOOLCHANGE out of the file,
+            # which is every print on that printer.
+            if FEAT.match(lines[j]):
+                return None
+            if lines[j].startswith(END):
+                return (i, j)
+        return None          # no #@ENDFEAT at all: refuse rather than eat the rest of the file
+    return None
 
 
 def sections_in(lines):
@@ -92,6 +141,7 @@ def main():
         print("  template not found (%s) — nothing to merge from." % tpl)
         return 0
 
+    cfg_lines = open(cfg, encoding="utf-8").read().split("\n")
     have = {f for f, _, _ in blocks(cfg)}
     want = blocks(tpl)
     if not want:
@@ -102,8 +152,23 @@ def main():
     except OSError:
         seeded = set()
 
+    want_ids = {f for f, _, _ in want}
+    retire = retirements(tpl)
+    drop = []
+    for fid in sorted(retire):
+        if fid in want_ids:
+            print("  SKIP %-18s the template still ships it — ignoring the #@RETIRE" % fid)
+            continue
+        if fid not in have:
+            continue
+        span = block_span(cfg_lines, fid)
+        if span is None:
+            print("  SKIP %-18s no complete #@FEAT..#@ENDFEAT block — leaving it alone" % fid)
+            continue
+        drop.append((fid, retire[fid], span))
+
     missing = [(f, d, b) for f, d, b in want if f not in have]
-    if not missing:
+    if not missing and not drop:
         print("  AddOn.cfg already carries all %d features — nothing to do." % len(want))
         return 0
 
@@ -122,20 +187,28 @@ def main():
 
     for fid, why in skip:
         print("  SKIP %-18s %s" % (fid, why))
+    for fid, why, _ in drop:
+        print("  %s %-18s %s" % ("would remove" if verb == "check" else "removing    ", fid, why))
     for fid, desc, _ in add:
-        print("  %s %-18s %s" % ("would add" if verb == "check" else "adding   ", fid, desc))
+        print("  %s %-18s %s" % ("would add   " if verb == "check" else "adding      ", fid, desc))
 
     if verb == "check":
-        print("  (check only — nothing written. Run with 'apply' to merge %d feature(s).)" % len(add))
+        print("  (check only — nothing written. Run with 'apply' to merge %d and retire %d feature(s).)"
+              % (len(add), len(drop)))
         return 0
-    if not add:
+    if not add and not drop:
         print("  nothing to add.")
         return 0
 
-    text = open(cfg, encoding="utf-8").read()
     shutil.copy2(cfg, cfg + ".pre-merge.bak")
+    kept = cfg_lines
+    if drop:
+        gone = set()
+        for _, _, (a, b) in drop:
+            gone.update(range(a, b + 1))
+        kept = [l for i, l in enumerate(cfg_lines) if i not in gone]
     with open(cfg, "w", encoding="utf-8") as fh:
-        fh.write(text.rstrip("\n") + "\n")
+        fh.write("\n".join(kept).rstrip("\n") + "\n")
         for _, _, body in add:
             fh.write("\n" + "\n".join(body).rstrip("\n") + "\n")
     os.makedirs(os.path.dirname(state), exist_ok=True)
@@ -144,7 +217,8 @@ def main():
             fh.write(fid + "\n")
     # os.fsync on the directory as well: this runs immediately before selfupdate.sh asks for a
     # power-cycle, and the rootfs is mounted commit=120. See the sync in selfupdate.sh.
-    print("  merged %d feature(s); previous file kept as %s" % (len(add), os.path.basename(cfg) + ".pre-merge.bak"))
+    print("  merged %d and retired %d feature(s); previous file kept as %s"
+          % (len(add), len(drop), os.path.basename(cfg) + ".pre-merge.bak"))
     print("  They take effect when the klipper SERVICE restarts.")
     return 0
 

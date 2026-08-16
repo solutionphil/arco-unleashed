@@ -60,7 +60,7 @@ GROUPS = [
     ("Printing", [("PAUSE", A), ("RESUME", A), ("CANCEL_PRINT", A),
                   ("M600", A), ("M601", A), ("M84", I)]),
     ("Filament & AMS", [("LOAD_FILAMENT", P), ("UNLOAD_FILAMENT", P),
-                        ("AMS_ON", I), ("AMS_OFF", I), ("AMS_STATUS", A),
+                        ("FILA_STATUS", A), ("ARCO_FILA_EMPTY", I),
                         ("MAGIC_AMS_ON", I), ("MAGIC_AMS_OFF", I),
                         ("MAGIC_AMS_STAGE", I), ("MAGIC_AMS_STATUS", A)]),
     ("Calibration", [(m, I) for m in

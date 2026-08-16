@@ -16,10 +16,11 @@ SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 DEST="$KL/klippy/extras"
 [ -d "$DEST" ] || { echo "ERROR: $DEST not found (pass the klipper path as arg 1)."; exit 1; }
 
-# gcode_shell_command.py is third-party (not ours), but the SHIPPED AddOn.cfg declares
-# [gcode_shell_command ams_files] / [ams_status_sh] and the theme macros declare [switch_theme] — so
-# without it klippy refuses the config outright: "Section 'gcode_shell_command ams_files' is not a
-# valid config section", printer halted. It used to sit in mainsail-theme/ as if it were a theme
+# gcode_shell_command.py is third-party (not ours), but the theme macros declare
+# [gcode_shell_command switch_theme] — so without it klippy refuses the config outright:
+# "Section 'gcode_shell_command switch_theme' is not a valid config section", printer halted.
+# It is still needed after the AMS shell commands were retired: an AddOn.cfg out in the field
+# can carry any number of shell-command sections we did not ship. It used to sit in mainsail-theme/ as if it were a theme
 # asset, which is exactly why it was missed here; a Klipper "hard recover" (reset --hard + clean)
 # deleted it and took the printer down with it (2026-07-21). It is a base dependency, so it is
 # restored on every start like the rest.
