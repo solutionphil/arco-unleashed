@@ -49,10 +49,11 @@
 #   #check_interval: 2.0          # seconds between job-state polls
 #   #pause_on_empty: True         # pause a job that starts with an empty toolhead sensor
 #   #pause_delay: 90.0            # seconds into the job before THAT check runs (see below)
-#   #ams_port: /dev/ttyACM1       # its presence is what "an AMS is watching" means in mode 1
+#   #ams_port: /dev/ttyACM1       # its existence is what "an AMS is attached" means
 #
 # Status (printer['arco_fila_status'] / Moonraker):
-#   available, filament_present, adc, threshold, mode, mode_name, protection_active
+#   available, filament_present, adc, threshold, mode, mode_name, protection_active,
+#   ams_present (an AMS is attached), ams_answered (it has actually replied — see _read)
 # Command:
 #   FILA_STATUS  -- print all of the above to the console
 
@@ -120,9 +121,23 @@ class ArcoFilaStatus:
         ph = self._phrozen
         st = {'available': ph is not None, 'filament_present': None, 'adc': None,
               'threshold': None, 'mode': None, 'mode_name': 'unavailable',
-              'protection_active': False}
+              'protection_active': False,
+              # Two different questions, deliberately both published.
+              #
+              # ams_present — is an AMS attached? The serial node exists from the moment it is plugged
+              # in and enumerated, needs no conversation, and is available at any time including at
+              # boot. This is the one macros should gate on.
+              #
+              # ams_answered — has it actually replied? phrozen_dev only learns that inside P8 (the
+              # feed), by sending "SD" and checking for a full status frame, so it stays False until an
+              # AMS print has begun. Useful to report, useless to gate on: a gate reading it at
+              # klippy:connect would conclude "no AMS" on every printer that has one.
+              'ams_present': self._ams_present(),
+              'ams_answered': False}
         if ph is None:
             return st
+        st['ams_answered'] = bool(getattr(ph, 'G_AMSDevice1IfNormal', False)
+                                  or getattr(ph, 'G_AMSDevice2IfNormal', False))
         present = getattr(ph, 'G_ToolheadIfHaveFilaFlag', None)
         st['filament_present'] = None if present is None else bool(present)
         threshold = getattr(ph, 'G_ToolheadFilaAdcThresholdValue', None)
@@ -142,7 +157,7 @@ class ArcoFilaStatus:
                 logging.exception("arco_fila_status: reading '%s' failed", self.adc_name)
         return st
 
-    def _ams_answering(self):
+    def _ams_present(self):
         # The AMS is a serial device on /dev/ttyACM1. voronFDM decides the same question the same way
         # -- by whether that node exists -- so this agrees with what the panel shows rather than
         # inventing a second opinion.
@@ -168,7 +183,7 @@ class ArcoFilaStatus:
             # Without that check the status claimed protection on a printer whose AMS was not feeding
             # at all: it printed air for hours while FILA_STATUS said ACTIVE. A wrong reassurance is
             # worse than no answer, because it is the one somebody acts on.
-            return self._ams_answering()
+            return self._ams_present()
         return False
 
     # --- unprotected-print warning ------------------------------------------------------
@@ -238,7 +253,7 @@ class ArcoFilaStatus:
         # What to do about it depends on who was supposed to supply the filament, so say that rather
         # than leaving the owner to work out which of their two possible problems this is.
         if st['mode'] in (1, 2):
-            if self._ams_answering():
+            if self._ams_present():
                 msg += (" The AMS is connected but nothing reached the toolhead — check that the "
                         "slot for this print actually has filament in it. Resuming will not help "
                         "until it does.")
