@@ -56,6 +56,12 @@ A, P, I = "always", "pause_only", "idle_only"
 # Klipper hides macros whose name starts with "_", so only the visible ones are worth placing. Everything
 # visible that is NOT named here is a call target rather than a button -- it gets hidden instead, which is
 # what keeps the wall short.
+# Macros the kit used to ship and has since withdrawn. They are removed from whatever group or
+# category they were sorted into, on both interfaces -- otherwise a printer that has been running for
+# a while keeps a button for a macro that no longer exists, and the button does nothing when pressed.
+# Add to this list when a macro is retired, never as a way of hiding one that still exists.
+RETIRED = ("AMS_ON", "AMS_OFF", "AMS_STATUS")
+
 GROUPS = [
     ("Printing", [("PAUSE", A), ("RESUME", A), ("CANCEL_PRINT", A),
                   ("M600", A), ("M601", A), ("M84", I)]),
@@ -102,6 +108,25 @@ def topup(have, ms, fl, ms_groups, fl_cats):
     renamed here -- this only fills holes that nobody has an opinion about yet.
     """
     known = {m: c for _, members in GROUPS for m, c in members}
+
+    # Macros the KIT withdrew, cleared out of the groups they were sorted into. A named list rather
+    # than "everything that is not registered right now", which looks equivalent and is not: switch
+    # KAOS off and twenty-five of its macros stop being registered, and pruning by that rule would
+    # empty their group and re-append them in a different order the next time it is switched on.
+    # Only the kit can know that a macro is gone for good rather than gone for now.
+    dropped_ms = dropped_fl = 0
+    for g in ms_groups.values():
+        if not isinstance(g, dict):
+            continue
+        lst = g.get("macros")
+        if not isinstance(lst, list):
+            continue
+        keep = [e for e in lst if not (isinstance(e, dict) and e.get("name") in RETIRED)]
+        if len(keep) != len(lst):
+            dropped_ms += len(lst) - len(keep)
+            for i, e in enumerate(keep):     # pos is 1-based and Mainsail sorts by it
+                e["pos"] = i + 1
+            g["macros"] = keep
     ms_by_name = {g.get("name"): g for g in ms_groups.values() if isinstance(g, dict)}
     ms_placed = {e.get("name") for g in ms_groups.values() if isinstance(g, dict)
                  for e in g.get("macros", []) if isinstance(e, dict)}
@@ -122,11 +147,14 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         # whole panel into a print.
         g["showInPause"] = any(e.get("showInPause") for e in lst) or g.get("showInPause", False)
         g["showInPrinting"] = any(e.get("showInPrinting") for e in lst) or g.get("showInPrinting", False)
-    if added_ms:
+    if added_ms or dropped_ms:
         call("POST", "/server/database/item", {"namespace": "mainsail", "key": "macros", "value": ms})
 
     # Fluidd: one flat list. "Placed" means it carries a categoryId; anything else is fair game.
     stored = fl.get("stored") or []
+    keep = [e for e in stored if not (isinstance(e, dict) and e.get("name") in RETIRED)]
+    dropped_fl = len(stored) - len(keep)
+    stored = keep
     cat_id = {c.get("name"): c.get("id") for c in fl_cats if isinstance(c, dict)}
     by_name = {e.get("name"): e for e in stored if isinstance(e, dict)}
     added_fl = 0
@@ -156,14 +184,17 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         stored.append({"alias": "", "visible": False, "disabledWhilePrinting": True,
                        "color": "", "categoryId": None, "name": m})
         hidden_fl += 1
-    if added_fl or hidden_fl:
+    if added_fl or hidden_fl or dropped_fl:
         fl["stored"] = stored
         call("POST", "/server/database/item", {"namespace": "fluidd", "key": "macros", "value": fl})
 
+    if dropped_ms or dropped_fl:
+        print("[macro-groups] cleared %d withdrawn macro(s) from Mainsail groups and %d from Fluidd: %s"
+              % (dropped_ms, dropped_fl, ", ".join(sorted(RETIRED))))
     if added_ms or added_fl or hidden_fl:
         print("[macro-groups] filled in what appeared since: %d into Mainsail groups, %d into Fluidd "
               "categories, %d newly hidden." % (added_ms, added_fl, hidden_fl))
-    else:
+    elif not (dropped_ms or dropped_fl):
         print("[macro-groups] groups are already in place and nothing new to sort — unchanged.")
     return 0
 
