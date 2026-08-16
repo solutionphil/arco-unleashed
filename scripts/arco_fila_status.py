@@ -81,6 +81,10 @@ class ArcoFilaStatus:
         self.warn_delay = config.getfloat('warn_delay', 300., above=0.)
         self.check_interval = config.getfloat('check_interval', 2., above=0.)
         self.ams_port = config.get('ams_port', '/dev/ttyACM1')
+        self.ams_autoload = config.getboolean('ams_autoload', True)
+        # 5 s, not 0: P0 M2 and P28 have just run and the AMS link was re-opened by them. Asking it
+        # to feed in the same breath races that; five seconds costs nothing against a print.
+        self.autoload_delay = config.getfloat('autoload_delay', 5., above=0.)
         self.pause_on_empty = config.getboolean('pause_on_empty', True)
         # 90 s, not 0. print_stats says "printing" the moment the job is accepted, and the start
         # G-code then heats, homes and -- in AMS mode -- has the AMS feed the toolhead. The sensor is
@@ -94,6 +98,8 @@ class ArcoFilaStatus:
         self._warned = False
         self._pause_deadline = None
         self._pause_checked = False
+        self._autoload_deadline = None
+        self._autoload_done = False
         # phrozen_dev may be constructed after us (config order is not ours to dictate), so
         # resolve both objects at ready rather than here.
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
@@ -238,7 +244,18 @@ class ArcoFilaStatus:
             self._warned = False
             self._pause_deadline = None
             self._pause_checked = False
+            self._autoload_deadline = None
+            self._autoload_done = False
         elif state == 'printing':
+            if self.ams_autoload and not self._autoload_done:
+                if not self._can_extrude() or not self._needs_first_load():
+                    self._autoload_deadline = None
+                elif self._autoload_deadline is None:
+                    self._autoload_deadline = eventtime + self.autoload_delay
+                elif eventtime >= self._autoload_deadline:
+                    self._autoload_deadline = None
+                    self._autoload_done = True
+                    self._first_load()
             if self.pause_on_empty and not self._pause_checked:
                 # The clock starts when the hotend could actually extrude, NOT when print_stats
                 # first says "printing" -- that is the moment the job was accepted, which can be a
@@ -269,6 +286,40 @@ class ArcoFilaStatus:
                     self._warned = True
                     self._warn_if_unprotected()
         return eventtime + self.check_interval
+
+    # --- the AMS has not put anything in yet -----------------------------------------------
+    # Work mode 2 (MA) is a REFILL mode: it takes over when a loaded spool runs out, and nothing in
+    # it loads an empty toolhead. Arming proves it -- the mode-2 watch is switched on inside the
+    # refill routine, which only runs from the feed command. So an AMS full of filament, a
+    # single-colour slice and an empty extruder produced a print into thin air with the AMS sitting
+    # idle beside it, exactly as designed and exactly not what anybody wants (seen 2026-08-16).
+    #
+    # The start G-code cannot fix this where it belongs, inside PHROZEN_AMS_START: that macro lives
+    # in a #@FEAT block together with PHROZEN_TOOLCHANGE, and replacing a block that carries both of
+    # the printing macros to change three lines is a poor trade. Here the moment is available
+    # anyway, and better defined: the mode turns 2 when P0 M2 runs, which is after homing and
+    # heating and before the first layer.
+    def _needs_first_load(self):
+        st = self._read()
+        return (st['available'] and st['mode'] in (1, 2)
+                and st['filament_present'] is False and self._ams_present())
+
+    def _first_load(self):
+        st = self._read()
+        self.gcode.respond_info(
+            "arco_fila_status: the toolhead is empty and %s only refills a spool that ran out — "
+            "asking the AMS to feed the first filament." % (st['mode_name'],))
+        logging.info("arco_fila_status: first load (%s)", st)
+        action = "ARCO_AMS_FIRST_LOAD"
+        if self.printer.lookup_object('gcode_macro ARCO_AMS_FIRST_LOAD', None) is None:
+            # Same reasoning as the empty-toolhead handover: the policy belongs in a macro the owner
+            # can edit, and an AddOn.cfg that predates it simply has not got one. P8 is what that
+            # macro sends, so falling back to it directly keeps an older config working.
+            action = "P8"
+        try:
+            self.gcode.run_script(action)
+        except Exception:
+            logging.exception("arco_fila_status: %s failed", action)
 
     # --- printing into thin air -----------------------------------------------------------
     # Nothing on this printer refuses to start a job with no filament: phrozen_dev's runout logic is a
@@ -318,6 +369,15 @@ class ArcoFilaStatus:
             self.gcode.respond_info(
                 "arco_fila_status: WARNING — no filament runout protection "
                 "(phrozen_dev is not loaded).")
+        elif st['mode'] in (1, 2):
+            # 🔴 NOT "no P0 was sent". That was the old wording and it was wrong on the machine:
+            # a print with P0 M2 correctly sent reported "the start G-code sent no P0 M1/M2/M3"
+            # (2026-08-16). In an AMS mode the mode being set is not the same as the watch being
+            # armed -- mode 2 arms when the AMS actually feeds, and it had not fed at all.
+            self.gcode.respond_info(
+                "arco_fila_status: WARNING — %s is set, but the runout watch is not armed yet: "
+                "the AMS has not fed the toolhead. Check that the slot this print uses has "
+                "filament and that the AMS is connected." % (st['mode_name'],))
         else:
             self.gcode.respond_info(
                 "arco_fila_status: WARNING — this print has NO runout protection "

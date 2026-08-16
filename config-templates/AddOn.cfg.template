@@ -923,7 +923,30 @@ gcode:
 #check_interval: 2.0       # seconds between job-state polls
 #ams_port: /dev/ttyACM1    # its existence is what "an AMS is attached" means
 #pause_on_empty: True      # act when a job is printing with an empty toolhead
-#pause_delay: 90.0         # seconds into the job before that check runs
+#pause_delay: 90.0         # seconds at extrude temperature before that check runs
+#ams_autoload: True        # let the AMS load the first filament into an empty toolhead
+#autoload_delay: 5.0       # settling time after P0/P28 before asking it to feed
+
+#@FEAT ams_first_load | Let the AMS load the first filament when the toolhead starts out empty
+# -----------------------------------------------------------------------------
+# THE AMS DOES NOT LOAD AN EMPTY TOOLHEAD BY ITSELF
+# -----------------------------------------------------------------------------
+# Work mode 2, the one a single-colour slice with an AMS attached runs in, is a REFILL mode: it
+# takes over when a loaded spool runs out. Nothing in it puts the FIRST filament in. So an AMS full
+# of filament, a single-colour print and an empty extruder gave a print into thin air with the AMS
+# sitting idle beside it -- correct by the vendor's design, and useless.
+#
+# [arco_fila_status] notices the combination (mode 1 or 2, an AMS attached, the sensor definitely
+# empty, the hotend hot enough to extrude) and calls this macro once per job. P8 is the feed: it
+# tells the AMS to hand filament over and arms the mode-2 runout watch on the way.
+#
+# Rewrite this if you would rather be asked than served -- replacing the body with PAUSE restores
+# the old behaviour of stopping and waiting for a hand-load.
+[gcode_macro ARCO_AMS_FIRST_LOAD]
+description: Ask the AMS to feed the first filament into an empty toolhead
+gcode:
+    P8
+#@ENDFEAT
 
 #@FEAT fila_empty_action | What happens when a print runs with an empty toolhead (ARCO_FILA_EMPTY)
 # -----------------------------------------------------------------------------
