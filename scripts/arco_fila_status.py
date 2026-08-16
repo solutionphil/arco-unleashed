@@ -6,8 +6,14 @@
 # Klipper extra and therefore runs inside Klipper (GPL-3.0); GPL-3.0 section 13 expressly permits
 # that combination. No Klipper code is copied here.
 #
-# Make the toolhead filament sensor VISIBLE. This module detects nothing and pauses nothing:
-# both already happen inside phrozen_dev. It only publishes what that module keeps to itself.
+# Make the toolhead filament sensor VISIBLE, and refuse to print into thin air.
+#
+# Detection stays where it belongs -- inside phrozen_dev, which owns the pin. This publishes what that
+# module keeps to itself, and adds the one thing nothing on this printer does: notice, ONCE, shortly
+# after a job starts, that the sensor says there is no filament, and pause. phrozen_dev's runout logic
+# is a timer that watches for a CHANGE during the job, so a print that begins with nothing loaded is
+# not a runout to it and never triggers. In AMS mode it does not look at the toolhead sensor at all.
+# A printer whose AMS was not feeding therefore printed air for hours, silently, on 2026-08-15.
 #
 # Why it is needed: phrozen_dev has no get_status(), so its filament state exists purely as a
 # Python attribute. Consequences on a stock Unleashed printer:
@@ -24,7 +30,8 @@
 #     and Klipper refuses a second claim on the same pin ("pin ... used multiple times in
 #     config") -- klippy would not start. The raw value is read back through query_adc, which
 #     phrozen_dev registers as 'prz_adc'; that is the same path QUERY_ADC itself uses.
-#   * It does NOT register or override any existing command, and it is not in the pause path.
+#   * It does NOT register or override any existing command, and it is not in phrozen_dev's own
+#     pause path -- the one pause it can cause is its own, from a definite EMPTY reading.
 # Worst case at every failure mode below: the status reads 'unknown' and the printer runs on.
 #
 # Update survival: this file is untracked in Klipper's tree, so a git pull / reset --hard leaves
@@ -40,6 +47,9 @@
 #   #warn_on_print_start: True    # console warning when a print runs unprotected
 #   #warn_delay: 300.0            # seconds into the job before that check runs
 #   #check_interval: 2.0          # seconds between job-state polls
+#   #pause_on_empty: True         # pause a job that starts with an empty toolhead sensor
+#   #pause_delay: 90.0            # seconds into the job before THAT check runs (see below)
+#   #ams_port: /dev/ttyACM1       # its presence is what "an AMS is watching" means in mode 1
 #
 # Status (printer['arco_fila_status'] / Moonraker):
 #   available, filament_present, adc, threshold, mode, mode_name, protection_active
@@ -47,6 +57,7 @@
 #   FILA_STATUS  -- print all of the above to the console
 
 import logging
+import os
 
 PHROZEN_OBJECT = 'phrozen_dev'
 
@@ -68,10 +79,20 @@ class ArcoFilaStatus:
         self.warn_on_print_start = config.getboolean('warn_on_print_start', True)
         self.warn_delay = config.getfloat('warn_delay', 300., above=0.)
         self.check_interval = config.getfloat('check_interval', 2., above=0.)
+        self.ams_port = config.get('ams_port', '/dev/ttyACM1')
+        self.pause_on_empty = config.getboolean('pause_on_empty', True)
+        # 90 s, not 0. print_stats says "printing" the moment the job is accepted, and the start
+        # G-code then heats, homes and -- in AMS mode -- has the AMS feed the toolhead. The sensor is
+        # legitimately EMPTY for part of that. Checking at the transition would abort good prints; the
+        # cost of waiting is a minute and a half of air in the case it is meant to catch, against
+        # hours of it today.
+        self.pause_delay = config.getfloat('pause_delay', 90., above=0.)
         self._phrozen = None
         self._mcu_adc = None
         self._deadline = None
         self._warned = False
+        self._pause_deadline = None
+        self._pause_checked = False
         # phrozen_dev may be constructed after us (config order is not ours to dictate), so
         # resolve both objects at ready rather than here.
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
@@ -89,7 +110,9 @@ class ArcoFilaStatus:
         elif self._mcu_adc is None:
             logging.info("arco_fila_status: query_adc has no '%s' — raw ADC unavailable "
                          "(presence/protection still reported)", self.adc_name)
-        if self.warn_on_print_start:
+        # Either feature needs the poll. Gating it on warn_on_print_start alone meant switching the
+        # warning off silently switched the pause off with it.
+        if self.warn_on_print_start or self.pause_on_empty:
             self.reactor.register_timer(self._poll, self.reactor.NOW + 5.)
 
     # --- reading phrozen_dev ------------------------------------------------------------
@@ -119,6 +142,15 @@ class ArcoFilaStatus:
                 logging.exception("arco_fila_status: reading '%s' failed", self.adc_name)
         return st
 
+    def _ams_answering(self):
+        # The AMS is a serial device on /dev/ttyACM1. voronFDM decides the same question the same way
+        # -- by whether that node exists -- so this agrees with what the panel shows rather than
+        # inventing a second opinion.
+        try:
+            return os.path.exists(self.ams_port)
+        except Exception:
+            return False
+
     def _protection_active(self, ph, mode):
         # Mirrors the gates in phrozen_dev's runout timer (dev.py Device_TimmerRunoutCheck):
         #   mode 0        -> returns immediately, nothing is watched
@@ -130,7 +162,13 @@ class ArcoFilaStatus:
         if mode == 2:
             return bool(getattr(ph, 'G_P0M2MAStartPrintFlag', 0))
         if mode == 1:
-            return True
+            # 🔴 NOT an unconditional True, which is what this returned until 2026-08-16. In AMS mode
+            # the toolhead sensor is deliberately ignored -- the AMS watches its own slots and reports
+            # over the serial link -- so "protected" here means "an AMS is there to do the watching".
+            # Without that check the status claimed protection on a printer whose AMS was not feeding
+            # at all: it printed air for hours while FILA_STATUS said ACTIVE. A wrong reassurance is
+            # worse than no answer, because it is the one somebody acts on.
+            return self._ams_answering()
         return False
 
     # --- unprotected-print warning ------------------------------------------------------
@@ -159,14 +197,62 @@ class ArcoFilaStatus:
         if state not in ('printing', 'paused'):
             self._deadline = None
             self._warned = False
-        elif state == 'printing' and not self._warned:
-            if self._deadline is None:
-                self._deadline = eventtime + self.warn_delay
-            elif eventtime >= self._deadline:
-                self._deadline = None
-                self._warned = True
-                self._warn_if_unprotected()
+            self._pause_deadline = None
+            self._pause_checked = False
+        elif state == 'printing':
+            if self.pause_on_empty and not self._pause_checked:
+                if self._pause_deadline is None:
+                    self._pause_deadline = eventtime + self.pause_delay
+                elif eventtime >= self._pause_deadline:
+                    self._pause_deadline = None
+                    self._pause_checked = True
+                    self._pause_if_empty()
+            if not self._warned:
+                if self._deadline is None:
+                    self._deadline = eventtime + self.warn_delay
+                elif eventtime >= self._deadline:
+                    self._deadline = None
+                    self._warned = True
+                    self._warn_if_unprotected()
         return eventtime + self.check_interval
+
+    # --- printing into thin air -----------------------------------------------------------
+    # Nothing on this printer refuses to start a job with no filament: phrozen_dev's runout logic is a
+    # timer that watches for a CHANGE during the job, and in AMS mode it does not look at the toolhead
+    # sensor at all. So a printer whose AMS is not feeding lays down nothing for hours and says
+    # nothing. That happened on 2026-08-15.
+    #
+    # 🔴 ONLY ON A DEFINITE READING. Pausing a good print is a worse failure than the one being
+    # prevented, so this acts only when phrozen_dev is loaded AND reports the sensor as empty. Unknown,
+    # unavailable, or a sensor that cannot be read all mean "say nothing and let it run" -- the same
+    # rule the rest of this module follows.
+    def _pause_if_empty(self):
+        st = self._read()
+        if not st['available'] or st['filament_present'] is not False:
+            return
+        adc = 'n/a' if st['adc'] is None else '%.4f' % st['adc']
+        thr = 'n/a' if st['threshold'] is None else '%.4f' % st['threshold']
+        msg = ("arco_fila_status: PAUSING — the toolhead sensor reports NO filament "
+               "%.0f s into this print (adc %s, threshold %s; at or above the threshold means empty). "
+               "Mode: %s." % (self.pause_delay, adc, thr, st['mode_name']))
+        # What to do about it depends on who was supposed to supply the filament, so say that rather
+        # than leaving the owner to work out which of their two possible problems this is.
+        if st['mode'] in (1, 2):
+            if self._ams_answering():
+                msg += (" The AMS is connected but nothing reached the toolhead — check that the "
+                        "slot for this print actually has filament in it. Resuming will not help "
+                        "until it does.")
+            else:
+                msg += (" The printer is in AMS mode but no AMS is answering on %s, so nothing was "
+                        "watching for this." % (self.ams_port,))
+        else:
+            msg += " Load filament, then RESUME."
+        self.gcode.respond_info(msg)
+        logging.info("arco_fila_status: pausing an empty print (%s)", st)
+        try:
+            self.gcode.run_script("PAUSE")
+        except Exception:
+            logging.exception("arco_fila_status: PAUSE failed")
 
     def _warn_if_unprotected(self):
         st = self._read()
