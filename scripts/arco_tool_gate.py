@@ -109,7 +109,14 @@ class ArcoToolGate:
 
     def _wanted_map(self):
         """{tool index: channel} from the stored list; entries <= 0 mean "leave it to phrozen_dev"."""
-        raw = str(self._stored(self.slots_name, '') or '')
+        # SAVE_VARIABLE stores whatever ast.literal_eval() makes of the text, so a single entry comes
+        # back as an int and a comma list as a tuple. Normalise all three shapes rather than assuming
+        # the one this happens to write today.
+        stored = self._stored(self.slots_name, '')
+        if isinstance(stored, (list, tuple)):
+            raw = ",".join(str(x) for x in stored)
+        else:
+            raw = str(stored or '')
         out = {}
         for i, part in enumerate(raw.split(',')):
             if i >= self.max_tool:
@@ -195,12 +202,21 @@ class ArcoToolGate:
         return ", ".join("T%d->%d" % (k, m[k]) for k in sorted(m))
 
     def _save(self, name, value):
+        # 🔴 NEVER an empty VALUE, and always double-quoted. save_variables runs the text through
+        # ast.literal_eval, which raises SyntaxError on an empty string -- and an exception inside a
+        # G-code command SHUTS THE PRINTER DOWN. That is what clearing the last slot entry did on
+        # 2026-08-18: AMS_SLOTS T0=0 emptied the list, sent VALUE='', and took klippy with it.
+        # Single quotes are no help either; the value has to survive literal_eval as a string, so it
+        # is double-quoted and never blank.
+        value = str(value)
+        if not value:
+            value = "0"
         self.gcode.run_script_from_command(
-            "SAVE_VARIABLE VARIABLE=%s VALUE='%s'" % (name, value))
+            'SAVE_VARIABLE VARIABLE=%s VALUE="%s"' % (name, value))
 
     def cmd_ARCO_AMS_SLOTS(self, gcmd):
-        raw = str(self._stored(self.slots_name, '') or '')
-        cur = (raw.split(',') + [''] * self.max_tool)[:self.max_tool]
+        m = self._wanted_map()
+        cur = [str(m.get(i, 0)) for i in range(self.max_tool)]
         changed = []
         for tool in range(self.max_tool):
             v = gcmd.get_int('T%d' % tool, None)
@@ -208,10 +224,13 @@ class ArcoToolGate:
                 continue
             if v < 0:
                 raise gcmd.error("T%d must be an AMS channel (1 and up), or 0 to clear it" % tool)
-            cur[tool] = '' if v == 0 else str(v)
+            cur[tool] = str(v)
             changed.append(tool)
         if changed:
-            self._save(self.slots_name, ",".join(cur).rstrip(','))
+            # Trailing zeros trimmed for readability, but never to nothing -- see _save.
+            while len(cur) > 1 and cur[-1] == '0':
+                cur.pop()
+            self._save(self.slots_name, ",".join(cur))
             self._apply_map()
         gcmd.respond_info("AMS slots: %s%s" % (
             self._describe_map(),
