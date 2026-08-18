@@ -990,7 +990,7 @@ description: internal - the refeed buttons of the AMS dialog
 gcode:
     # Through the pin, not the command: that keeps the switch in Miscellaneous showing the same
     # state as the dialog. The pin's own macro is what calls ARCO_AMS_REFEED.
-    SET_PIN PIN=ams_refeed VALUE={params.V}
+    SET_PIN PIN=AMS_Refeed VALUE={params.V}
     AMS_SETUP
 
 [gcode_macro _ARCO_AMS_CLEAR]
@@ -1042,11 +1042,11 @@ gcode:
     {% endif %}
     SET_GCODE_VARIABLE MACRO=TOGGLE_LIGHT VARIABLE=toggle_state VALUE={params.VALUE}
 
-[output_pin ams_refeed]
-pin: arco:ams_refeed
+[output_pin AMS_Refeed]
+pin: arco:AMS_Refeed
 value: 0
 
-[gcode_macro _ARCO_PIN_ams_refeed]
+[gcode_macro _ARCO_PIN_AMS_Refeed]
 description: internal - the AMS refeed switch
 gcode:
     ARCO_AMS_REFEED ENABLE={params.VALUE}
@@ -1066,7 +1066,7 @@ gcode:
         SET_PIN PIN=chamber_light VALUE=1
     {% endif %}
     {% if printer.save_variables.variables.ams_refeed|default(0)|int == 1 %}
-        SET_PIN PIN=ams_refeed VALUE=1
+        SET_PIN PIN=AMS_Refeed VALUE=1
     {% endif %}
 #@ENDFEAT
 
