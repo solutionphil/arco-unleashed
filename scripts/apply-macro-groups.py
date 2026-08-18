@@ -67,6 +67,7 @@ GROUPS = [
                   ("M600", A), ("M601", A), ("M84", I)]),
     ("Filament & AMS", [("LOAD_FILAMENT", P), ("UNLOAD_FILAMENT", P),
                         ("FILA_STATUS", A), ("ARCO_FILA_EMPTY", I),
+                        ("AMS_SLOTS", I), ("AMS_REFEED", I),
                         ("MAGIC_AMS_ON", I), ("MAGIC_AMS_OFF", I),
                         ("MAGIC_AMS_STAGE", I), ("MAGIC_AMS_STATUS", A)]),
     ("Calibration", [(m, I) for m in

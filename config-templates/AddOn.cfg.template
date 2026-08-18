@@ -936,6 +936,41 @@ gcode:
 #
 # What remains is the honest behaviour: notice, say so, and stop.
 
+#@FEAT ams_slots | Which AMS slot serves which tool, and auto-refeed (AMS_SLOTS / AMS_REFEED)
+# -----------------------------------------------------------------------------
+# TELLING THE PRINTER WHICH SLOT IS WHICH
+# -----------------------------------------------------------------------------
+# phrozen_dev keeps a tool-to-channel table -- one entry per Tn -- and an auto-refeed flag. Both
+# are filled in by the DISPLAY, which sends them over its own link when a print is started there.
+# That is why the slot assignment and the refeed checkbox exist on the panel and nowhere else: a
+# print sent from Mainsail or a slicer never carries that block, so the table stays empty and every
+# Tn simply uses channel n.
+#
+# [arco_tool_gate] fills the same two fields in from a stored setting, which gives the web side the
+# same features. Nothing in phrozen_dev is modified -- these are runtime values, exactly the ones
+# the panel would have supplied.
+#
+# AMS_SLOTS remaps without re-slicing: load the colours in whatever order they ended up in, then
+#   say which slot each tool should pull from.  AMS_SLOTS T0=2 T1=1
+#   A tool left out keeps whatever it had; passing 0 clears one and lets phrozen_dev decide again.
+#   AMS_SLOTS on its own reports the current table.
+#
+# AMS_REFEED ENABLE=1 turns on carrying a print over to another slot when one runs out. WHICH slot
+#   it moves to is the AMS's own decision -- the printer host does not choose it and cannot.
+#
+# 🔴 THE PANEL ALWAYS WINS. Values are only written where the field is still unset or still holds
+# what we last put there. Start a print at the display and its table stands untouched.
+[gcode_macro AMS_SLOTS]
+description: Which AMS slot serves which tool - AMS_SLOTS T0=2 T1=1 (0 clears one, empty reports)
+gcode:
+    ARCO_AMS_SLOTS{% if params.T0 is defined %} T0={params.T0}{% endif %}{% if params.T1 is defined %} T1={params.T1}{% endif %}{% if params.T2 is defined %} T2={params.T2}{% endif %}{% if params.T3 is defined %} T3={params.T3}{% endif %}
+
+[gcode_macro AMS_REFEED]
+description: Carry a print over to another slot when one runs out - AMS_REFEED ENABLE=1
+gcode:
+    ARCO_AMS_REFEED{% if params.ENABLE is defined %} ENABLE={params.ENABLE}{% endif %}
+#@ENDFEAT
+
 #@FEAT fila_empty_action | What happens when a print runs with an empty toolhead (ARCO_FILA_EMPTY)
 # -----------------------------------------------------------------------------
 # WHAT TO DO ABOUT AN EMPTY TOOLHEAD

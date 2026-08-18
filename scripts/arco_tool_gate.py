@@ -49,6 +49,10 @@ class ArcoToolGate:
         self.last_tool = config.getint('hide_to', 15, minval=0)
         self.ams_port = config.get('ams_port', '/dev/ttyACM1')
         self.flag_name = config.get('ams_variable', 'ams')
+        self.slots_name = config.get('slots_variable', 'ams_slots')
+        self.refeed_name = config.get('refeed_variable', 'ams_refeed')
+        self.max_tool = config.getint('map_tools', 16, minval=1, maxval=16)
+        self._applied = {}      # what WE last wrote, so the panel's values are never overwritten
         # 5 s: this exists so plugging an AMS in is noticed without a restart, and nobody
         # plugs one in and expects an instant result. 0 turns the timer off and leaves the
         # single check at connect.
@@ -65,6 +69,12 @@ class ArcoToolGate:
         self.gcode.register_command(
             'ARCO_TOOLS_HIDE', self.cmd_ARCO_TOOLS_HIDE,
             desc="Hide AMS tools T1-T15 live (no restart)")
+        self.gcode.register_command(
+            'ARCO_AMS_SLOTS', self.cmd_ARCO_AMS_SLOTS,
+            desc="Which AMS slot serves which tool, e.g. ARCO_AMS_SLOTS T0=2 T1=1")
+        self.gcode.register_command(
+            'ARCO_AMS_REFEED', self.cmd_ARCO_AMS_REFEED,
+            desc="Auto-refeed from another slot when one runs out: ENABLE=0|1")
 
     def _ams_present(self):
         # The device node, not a reply. Asking the AMS to identify itself needs the serial
@@ -74,6 +84,79 @@ class ArcoToolGate:
             return os.path.exists(self.ams_port)
         except OSError:
             return False
+
+    # --- tool-to-slot map and auto-refeed ---------------------------------------------------
+    # phrozen_dev keeps a tool->channel table (one entry per Tn) and an auto-refeed flag. Both are
+    # normally filled in by the DISPLAY, which sends them over its serial link when a print is
+    # started there -- which is why the checkbox and the slot assignment exist on the panel and
+    # nowhere else. A print started from Mainsail or a slicer never sends that block, so the table
+    # stays unset and every Tn simply uses channel n, and the refeed never happens.
+    #
+    # Filling the same fields in from here gives the web side the same two features. It is a
+    # runtime assignment, not a change to phrozen_dev.
+    #
+    # 🔴 THE PANEL ALWAYS WINS. A value is only written when the field is still unset, or when it
+    # holds exactly what we put there last time. Start a print at the display and its table stands;
+    # nothing here fights it.
+    def _pd(self):
+        return self.printer.lookup_object('phrozen_dev', None)
+
+    def _stored(self, name, default=''):
+        sv = self.printer.lookup_object('save_variables', None)
+        if sv is None:
+            return default
+        return sv.allVariables.get(name, default)
+
+    def _wanted_map(self):
+        """{tool index: channel} from the stored list; entries <= 0 mean "leave it to phrozen_dev"."""
+        raw = str(self._stored(self.slots_name, '') or '')
+        out = {}
+        for i, part in enumerate(raw.split(',')):
+            if i >= self.max_tool:
+                break
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                v = int(part)
+            except ValueError:
+                continue
+            if v > 0:
+                out[i] = v
+        return out
+
+    def _apply_map(self):
+        ph = self._pd()
+        if ph is None:
+            return
+        for tool, chan in self._wanted_map().items():
+            attr = 'G_ChromaKitAccessT%d' % tool
+            cur = getattr(ph, attr, None)
+            if cur is None:
+                continue
+            if cur > 0 and cur != self._applied.get(attr):
+                continue                      # the display put that there -- leave it alone
+            if cur != chan:
+                setattr(ph, attr, chan)
+                logging.info("arco_tool_gate: T%d -> AMS channel %d", tool, chan)
+            self._applied[attr] = chan
+        try:
+            want = int(self._stored(self.refeed_name, 0) or 0)
+        except (TypeError, ValueError):
+            want = 0
+        cur = getattr(ph, 'G_AutoReplaceState', None)
+        if cur is None:
+            return
+        if cur > 0 and cur != self._applied.get('G_AutoReplaceState'):
+            return
+        if want == 1 and cur != 1:
+            ph.G_AutoReplaceState = 1
+            self._applied['G_AutoReplaceState'] = 1
+            logging.info("arco_tool_gate: auto-refeed on")
+        elif want != 1 and self._applied.get('G_AutoReplaceState') == 1 and cur == 1:
+            ph.G_AutoReplaceState = -1
+            self._applied.pop('G_AutoReplaceState', None)
+            logging.info("arco_tool_gate: auto-refeed off")
 
     def _stored_flag(self):
         sv = self.printer.lookup_object('save_variables', None)
@@ -105,10 +188,52 @@ class ArcoToolGate:
         ps = self.printer.lookup_object('print_stats', None)
         return ps is not None and getattr(ps, 'state', None) == 'printing'
 
+    def _describe_map(self):
+        m = self._wanted_map()
+        if not m:
+            return "not set (every Tn uses AMS channel n)"
+        return ", ".join("T%d->%d" % (k, m[k]) for k in sorted(m))
+
+    def _save(self, name, value):
+        self.gcode.run_script_from_command(
+            "SAVE_VARIABLE VARIABLE=%s VALUE='%s'" % (name, value))
+
+    def cmd_ARCO_AMS_SLOTS(self, gcmd):
+        raw = str(self._stored(self.slots_name, '') or '')
+        cur = (raw.split(',') + [''] * self.max_tool)[:self.max_tool]
+        changed = []
+        for tool in range(self.max_tool):
+            v = gcmd.get_int('T%d' % tool, None)
+            if v is None:
+                continue
+            if v < 0:
+                raise gcmd.error("T%d must be an AMS channel (1 and up), or 0 to clear it" % tool)
+            cur[tool] = '' if v == 0 else str(v)
+            changed.append(tool)
+        if changed:
+            self._save(self.slots_name, ",".join(cur).rstrip(','))
+            self._apply_map()
+        gcmd.respond_info("AMS slots: %s%s" % (
+            self._describe_map(),
+            "" if changed else "  (nothing changed — pass e.g. T0=2 to set one, T0=0 to clear it)"))
+
+    def cmd_ARCO_AMS_REFEED(self, gcmd):
+        want = gcmd.get_int('ENABLE', None, minval=0, maxval=1)
+        if want is not None:
+            self._save(self.refeed_name, want)
+            self._apply_map()
+        on = str(self._stored(self.refeed_name, 0)) == '1'
+        gcmd.respond_info(
+            "AMS auto-refeed is %s. When a slot runs out mid-print the AMS carries on from "
+            "another one; which one it picks is the AMS's own decision, not a setting here."
+            % ("ON" if on else "OFF"))
+
     def get_status(self, eventtime=None):
         return {'ams_present': self._ams_present(),
                 'tools_hidden': bool(self._stashed),
-                'ams_port': self.ams_port}
+                'ams_port': self.ams_port,
+                'slot_map': self._describe_map(),
+                'refeed': str(self._stored(self.refeed_name, 0)) == '1'}
 
     def _hide(self):
         help_dict = getattr(self.gcode, 'gcode_help', None)
@@ -154,11 +279,16 @@ class ArcoToolGate:
     def _handle_ready(self):
         # Not at connect: SAVE_VARIABLE is a gcode command, and gcode does not run that early.
         self._sync_flag(self._ams_present())
+        self._apply_map()
         if self.poll_interval:
             self.reactor.register_timer(self._poll,
                                         self.reactor.monotonic() + self.poll_interval)
 
     def _poll(self, eventtime):
+        # Re-applied every tick rather than once: the fields are re-read from the display's block
+        # whenever one arrives, and a print started at the panel legitimately replaces them. Cheap --
+        # it is a handful of attribute comparisons.
+        self._apply_map()
         present = self._ams_present()
         if present != self._last_seen:
             if present:

@@ -18,8 +18,8 @@
 # INTEROPERABILITY NOTE: the three markers this matches -- "check_file:", the
 # file-exists line, and PRZ_PRINTING_START -- are voronFDM's OWN runtime stdout
 # output plus a public config macro. They are OBSERVED by capturing the running
-# binary's log; nothing here is obtained by decompiling voronFDM, and no Phrozen
-# code is reproduced. This is an interoperability shim, not a derivative work.
+# binary's log, the same way any operator can with the service running, and no
+# Phrozen code is reproduced. This is an interoperability shim, not a derivative work.
 # If a firmware update changes those log strings the watcher simply stops arming
 # and degrades gracefully -- reprint falls back to homing-then-idle (the stock
 # migrated behaviour) and Orca / Mainsail are never affected.
