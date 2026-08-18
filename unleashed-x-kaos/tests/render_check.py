@@ -1,11 +1,14 @@
 # Render the tool-change macros exactly as Klipper does and check the claims.
 # Klipper builds its Jinja env as Environment('{%', '%}', '{', '}') - SINGLE braces
 # for expressions - so a check using the jinja2 defaults would not be testing our file.
-import re, sys
+import os, re, sys
 from jinja2 import Environment
 
-BRIDGE = r"E:\Arco-Unleashed\unleashed-x-kaos\config\kaos-ams-bridge.cfg"
-KIT    = r"E:\Arco-Unleashed\arco-unleashed\config-templates\AddOn.cfg.template"
+# Relative to this file, not absolute. The hardcoded paths pointed at a directory that moved,
+# so this check silently stopped being runnable -- which is worse than not having it at all.
+HERE   = os.path.dirname(os.path.abspath(__file__))
+BRIDGE = os.path.join(HERE, "..", "config", "kaos-ams-bridge.cfg")
+KIT    = os.path.join(HERE, "..", "..", "config-templates", "AddOn.cfg.template")
 
 env = Environment('{%', '%}', '{', '}')   # Klipper's exact delimiters
 
@@ -55,65 +58,15 @@ def check(label, cond, detail=''):
     if not cond: fails.append(label)
 
 print("=" * 78)
-print("1. STAGE 1 vs the KIT's stock path  (claim: identical except the temp write)")
-print("=" * 78)
-def strip_comment(l): return l.split(';')[0].strip()
-
-# The DELIBERATE additions in stage 1, each touching only our own state or E-mode:
-ADDED = ('_TOOLCHANGE_CLEAR',                       # clears our own pending container
-         'M83',                                     # E-mode fix (no-op: Orca is already M83)
-         'VARIABLE=g_extruder_temperature')         # the per-tool temperature - the point
-
-# Exhaustive bucket-boundary sweep: the mapping MUST be identical to the kit's.
-print("\n  bucket mapping across the full flush range (stage 1 vs kit stock):")
-for flush in (0, 50, 110, 110.5, 220, 220.5, 330, 330.5, 440, 440.5, 550, 550.5, 1000):
-    got  = render(bridge_tc, ctx(ams=1, stage=1), {'FLUSH': str(flush), 'TEMP': '240'})
-    want = render(kit_tc,    ctx(ams=1, stage=1), {'FLUSH': str(flush)})
-    g_p10 = [strip_comment(l) for l in got  if l.startswith('P10')]
-    w_p10 = [strip_comment(l) for l in want if l.startswith('P10')]
-    ok = g_p10 == w_p10
-    print(f"     flush={flush:<7} kit={w_p10[0] if w_p10 else '-':<7} stage1={g_p10[0] if g_p10 else '-':<7} {'OK' if ok else 'MISMATCH'}")
-    if not ok: fails.append(f"bucket mismatch at flush={flush}")
-
-# Full-line equivalence once the deliberate additions are removed.
-for flush, temp in ((150, 240), (500, 240), (60, None), (600, 210)):
-    pa = {'FLUSH': str(flush)}
-    if temp is not None: pa['TEMP'] = str(temp)
-    got  = render(bridge_tc, ctx(ams=1, stage=1), pa)
-    want = [strip_comment(l) for l in render(kit_tc, ctx(ams=1, stage=1), {'FLUSH': str(flush)})]
-    core = [strip_comment(l) for l in got if not any(a in l for a in ADDED)]
-    print(f"\n  flush={flush} temp={temp}")
-    print(f"    kit stock        : {want}")
-    print(f"    stage1 (core)    : {core}")
-    check(f"stage1 core == kit stock (flush={flush})", core == want, f"core={core}")
-    if temp:
-        check(f"stage1 writes g_extruder_temperature={temp}",
-              any('VARIABLE=g_extruder_temperature' in l and str(float(temp)) in l for l in got))
-    check(f"stage1 fires NO ORCA_PURGE and arms nothing (flush={flush})",
-          not any('ORCA_PURGE' in l or '_TOOLCHANGE_PENDING' in l for l in got))
-
-print()
-print("=" * 78)
-print("1b. DEFAULT STAGE  (claim: a fresh install, magic_stage never saved, is stage 3)")
-print("=" * 78)
-dflt = render(bridge_tc, ctx(ams=1, stage=None), {'FLUSH': '150', 'TEMP': '240'})
-for l in dflt: print("     ", l)
-check("unsaved magic_stage -> full ORCA_PURGE path (arms + P10 S2)",
-      'P10 S2' in dflt and any('VARIABLE=active' in l for l in dflt))
-check("unsaved magic_stage -> NOT the stage-1 bucket path",
-      not any(re.search(r'P10 S[13456]\b', l) for l in dflt))
-
-print()
-print("=" * 78)
-print("2. STAGE 3  (claim: arms handoff + pins P10 S2)")
+print("1. THE TOOL CHANGE  (claim: arms the handoff and pins P10 S2)")
 print("=" * 78)
 got3 = render(bridge_tc, ctx(ams=1, stage=3), {'FLUSH': '150', 'TEMP': '240'})
 for l in got3: print("     ", l)
-check("stage3 pins P10 S2", 'P10 S2' in got3)
-check("stage3 sets active=1", any('VARIABLE=active' in l and l.rstrip().endswith('1') for l in got3))
-check("stage3 passes flush 150", any('VARIABLE=flush' in l and '150' in l for l in got3))
-check("stage3 next_temp=240", any('VARIABLE=next_temp' in l and '240' in l for l in got3))
-check("stage3 emits no stock bucket S1/S3..S6",
+check("toolchange pins P10 S2", 'P10 S2' in got3)
+check("toolchange sets active=1", any('VARIABLE=active' in l and l.rstrip().endswith('1') for l in got3))
+check("toolchange passes flush 150", any('VARIABLE=flush' in l and '150' in l for l in got3))
+check("toolchange next_temp=240", any('VARIABLE=next_temp' in l and '240' in l for l in got3))
+check("toolchange emits no stock bucket S1/S3..S6",
       not any(re.search(r'P10 S[13456]\b', l) for l in got3))
 
 print()

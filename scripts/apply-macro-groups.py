@@ -69,7 +69,7 @@ GROUPS = [
                         ("FILA_STATUS", A), ("ARCO_FILA_EMPTY", I),
                         ("AMS_SETUP", I),
                         ("MAGIC_AMS_ON", I), ("MAGIC_AMS_OFF", I),
-                        ("MAGIC_AMS_STAGE", I), ("MAGIC_AMS_STATUS", A)]),
+                        ("MAGIC_AMS_STATUS", A)]),
     ("Calibration", [(m, I) for m in
                      ["G29", "G30", "G31", "G40", "bed_screw_adjust", "SCREWS_TILT_CALCULATE",
                       "Z_TILT_ADJUST", "SHAPER_CALIBRATE", "CALIBRATE_SHAPER_NEW", "PID_BED",

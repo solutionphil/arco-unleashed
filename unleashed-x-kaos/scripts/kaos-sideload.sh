@@ -621,7 +621,7 @@ cmd_magic() {                     # $1 = 1 (on) | 0 (off)
     activate                      # adds/removes the include, then reconciles the spit patch
     state_put installed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     if [ "$MAGIC_AMS" = "1" ]; then
-        say "magic_ams ENABLED (stage: set with MAGIC_AMS_STAGE; default 1 = per-tool temp only)"
+        say "magic_ams ENABLED ( default 1 = per-tool temp only)"
     else
         say "magic_ams disabled — the kit's proven bucket purge is back"
     fi
