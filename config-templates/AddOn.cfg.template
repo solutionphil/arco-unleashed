@@ -950,8 +950,14 @@ gcode:
 # same features. Nothing in phrozen_dev is modified -- these are runtime values, exactly the ones
 # the panel would have supplied.
 #
+# 🔴 TOOLS COUNT FROM 0, CHANNELS FROM 1. phrozen_dev's own tool handlers read chan = <tool> + 1,
+# so the untouched default is the diagonal: T0 from channel 1, T1 from channel 2, and so on. A
+# value of 0 is NOT "channel 0" -- the module treats anything at or below zero as unset, which is
+# why 0 is what clears an entry here.
+#
 # AMS_SLOTS remaps without re-slicing: load the colours in whatever order they ended up in, then
-#   say which slot each tool should pull from.  AMS_SLOTS T0=2 T1=1
+#   say which CHANNEL each tool should pull from.  AMS_SLOTS T0=2 T1=1
+#   sends the first tool to the second slot and the second tool to the first.
 #   A tool left out keeps whatever it had; passing 0 clears one and lets phrozen_dev decide again.
 #   AMS_SLOTS on its own reports the current table.
 #
@@ -961,7 +967,7 @@ gcode:
 # 🔴 THE PANEL ALWAYS WINS. Values are only written where the field is still unset or still holds
 # what we last put there. Start a print at the display and its table stands untouched.
 [gcode_macro AMS_SLOTS]
-description: Which AMS slot serves which tool - AMS_SLOTS T0=2 T1=1 (0 clears one, empty reports)
+description: Which AMS channel (1-4) serves which tool - AMS_SLOTS T0=2 (0 clears, empty reports)
 gcode:
     ARCO_AMS_SLOTS{% if params.T0 is defined %} T0={params.T0}{% endif %}{% if params.T1 is defined %} T1={params.T1}{% endif %}{% if params.T2 is defined %} T2={params.T2}{% endif %}{% if params.T3 is defined %} T3={params.T3}{% endif %}
 

@@ -71,7 +71,8 @@ class ArcoToolGate:
             desc="Hide AMS tools T1-T15 live (no restart)")
         self.gcode.register_command(
             'ARCO_AMS_SLOTS', self.cmd_ARCO_AMS_SLOTS,
-            desc="Which AMS slot serves which tool, e.g. ARCO_AMS_SLOTS T0=2 T1=1")
+            desc="Which AMS channel (1-%d) serves which tool: ARCO_AMS_SLOTS T0=2. 0 clears one."
+                 % (self.max_tool,))
         self.gcode.register_command(
             'ARCO_AMS_REFEED', self.cmd_ARCO_AMS_REFEED,
             desc="Auto-refeed from another slot when one runs out: ENABLE=0|1")
@@ -198,8 +199,8 @@ class ArcoToolGate:
     def _describe_map(self):
         m = self._wanted_map()
         if not m:
-            return "not set (every Tn uses AMS channel n)"
-        return ", ".join("T%d->%d" % (k, m[k]) for k in sorted(m))
+            return "not set (T0 uses channel 1, T1 channel 2, and so on)"
+        return ", ".join("T%d uses channel %d" % (k, m[k]) for k in sorted(m))
 
     def _save(self, name, value):
         # 🔴 NEVER an empty VALUE, and always double-quoted. save_variables runs the text through
@@ -222,8 +223,15 @@ class ArcoToolGate:
             v = gcmd.get_int('T%d' % tool, None)
             if v is None:
                 continue
-            if v < 0:
-                raise gcmd.error("T%d must be an AMS channel (1 and up), or 0 to clear it" % tool)
+            # 🔴 CHANNELS COUNT FROM 1, TOOLS FROM 0 -- phrozen_dev's own tool handlers read
+            # chan = <tool> + 1, and treat any value at or below zero as "not set". Somebody reading
+            # "T0=0" as "tool 0 from slot 0" therefore gets the exact opposite of what they meant,
+            # silently, so the bound is checked here and the message says which is which.
+            if v < 0 or v > self.max_tool:
+                raise gcmd.error(
+                    "T%d=%d is not an AMS channel. Channels count from 1 (T0 normally means "
+                    "channel 1, T1 channel 2, and so on) up to %d. Use 0 to clear the entry and "
+                    "let the printer decide again." % (tool, v, self.max_tool))
             cur[tool] = str(v)
             changed.append(tool)
         if changed:
@@ -234,7 +242,9 @@ class ArcoToolGate:
             self._apply_map()
         gcmd.respond_info("AMS slots: %s%s" % (
             self._describe_map(),
-            "" if changed else "  (nothing changed — pass e.g. T0=2 to set one, T0=0 to clear it)"))
+            "" if changed else
+            "  (nothing changed — channels count from 1, so ARCO_AMS_SLOTS T0=2 sends the first "
+            "tool to the second slot; 0 clears an entry)"))
 
     def cmd_ARCO_AMS_REFEED(self, gcmd):
         want = gcmd.get_int('ENABLE', None, minval=0, maxval=1)
