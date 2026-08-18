@@ -266,11 +266,16 @@ def main():
         return 0
 
     declared = declared_everywhere(os.path.dirname(cfg))
-    # A section being dropped this run is no longer a collision for the block that replaces it --
+    # A section being removed this run is no longer a collision for the block that replaces it --
     # without this the paired add would refuse itself, and the printer would end up with the section
-    # removed and nothing put back.
+    # removed and nothing put back. Retired BLOCKS count as well as dropped loose sections: retiring
+    # `switches` to ship a corrected `light_switch` carrying the same sections is a replacement, and
+    # it would otherwise collide with the very thing being taken out.
     for name, _, _ in loose:
         declared.pop(name, None)
+    for _, _, (a, b) in drop:
+        for name in sections_in(cfg_lines[a:b + 1]):
+            declared.pop(name, None)
     add, skip = [], []
     for fid, desc, body in missing:
         if fid in seeded:
@@ -291,6 +296,23 @@ def main():
         skip.append((n.split()[-1],
                      "its replacement block is not being added this run — not removing it"))
     loose = [t for t in loose if t[0] not in unpaired]
+
+    # The same pairing rule for a retired BLOCK, and for the same reason. A retirement is usually a
+    # genuine withdrawal with no replacement, and that stays allowed -- but when the template hands
+    # the retired block's sections back inside another block, the two belong together. If that other
+    # block is not being added this run, taking the old one out would leave the printer with neither.
+    def replaced_elsewhere(span):
+        gone = sections_in(cfg_lines[span[0]:span[1] + 1])
+        return gone and any(gone & sections_in(b) for _, _, b in want)
+
+    held = [f for f, _, s in drop
+            if replaced_elsewhere(s)
+            and not any(sections_in(cfg_lines[s[0]:s[1] + 1]) & sections_in(b)
+                        for _, _, b in add)]
+    for f in held:
+        skip.append((f, "the block that carries its sections is not being added this run — "
+                        "not retiring it"))
+    drop = [d for d in drop if d[0] not in held]
 
     for fid, why in skip:
         print("  SKIP %-18s %s" % (fid, why))

@@ -693,10 +693,13 @@ gcode:
 # was wrong silently -- an AMS that was connected and feeding, with the switch never touched,
 # read as "no AMS" to every macro that asked.
 #
-# The line below tells addon_merge.py to take the block out of an AddOn.cfg that still has
-# one. Keep it: delete the line and the old macros stay on every printer that has not
-# merged yet.
+# THE LINE BELOW IS LOAD-BEARING, and it is the only one of its kind left. It takes the block out
+# of an AddOn.cfg that still carries it. Without it those three macros stay on every printer that
+# has not already been cleaned -- calling ams_toggle.sh, which this kit deletes -- so pressing one
+# answers with an error instead of doing nothing visible. Every other retirement was removed on
+# purpose; this one does a job nothing else does.
 #@RETIRE ams | AMS on/off switch - the AMS is detected now, so there is nothing to declare
+#
 
 #@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
 # ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
@@ -994,7 +997,7 @@ description: internal - the refeed buttons of the AMS dialog
 gcode:
     # Through the pin, not the command: that keeps the switch in Miscellaneous showing the same
     # state as the dialog. The pin's own macro is what calls ARCO_AMS_REFEED.
-    SET_PIN PIN=ams_refeed VALUE={params.V}
+    SET_PIN PIN=AMS_Refeed VALUE={params.V}
     AMS_SETUP
 
 [gcode_macro _ARCO_AMS_CLEAR]
@@ -1004,7 +1007,6 @@ gcode:
     AMS_SETUP
 #@ENDFEAT
 
-#@FEAT switches | Real toggle switches in the interface for the light and the AMS refeed
 # -----------------------------------------------------------------------------
 # TWO SWITCHES THAT WERE ONLY BUTTONS
 # -----------------------------------------------------------------------------
@@ -1019,10 +1021,16 @@ gcode:
 #
 # 🔴 ORDER MATTERS. [arco_virtual_pins] must be parsed BEFORE any [output_pin] that names arco:,
 # because that is when the chip is registered. Keep it at the top of this block.
+#
+# 🔴 WHO OWNS THE LIGHT DEPENDS ON WHETHER KAOS IS ON. KAOS keeps its own state in _LIGHTS_STATE
+# and turns the light on at boot from it; the kit's TOGGLE_LIGHT keeps a separate variable. The
+# first version of this block wrote only TOGGLE_LIGHT's, so with KAOS active the switch started out
+# disagreeing with a light that was already on, and had to be flipped once to catch up. Both
+# directions now go through KAOS's own macros when they exist and the plain path when they do not,
+# which is the only way the three stay in step whichever one is touched.
+#@FEAT switches | Real toggle switches for the light and the AMS refeed, KAOS-aware
 [arco_virtual_pins]
 
-# The switch behind the chamber light. P0 LED_SetState is what actually drives it; TOGGLE_LIGHT is
-# kept in step so the old button and the new switch never disagree about the state.
 [output_pin chamber_light]
 pin: arco:chamber_light
 value: 0
@@ -1030,32 +1038,42 @@ value: 0
 [gcode_macro _ARCO_PIN_chamber_light]
 description: internal - the chamber light switch
 gcode:
-    P0 LED_SetState={params.VALUE}
+    {% if printer["gcode_macro KAOS_LIGHTS_ON"] is defined %}
+        {% if params.VALUE|int == 1 %}
+            KAOS_LIGHTS_ON
+        {% else %}
+            KAOS_LIGHTS_OFF
+        {% endif %}
+    {% else %}
+        P0 LED_SetState={params.VALUE}
+    {% endif %}
     SET_GCODE_VARIABLE MACRO=TOGGLE_LIGHT VARIABLE=toggle_state VALUE={params.VALUE}
 
-# The switch behind the AMS refeed. The setting itself lives in save_variables, because an
-# [output_pin] starts every session at its configured value: and would otherwise forget.
-[output_pin ams_refeed]
-pin: arco:ams_refeed
+[output_pin AMS_Refeed]
+pin: arco:AMS_Refeed
 value: 0
 
-[gcode_macro _ARCO_PIN_ams_refeed]
+[gcode_macro _ARCO_PIN_AMS_Refeed]
 description: internal - the AMS refeed switch
 gcode:
     ARCO_AMS_REFEED ENABLE={params.VALUE}
 
-# Both switches resynced from what is actually true, once, shortly after startup: the light from
-# TOGGLE_LIGHT's own variable and the refeed from its stored setting. Without this the switches show
-# their config default after every restart while the thing behind them says otherwise.
+# Both switches resynced from what is actually true. 15 s rather than 12: KAOS turns the light on
+# at boot from its own delayed_gcode at 10, and reading before that finished is what left the
+# switch showing "off" over a lit chamber.
 [delayed_gcode arco_switch_sync]
-initial_duration: 12
+initial_duration: 15
 gcode:
-    {% set lit = printer["gcode_macro TOGGLE_LIGHT"].toggle_state|default(0)|int %}
+    {% if printer["gcode_macro _LIGHTS_STATE"] is defined %}
+        {% set lit = printer["gcode_macro _LIGHTS_STATE"].on|default(0)|int %}
+    {% else %}
+        {% set lit = printer["gcode_macro TOGGLE_LIGHT"].toggle_state|default(0)|int %}
+    {% endif %}
     {% if lit == 1 %}
         SET_PIN PIN=chamber_light VALUE=1
     {% endif %}
     {% if printer.save_variables.variables.ams_refeed|default(0)|int == 1 %}
-        SET_PIN PIN=ams_refeed VALUE=1
+        SET_PIN PIN=AMS_Refeed VALUE=1
     {% endif %}
 #@ENDFEAT
 
