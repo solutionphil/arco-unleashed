@@ -31,8 +31,11 @@ DEST="$KL/klippy/extras"
 # arco_fila_status.py is read-only (it publishes phrozen_dev's filament state, which that module
 # keeps to itself) — but it is restored like the rest, because the print-start warning it emits is
 # the only signal a user gets that a print is running without runout protection.
+# 🔴 A NEW EXTRA MUST BE ADDED HERE, and it is not optional: AddOn.cfg is delivered by addon_merge
+# at the same update, so a config section can arrive whose module does not. klippy then refuses the
+# WHOLE config -- "Section ... is not a valid config section" -- on a printer that worked a minute ago.
 for f in arco_tool_gate.py arco_sdcard_select.py gcode_shell_command.py arco_mcu_timing.py \
-         arco_fila_status.py; do
+         arco_fila_status.py arco_virtual_pins.py; do
   src="$SELFDIR/$f"; dst="$DEST/$f"
   [ -f "$src" ] || { echo "WARN: kit source $src missing — skipped"; continue; }
   if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
@@ -59,7 +62,15 @@ CFGDIR="${ARCO_CONFIG:-$HOME/printer_data/config}"
 TPL="$SELFDIR/../config-templates/AddOn.cfg.template"
 ADDON="$CFGDIR/AddOn.cfg"
 if [ -f "$TPL" ] && [ -f "$ADDON" ]; then
-  for sec in $(grep -oE '^\[arco_[a-z_0-9]+\]' "$TPL" | tr -d '[]' | sort -u); do
+  # 🔴 ONLY SECTIONS THAT SIT OUTSIDE EVERY #@FEAT BLOCK. Anything inside one belongs to
+  # addon_merge, which delivers the whole block -- and this script runs FIRST (drop-in 16 against
+  # 24). Appending such a section here would leave addon_merge to find it already declared, refuse
+  # the block as a collision, and drop the rest of the feature on the floor without a word.
+  for sec in $(awk '
+      /^#@FEAT /   { inblk = 1; next }
+      /^#@ENDFEAT/ { inblk = 0; next }
+      !inblk && /^\[arco_[a-z_0-9]+\]/ { gsub(/[][]/, "", $0); print }
+    ' "$TPL" | sort -u); do
     # present ANYWHERE in the config dir counts — never create a duplicate of a section the user moved
     if grep -qrE "^\[$sec\]" "$CFGDIR"/*.cfg 2>/dev/null; then continue; fi
     # lift the section from the template together with the comment block explaining it
