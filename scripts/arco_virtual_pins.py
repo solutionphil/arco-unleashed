@@ -44,6 +44,21 @@
 import logging
 
 
+class VirtualMcu:
+    """What output_pin's request queue asks of an MCU, for a pin that has none.
+
+    🔴 NOT the real MCU object. Returning printer.lookup_object('mcu') looks tidier and depends on
+    load order: AddOn.cfg is included near the top of printer.cfg, so [mcu] may not exist yet when
+    these sections are parsed. Nothing here schedules anything electrical, so the numbers only have
+    to be sane -- the queue uses min_schedule_time as a margin, and max_nominal_duration bounds a
+    pwm pin's hold time."""
+    def min_schedule_time(self):
+        return 0.100
+
+    def max_nominal_duration(self):
+        return 5.
+
+
 class VirtualPin:
     """Everything [output_pin] asks of a pin, and nothing more."""
     def __init__(self, owner, name):
@@ -51,9 +66,15 @@ class VirtualPin:
         self.name = name
         self.value = 0.
 
-    # -- the three [output_pin] calls (output_pin.py: setup_max_duration, setup_start_value,
-    #    set_digital). A digital pin needs no more than this; the pwm variant additionally wants
-    #    setup_cycle_time and set_pwm, which are provided so a switch can be a slider instead.
+    # -- EVERY call output_pin.py makes on its pin, enumerated from the file rather than guessed:
+    #    get_mcu, setup_max_duration, setup_start_value, setup_cycle_time, set_digital, set_pwm.
+    #    The first version implemented the three that seemed obvious, because they were looked for
+    #    by grep instead of read out of output_pin.py, and klippy halted at connect with
+    #    "'VirtualPin' object has no attribute 'get_mcu'". Re-derive the list from the file if a
+    #    Klipper update changes it: grep -o 'mcu_pin\.[a-z_]*' klippy/extras/output_pin.py
+    def get_mcu(self):
+        return self.owner.mcu
+
     def setup_max_duration(self, max_duration):
         pass
 
@@ -85,6 +106,7 @@ class ArcoVirtualPins:
         self.chip_name = config.get('chip_name', 'arco')
         self.reactor = self.printer.get_reactor()
         self.pins = {}
+        self.mcu = VirtualMcu()
         self._queue = []
         ppins = self.printer.lookup_object('pins')
         ppins.register_chip(self.chip_name, self)
