@@ -1463,7 +1463,6 @@ Two things to know:
   | Command | Effect |
   |---|---|
 
-  | `MAGIC_AMS_OFF` | removes the purge rewrite entirely, rest of KAOS stays |
   | `MAGIC_AMS_STATUS` | shows what is active |
 
   Worth doing a **short two-colour test print** the first time, and watching the first colour change.

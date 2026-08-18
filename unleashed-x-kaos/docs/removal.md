@@ -17,8 +17,9 @@ byte-identical to the pre-KAOS baseline.
 KAOS_OFF
 ```
 
-`MAGIC_AMS_OFF` alone removes just the purge feature and leaves the rest of KAOS running. Both refuse
-to run mid-print.
+There is no macro for removing just the purge feature any more -- it covered a case nobody asked
+for. From a shell, `KAOS_MAGIC_AMS=0 bash kaos-sideload.sh on` reinstalls KAOS without it.
+KAOS_OFF refuses to run mid-print.
 
 ## 2. Klipper down, or the macro unavailable — over SSH
 

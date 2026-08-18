@@ -60,7 +60,13 @@ A, P, I = "always", "pause_only", "idle_only"
 # category they were sorted into, on both interfaces -- otherwise a printer that has been running for
 # a while keeps a button for a macro that no longer exists, and the button does nothing when pressed.
 # Add to this list when a macro is retired, never as a way of hiding one that still exists.
-RETIRED = ("AMS_ON", "AMS_OFF", "AMS_STATUS")
+RETIRED = ("AMS_ON", "AMS_OFF", "AMS_STATUS", "MAGIC_AMS_ON", "MAGIC_AMS_OFF", "MAGIC_AMS_STAGE")
+
+# Macros that still EXIST and still work, but no longer belong on the wall. TOGGLE_LIGHT is the
+# case: the chamber light is a switch in Miscellaneous now, and two controls for one lamp is one
+# too many -- but the macro is still there for anyone who scripted against it. Kept separate from
+# RETIRED on purpose, because the two mean different things and the message says which happened.
+UNGROUPED = ("TOGGLE_LIGHT",)
 
 GROUPS = [
     ("Printing", [("PAUSE", A), ("RESUME", A), ("CANCEL_PRINT", A),
@@ -68,14 +74,13 @@ GROUPS = [
     ("Filament & AMS", [("LOAD_FILAMENT", P), ("UNLOAD_FILAMENT", P),
                         ("FILA_STATUS", A), ("ARCO_FILA_EMPTY", I),
                         ("AMS_SETUP", I),
-                        ("MAGIC_AMS_ON", I), ("MAGIC_AMS_OFF", I),
                         ("MAGIC_AMS_STATUS", A)]),
     ("Calibration", [(m, I) for m in
                      ["G29", "G30", "G31", "G40", "bed_screw_adjust", "SCREWS_TILT_CALCULATE",
                       "Z_TILT_ADJUST", "SHAPER_CALIBRATE", "CALIBRATE_SHAPER_NEW", "PID_BED",
                       "PID_NOZZLE", "M303", "M304", "BELT_TENSION", "probe_off", "probe_up"]]),
     ("Maintenance", [("CLEAN_IDLERS", I), ("CLEAN_IDLERS_STOP", A),
-                     ("BELT_WARMUP", I), ("TOGGLE_LIGHT", A), ("SWITCH_THEME", A)]),
+                     ("BELT_WARMUP", I), ("SWITCH_THEME", A)]),
     ("Kit & Updates", [("ARCO_UPDATE", I), ("ARCO_UPDATE_CHECK", A)]),
     # KAOS is one group rather than scattered through the others. It is a separate project the owner
     # switched on deliberately, and when it is off none of these macros exist -- the group then simply
@@ -122,7 +127,8 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         lst = g.get("macros")
         if not isinstance(lst, list):
             continue
-        keep = [e for e in lst if not (isinstance(e, dict) and e.get("name") in RETIRED)]
+        keep = [e for e in lst
+                if not (isinstance(e, dict) and e.get("name") in RETIRED + UNGROUPED)]
         if len(keep) != len(lst):
             dropped_ms += len(lst) - len(keep)
             for i, e in enumerate(keep):     # pos is 1-based and Mainsail sorts by it
@@ -153,7 +159,8 @@ def topup(have, ms, fl, ms_groups, fl_cats):
 
     # Fluidd: one flat list. "Placed" means it carries a categoryId; anything else is fair game.
     stored = fl.get("stored") or []
-    keep = [e for e in stored if not (isinstance(e, dict) and e.get("name") in RETIRED)]
+    keep = [e for e in stored
+            if not (isinstance(e, dict) and e.get("name") in RETIRED + UNGROUPED)]
     dropped_fl = len(stored) - len(keep)
     stored = keep
     cat_id = {c.get("name"): c.get("id") for c in fl_cats if isinstance(c, dict)}
@@ -190,8 +197,9 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         call("POST", "/server/database/item", {"namespace": "fluidd", "key": "macros", "value": fl})
 
     if dropped_ms or dropped_fl:
-        print("[macro-groups] cleared %d withdrawn macro(s) from Mainsail groups and %d from Fluidd: %s"
-              % (dropped_ms, dropped_fl, ", ".join(sorted(RETIRED))))
+        print("[macro-groups] cleared %d entr(ies) from Mainsail groups and %d from Fluidd — "
+              "withdrawn: %s; still available but ungrouped: %s"
+              % (dropped_ms, dropped_fl, ", ".join(sorted(RETIRED)), ", ".join(sorted(UNGROUPED))))
     if added_ms or added_fl or hidden_fl:
         print("[macro-groups] filled in what appeared since: %d into Mainsail groups, %d into Fluidd "
               "categories, %d newly hidden." % (added_ms, added_fl, hidden_fl))
