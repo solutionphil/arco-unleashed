@@ -62,11 +62,19 @@ A, P, I = "always", "pause_only", "idle_only"
 # Add to this list when a macro is retired, never as a way of hiding one that still exists.
 RETIRED = ("AMS_ON", "AMS_OFF", "AMS_STATUS", "MAGIC_AMS_ON", "MAGIC_AMS_OFF", "MAGIC_AMS_STAGE")
 
-# Macros that still EXIST and still work, but no longer belong on the wall. TOGGLE_LIGHT is the
-# case: the chamber light is a switch in Miscellaneous now, and two controls for one lamp is one
-# too many -- but the macro is still there for anyone who scripted against it. Kept separate from
+# Macros that still EXIST and still work, but no longer belong on the wall. Kept separate from
 # RETIRED on purpose, because the two mean different things and the message says which happened.
-UNGROUPED = ("TOGGLE_LIGHT",)
+#
+#   TOGGLE_LIGHT              the chamber light is a switch in Miscellaneous now, and two controls
+#                             for one lamp is one too many
+#   AMS_SLOTS, AMS_REFEED     both live inside the AMS_SETUP dialog. They stay as commands for
+#                             anyone who prefers typing, but three buttons for one dialog is what
+#                             the dialog was built to avoid.
+#
+# 🔴 Being absent from GROUPS is not enough. Top-up only ever ADDS, so a macro sorted into a group
+# by an earlier version stays there forever unless it is named here. That is how AMS_REFEED came to
+# sit next to AMS_SETUP on the dev printer after the dialog landed.
+UNGROUPED = ("TOGGLE_LIGHT", "AMS_SLOTS", "AMS_REFEED")
 
 GROUPS = [
     ("Printing", [("PAUSE", A), ("RESUME", A), ("CANCEL_PRINT", A),
