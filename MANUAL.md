@@ -1462,8 +1462,7 @@ Two things to know:
 
   | Command | Effect |
   |---|---|
-  | `MAGIC_AMS_STAGE STAGE=1` | keeps the **proven** purge, but still fixes per-tool temperature — takes effect immediately, no restart |
-  | `MAGIC_AMS_OFF` | removes the purge rewrite entirely, rest of KAOS stays |
+
   | `MAGIC_AMS_STATUS` | shows what is active |
 
   Worth doing a **short two-colour test print** the first time, and watching the first colour change.
