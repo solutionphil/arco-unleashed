@@ -693,6 +693,13 @@ gcode:
 # was wrong silently -- an AMS that was connected and feeding, with the switch never touched,
 # read as "no AMS" to every macro that asked.
 #
+# THE LINE BELOW IS LOAD-BEARING, and it is the only one of its kind left. It takes the block out
+# of an AddOn.cfg that still carries it. Without it those three macros stay on every printer that
+# has not already been cleaned -- calling ams_toggle.sh, which this kit deletes -- so pressing one
+# answers with an error instead of doing nothing visible. Every other retirement was removed on
+# purpose; this one does a job nothing else does.
+#@RETIRE ams | AMS on/off switch - the AMS is detected now, so there is nothing to declare
+#
 
 #@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
 # ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
