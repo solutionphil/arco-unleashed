@@ -30,6 +30,12 @@
 # 🔴 IT DOES NOT TOUCH .theme-state. Which variant is active is the owner's choice; this only
 # refreshes what that choice renders.
 #
+# 🔴 IT DOES NOT TOUCH .theme-variants/local.css EITHER, and that is load-bearing rather than
+# incidental. This script is the reason that file has to exist: editing a variant's custom.css by
+# hand used to stick forever, and refreshing from the kit made it volatile. local.css sits BESIDE
+# the variants, and the loop below only ever copies out of the kit's variants/ subfolders, so it is
+# out of reach here by construction. unleashed-theme.sh appends it last when it builds .theme/.
+#
 # Idempotent and cheap: a byte compare per file, a no-op in milliseconds when already current.
 #
 # Usage:  bash apply-theme-variants.sh [config-dir]

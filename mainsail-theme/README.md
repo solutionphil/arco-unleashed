@@ -28,8 +28,22 @@ Layout in `printer_data/config/`:
   shared/      sidebar-logo.*, favicon-*        (identical for both)
   voron-light/  custom.css, main-background.svg
   voron-dark/custom.css, main-background.svg
+  local.css    ← YOURS. Optional, never written by the kit (see below)
 unleashed-theme.sh              ← switcher
 ```
+
+### Your own CSS: `local.css`
+Put anything of your own in `.theme-variants/local.css`. The switcher appends it to
+`custom.css` **last**, so it overrides the variant, and it applies to *both* light and
+dark. Nothing in the kit ever writes or deletes that file.
+
+Use it rather than editing a variant's `custom.css` directly: `apply-theme-variants.sh`
+refreshes the variants from the kit before every Klipper start, so a hand-written rule
+there is replaced the next time the kit's copy differs — quietly, and possibly weeks
+later. `local.css` is the file that survives.
+
+It takes effect on the next theme rebuild — either the refresh guard doing it for you,
+or `sh unleashed-theme.sh light` by hand. Then hard-reload Mainsail (Ctrl+F5).
 
 ### Install
 ```bash
