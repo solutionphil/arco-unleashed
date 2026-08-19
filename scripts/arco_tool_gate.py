@@ -221,8 +221,14 @@ class ArcoToolGate:
         # ast.literal_eval, which raises SyntaxError on an empty string -- and an exception inside a
         # G-code command SHUTS THE PRINTER DOWN. That is what clearing the last slot entry did on
         # 2026-08-18: AMS_SLOTS T0=0 emptied the list, sent VALUE='', and took klippy with it.
-        # Single quotes are no help either; the value has to survive literal_eval as a string, so it
-        # is double-quoted and never blank.
+        # 🔴 AND THE QUOTES DO NOT MAKE IT A STRING, which this comment used to claim. Klipper parses
+        # an extended command with shlex, which strips them: save_variables receives 3,4,2,1 bare and
+        # literal_eval turns it into a TUPLE. Harmless here -- _wanted_map normalises str, list and
+        # tuple alike -- but the AMS dialog split the tuple's repr on commas and lost '(3' and '1)',
+        # so the first and last tool read as unset however often they were clicked (found on a
+        # printer, 19.08.2026). Left as it is rather than "fixed" to store a string: printers in the
+        # field already hold tuples, and one more variant of the same value is worse than a reader
+        # that copes with both. Anything reading this must therefore accept either.
         value = str(value)
         if not value:
             value = "0"

@@ -939,7 +939,9 @@ gcode:
 #
 # What remains is the honest behaviour: notice, say so, and stop.
 
-#@FEAT ams_setup | One dialog for the AMS: slot per tool, and the refeed switch (AMS_SETUP)
+#@RETIRE ams_setup | the dialog could not read the first and last slot — replaced by ams_setup2
+
+#@FEAT ams_setup2 | One dialog for the AMS: slot per tool, and the refeed switch (AMS_SETUP)
 # -----------------------------------------------------------------------------
 # THE AMS DIALOG
 # -----------------------------------------------------------------------------
@@ -960,7 +962,15 @@ gcode:
 description: AMS: which slot serves which tool, and the refeed switch
 gcode:
     {% set raw = printer.save_variables.variables.ams_slots|default('')|string %}
-    {% set parts = raw.split(',') %}
+    # 🔴 THE BRACKETS ARE NOT DECORATION. _save sends SAVE_VARIABLE VALUE="3,4,2,1", but Klipper
+    # parses an extended command with shlex, which STRIPS those quotes -- so save_variables gets
+    # 3,4,2,1 unquoted, ast.literal_eval makes a TUPLE of it, and this reads back "(3, 4, 2, 1)".
+    # Splitting that on commas yields '(3' and '1)', which |int quietly turns into 0: the first and
+    # the last tool always showed "printer decides" however often you clicked them, while the ones
+    # in the middle worked. The values were stored correctly the whole time -- only this line could
+    # not read them. Reported from a printer on 19.08.2026.
+    {% set clean = raw.replace('(','').replace(')','').replace('[','').replace(']','').replace("'",'').replace('"','').replace(' ','') %}
+    {% set parts = clean.split(',') %}
     {% set cur = [] %}
     {% for t in range(4) %}
         {% set v = parts[t]|trim if parts|length > t else '' %}
