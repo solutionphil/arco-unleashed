@@ -1242,6 +1242,10 @@ gcode:
             "ARCO_UPDATE: refusing while a print is %s. Run it from an idle printer." % st) }
     {% endif %}
     RESPOND PREFIX=ARCO MSG="updating the kit - needs network access"
+    # No closing RESPOND. selfupdate.sh says what lands and when -- and says it better, because it
+    # knows whether a print is running and can name what actually arrives. This line used to repeat
+    # it in narrower words ("if that changed anything in the printer config"), which is how a theme
+    # update read as "nothing happened, no restart needed". A macro cannot be corrected on a printer
+    # that already has one, so the sentence belongs in the script, which every update replaces.
     RUN_SHELL_COMMAND CMD=arco_selfupdate PARAMS="console"
-    RESPOND PREFIX=ARCO MSG="if that changed anything in the printer config, it lands when the klipper SERVICE restarts: sudo systemctl restart klipper"
 # <<< arco-update-console <<<
