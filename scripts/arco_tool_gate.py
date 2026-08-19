@@ -36,6 +36,20 @@
 #
 # The original phrozen handlers are stashed on hide, so they can be put back LIVE.
 # ARCO_TOOLS_SHOW / ARCO_TOOLS_HIDE remain for forcing either state by hand.
+#
+# THE REFEED SWITCH IS DELIBERATELY NOT TREATED THIS WAY. Hiding [output_pin AMS_Refeed]
+# when no AMS is attached is possible -- both interfaces skip an output_pin whose object
+# key starts with an underscore -- but only at connect: a panel row is built once from
+# the object list Moonraker fetches when klippy reports ready, and carries no name in the
+# DOM, so nothing can hide it later. Plugging an AMS in would therefore leave the switch
+# missing until the next Klipper restart. A control that follows the hardware sometimes
+# is worse than one that is simply always there, so the switch stays. (Decided 19.08.2026;
+# written down because "why is this not hidden?" is the obvious next question.)
+#
+# Config:
+#   [arco_tool_gate]
+#   #ams_port: /dev/ttyACM1        # its existence is what "an AMS is attached" means
+#   #poll_interval: 5.0            # seconds; 0 checks once at connect and never again
 
 import logging
 import os

@@ -113,3 +113,15 @@
 
 /* ───── logo breathing room ───── */
 .sidebar-logo img,.v-navigation-drawer .sidebar-logo{ filter:drop-shadow(0 2px 10px rgba(46,116,242,.45)); }
+
+/* ───── presence indicators (AMS · USB stick) — a light, not a control ───── */
+/* Mainsail draws a toggle beside every filament sensor. Ours are connection
+   indicators with nothing to switch off, so the toggle is dimmed and disarmed.
+   Cosmetic only: arco_presence_sensor refuses to be disabled regardless, so a
+   Mainsail release that renames this class cannot break the indicator. */
+._filamentRunout-subheader > .v-icon:last-child{
+  pointer-events:none; opacity:.3; cursor:default;
+}
+/* Mainsail's "not detected" amber reads as a warning; for "not plugged in" the
+   brand-red is the honest colour. Scoped to the sensor row, never global. */
+._filamentRunout-subheader .warning--text{ color:#ff4d4f!important; }

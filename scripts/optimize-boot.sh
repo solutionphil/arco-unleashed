@@ -835,6 +835,23 @@ ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-reconcile-check.sh
 EOF
   echo "  klipper: reconcile check (ExecStartPre) installed"
 fi
+
+# Mainsail theme refresh. Deliberately LAST of the drop-ins and outside the config chain: it writes
+# nothing klippy reads, so a slow or failing run must not stand between the printer and its start.
+#
+# It closes the delivery gap the theme had from the beginning. Mainsail reads the theme from
+# printer_data/config/.theme/ -- which is exactly why it survives a Mainsail update -- but the kit
+# only ever copied it there ONCE, at install. Every later change to mainsail-theme/variants/ reached
+# the clone and stopped, while the printer went on serving its old copy and the update reported
+# success. The script only refreshes a theme that is already installed, and never deletes.
+if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-theme-variants.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/klipper.service.d/26-arco-theme.conf" <<EOF
+[Service]
+ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-theme-variants.sh
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  echo "  klipper: Mainsail theme refresh (ExecStartPre) installed"
+fi
 _kit_commit=""
 if [ -d "$SELFDIR/../.git" ] && command -v git >/dev/null 2>&1; then
   git config --global --add safe.directory "$(cd "$SELFDIR/.." && pwd)" 2>/dev/null || true
