@@ -45,9 +45,21 @@ CFG="${1:-${ARCO_CONFIG:-$HOME/printer_data/config}}"
 SRC="$SELFDIR/../mainsail-theme"
 VAR="$CFG/.theme-variants"
 
+# 🔴 SILENT ON A BOOT, TALKATIVE IN A SHELL. This runs before every klipper start, so a line per
+# boot would be journal noise for a script that usually has nothing to do -- but the same silence
+# made a hand run useless: on 19.08.2026 an owner ran it to find out why the theme had not arrived
+# and got back nothing at all, which is indistinguishable from a script that bailed out on its
+# first line. Whoever is watching a terminal wants the reasoning; the journal does not.
+say() { if [ -t 1 ]; then echo "$@"; fi; return 0; }
+
 # Nothing to copy from (older kit layout) or nothing to copy into (theme not installed).
-[ -d "$SRC/variants" ] || exit 0
+if [ ! -d "$SRC/variants" ]; then
+  say "  theme: no $SRC/variants in this kit — nothing to copy from."
+  exit 0
+fi
 if [ ! -d "$VAR" ]; then
+  say "  theme: $VAR does not exist, so the Arco theme is not installed here."
+  say "  theme: install it first:  bash $SELFDIR/../mainsail-theme/setup-theme-macros.sh"
   exit 0
 fi
 
@@ -79,7 +91,13 @@ if [ -f "$SRC/unleashed-theme.sh" ]; then
   fi
 fi
 
-[ "$changed" = 1 ] || exit 0
+if [ "$changed" != 1 ]; then
+  # The commonest outcome by far, and the one that has to be legible when somebody is asking
+  # "why has my theme not changed?" -- the answer is here, not in a missing message.
+  say "  theme: the installed variants already match the kit; nothing to do."
+  say "  theme: active variant: $(cat "$CFG/.theme-state" 2>/dev/null || echo unknown)"
+  exit 0
+fi
 
 # Rebuilding is what makes the update visible. Only for a variant that is actually active: 'stock'
 # means the owner turned the theme off, and .theme/ does not exist — recreating it here would turn
