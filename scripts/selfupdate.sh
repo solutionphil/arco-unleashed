@@ -231,11 +231,18 @@ after_update(){
   state=$(curl -s --max-time 4 http://127.0.0.1:7125/printer/objects/query?print_stats 2>/dev/null \
           | tr ',{}' '\n' | sed -n 's/.*"state"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' | head -1)
   case "${state:-}" in
+    # 🔴 NOT "config fixes". That wording is why an owner on 19.08.2026 updated, saw no change and
+    # reasonably concluded the update had not worked: they had pulled a THEME change, which is not
+    # "config", so nothing suggested a restart was needed. Every guard this kit installs is an
+    # ExecStartPre on klipper.service -- the extras, the AddOn.cfg merge, the Mainsail theme -- so
+    # the honest sentence names what actually arrives rather than one part of it.
     printing|paused)
-      echo "Config fixes land when the klipper service restarts. The printer is $state right now, so"
-      echo "leave it alone — run this once the print has finished:  sudo systemctl restart klipper";;
+      echo "This lands when the klipper service restarts — config features, Klipper extras and the"
+      echo "Mainsail theme all arrive then. The printer is $state right now, so leave it alone and"
+      echo "run this once the print has finished:  sudo systemctl restart klipper";;
     *)
-      echo "Config fixes land when the klipper SERVICE starts (Klipper's own RESTART does not):"
+      echo "This lands when the klipper SERVICE starts (Klipper's own RESTART does not) — config"
+      echo "features, Klipper extras and the Mainsail theme all arrive then:"
       echo "  sudo systemctl restart klipper";;
   esac
 }

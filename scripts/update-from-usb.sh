@@ -112,8 +112,9 @@ cat <<TXT
    bash $KIT/scripts/check-guards.sh      # a kit update does not rewire the guards
    bash $KIT/scripts/unleashed_setup.sh
 
- If the update fixed something in the printer config, it lands when the klipper
- SERVICE starts — Klipper's own RESTART / FIRMWARE_RESTART does not run the guard:
+ The update lands when the klipper SERVICE starts — Klipper's own RESTART /
+ FIRMWARE_RESTART does not run the guards. Config features, Klipper extras and
+ the Mainsail theme all arrive then:
    sudo systemctl restart klipper
 
  If anything is wrong, the previous kit is intact at:
