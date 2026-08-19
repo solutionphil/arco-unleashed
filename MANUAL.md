@@ -990,7 +990,9 @@ Choose **`[c]heckbox features`** to toggle individual add-ons — space toggles,
 <p align="center"><img src="assets/manual/addon-features-checklist.png" alt="AddOn features checklist" width="820"></p>
 
 These are the quality-of-life macros: AMS auto-mode, the `G30` mesh fix, Z-tilt / bed-mesh / screw-tilt
-helpers, M600 filament change, chamber light, PID board-fan, input shaper, piezo chime. Toggling restarts
+helpers, M600 filament change, chamber light, PID board-fan, input shaper, piezo chime, and the AMS /
+USB-stick connection indicators under *Miscellaneous* (green when connected, red when not — a light, not
+a button: clicking it does nothing on purpose). Toggling restarts
 Klipper and verifies it comes back up (with a one-click rollback if a config error slips in).
 
 > Turning **G30** off reverts to Phrozen's original throwaway-mesh behaviour (the mesh fix is lost) — the

@@ -1163,6 +1163,40 @@ gcode:
     {% endif %}
 #@ENDFEAT
 
+#@FEAT presence | "Is it plugged in?" indicators for the AMS and a USB stick (display only)
+# -----------------------------------------------------------------------------
+# TWO INDICATORS THAT ARE READ, NOT OPERATED
+# -----------------------------------------------------------------------------
+# Mainsail and Fluidd never showed whether the AMS or a USB stick was connected.
+# M117 / SET_DISPLAY_TEXT is the wrong place for that -- it is one shared line and
+# the macros in this very file overwrite it -- and a permanent widget would mean
+# forking Mainsail, which every Mainsail update then deletes.
+#
+# Both interfaces do render one thing permanently and by name: a filament sensor,
+# with a green/amber state. arco_presence_sensor publishes these two as exactly
+# that, so they appear under Miscellaneous with no fork and no patch.
+#
+# They are DISPLAY ONLY. Neither has a runout script, neither can pause a print,
+# and neither can be switched off from the interface -- the extra answers the
+# toggle politely and stays on, so a click cannot grey out the light. See
+# scripts/arco_presence_sensor.py for why that is enforced there rather than in
+# the theme CSS.
+#
+# The AMS state is NOT measured here. [arco_tool_gate] already owns that question
+# and publishes ams_present; this only shows the answer, so the indicator and the
+# tool gate can never disagree.
+# -----------------------------------------------------------------------------
+[arco_presence_sensor AMS]
+printer_object: arco_tool_gate
+status_field: ams_present
+
+# Where our own udev automount puts a stick (system/arco-usb-mount), which is also
+# where the Phrozen display looks for firmware. Checked as a MOUNT, not as a path:
+# the directory is created once and stays behind when the stick is pulled.
+[arco_presence_sensor USB_Stick]
+mount_point: /home/mks/printer_data/gcodes/USB
+#@ENDFEAT
+
 # >>> arco-update-console >>>
 # -----------------------------------------------------------------------------
 # UPDATE THE KIT FROM THE CONSOLE

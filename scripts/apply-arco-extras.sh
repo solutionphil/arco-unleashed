@@ -31,11 +31,15 @@ DEST="$KL/klippy/extras"
 # arco_fila_status.py is read-only (it publishes phrozen_dev's filament state, which that module
 # keeps to itself) — but it is restored like the rest, because the print-start warning it emits is
 # the only signal a user gets that a print is running without runout protection.
+# arco_presence_sensor.py registers the AMS / USB-stick connection indicators under the object name
+# Mainsail and Fluidd read filament sensors from. Missing it does not merely hide the indicators:
+# their [arco_presence_sensor ...] sections arrive with the same update, and a section whose module
+# is absent is not a missing feature, it is a refused config.
 # 🔴 A NEW EXTRA MUST BE ADDED HERE, and it is not optional: AddOn.cfg is delivered by addon_merge
 # at the same update, so a config section can arrive whose module does not. klippy then refuses the
 # WHOLE config -- "Section ... is not a valid config section" -- on a printer that worked a minute ago.
 for f in arco_tool_gate.py arco_sdcard_select.py gcode_shell_command.py arco_mcu_timing.py \
-         arco_fila_status.py arco_virtual_pins.py; do
+         arco_fila_status.py arco_virtual_pins.py arco_presence_sensor.py; do
   src="$SELFDIR/$f"; dst="$DEST/$f"
   [ -f "$src" ] || { echo "WARN: kit source $src missing — skipped"; continue; }
   if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
