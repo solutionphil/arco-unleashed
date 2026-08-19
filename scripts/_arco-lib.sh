@@ -482,9 +482,19 @@ a_fluidd(){  # second web interface on :8808 — the port the stock Arco uses
     printf "           already exists (Phrozen ships Fluidd there); only the\n"
     printf "           files are missing.\n"
   fi
-  printf "   [i]nstall / update to the latest release  /  ENTER=back: "; read -r y
+  printf "   [i]nstall / update to the latest release\n"
+  printf "   [s]how the AMS / USB-stick indicators (Fluidd hides that card by default)\n"
+  printf "   ENTER=back: "; read -r y
   case "$y" in
     i|I) bash "$DIR/install-fluidd.sh";;   # needs internet; no restart, safe during a print
+    # Shown before it is applied: this rearranges the owner's own dashboard, so it prints what it
+    # would do and waits. Safe during a print -- it writes one flag to the Moonraker database.
+    s|S) python3 "$DIR/../fluidd-theme/show-runout-card.py" || return
+         printf "   apply? [y/N]: "; read -r a
+         case "$a" in
+           y|Y) python3 "$DIR/../fluidd-theme/show-runout-card.py" --write;;
+           *) echo "  (unchanged)";;
+         esac;;
     *) echo "  (unchanged)";;
   esac
 }
