@@ -125,3 +125,24 @@
 /* Mainsail's "not detected" amber reads as a warning; for "not plugged in" the
    brand-red is the honest colour. Scoped to the sensor row, never global. */
 ._filamentRunout-subheader .warning--text{ color:#ff4d4f!important; }
+
+/* ───── presence indicators: say "connected", not "Detected"/"Empty" ───── */
+/* The words come from Mainsail's i18n ($t('…RunoutSensor.Empty')), not from our
+   data, so they cannot be set from the Klipper side. What CAN be reached is the
+   class on the element: statusColor puts success--text on a detected sensor and
+   warning--text on one that is not, so the state is in the DOM and CSS can read
+   it. Original text collapsed to zero and replaced on the pseudo-element, which
+   inherits the state colour by itself — no colour is repeated here.
+   0.7rem is derived, not guessed: .v-subheader is 0.875rem (14px) and <small>
+   renders at 0.8em of it = 11.2px = 0.7rem.
+   🔴 This applies to EVERY filament-sensor row, because the rows carry no name in
+   the DOM to scope on. The kit ships no other filament sensor — phrozen_dev
+   publishes none and arco_fila_status deliberately reports under its own object
+   name — so today these two are the only rows. Add a real filament sensor and it
+   would read "connected" instead of "Detected", which for filament is wrong. */
+._filamentRunout-subheader small.success--text,
+._filamentRunout-subheader small.warning--text{ font-size:0; }
+._filamentRunout-subheader small.success--text::after,
+._filamentRunout-subheader small.warning--text::after{ font-size:.7rem; font-weight:600; }
+._filamentRunout-subheader small.success--text::after{ content:"connected"; }
+._filamentRunout-subheader small.warning--text::after{ content:"not connected"; }
