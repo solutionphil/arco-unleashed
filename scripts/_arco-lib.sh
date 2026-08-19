@@ -493,11 +493,20 @@ a_theme(){   # Mainsail theme: Voron light/dark or stock (off)
   [ -f "$TS" ] || { printf "   Mainsail theme not installed yet. Install it with:\n     bash %s/../mainsail-theme/setup-theme-macros.sh\n" "$DIR"; return; }
   printf "   %s\n" "$(sh "$TS" | head -1)"
   printf "   theme  [l]ight  /  [d]ark  /  o[f]f (stock)\n"
+  printf "   [o]rder the Miscellaneous panel\n"
   printf "   [r]einstall theme + macro groups  /  ENTER=back: "; read -r t
   case "$t" in
     l|L) sh "$TS" light;;
     d|D) sh "$TS" dark;;
     f|F) sh "$TS" stock;;
+    # Shown first, applied only on confirmation. It prints the order it believes the panel has,
+    # and that is the one thing the owner can check against the screen and this script cannot.
+    o|O) python3 "$DIR/../mainsail-theme/panel-order.py" || return
+         printf "   apply this order? [y/N]: "; read -r y
+         case "$y" in
+           y|Y) python3 "$DIR/../mainsail-theme/panel-order.py" --write --rebuild;;
+           *) echo "  (unchanged)"; return;;
+         esac;;
     r|R) printf "   Re-applying Unleashed Mainsail (theme + macro groups/filters)...\n"
          bash "$DIR/../mainsail-theme/setup-theme-macros.sh" 2>/dev/null || true
          bash "$DIR/../mainsail-theme/mainsail-seed.sh" apply;;

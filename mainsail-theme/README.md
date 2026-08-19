@@ -42,6 +42,32 @@ refreshes the variants from the kit before every Klipper start, so a hand-writte
 there is replaced the next time the kit's copy differs — quietly, and possibly weeks
 later. `local.css` is the file that survives.
 
+### Ordering the Miscellaneous panel
+`panel-order.py` puts that panel in the kit's preferred order — the chamber light and
+the AMS / USB-stick indicators on top, the fans below, the things nobody touches last:
+
+```bash
+python3 ~/arco-unleashed/mainsail-theme/panel-order.py                  # show, change nothing
+python3 ~/arco-unleashed/mainsail-theme/panel-order.py --write --rebuild
+```
+(or Setup menu → `t) theme` → `o`.)
+
+**Why a script and not a stylesheet.** Mainsail renders the panel as fixed groups in a
+fixed order and sorts the first one by type → pwm → controllable → name, so the
+indicators can never be moved above the fans by naming or config. CSS *can* reorder
+them — but the rows carry no name in the DOM, only a position, and those positions
+depend on which objects your printer has. Switch the beeper feature off and every row
+below it moves up by one. So the wanted order is written by **name** and the positions
+are computed per printer, from what Moonraker reports.
+
+It prints the order it believes your panel currently has before writing anything.
+**Compare that with the screen** — it replays Mainsail's own sorting, and a mismatch
+means that sorting has changed and the result should not be applied.
+
+Your own order: `.theme-variants/panel-order.txt`, one object name per line. Names your
+printer does not have are skipped; objects you do not name keep their place at the end.
+The result goes into `local.css` between markers, so the rest of that file is yours.
+
 It takes effect on the next theme rebuild — either the refresh guard doing it for you,
 or `sh unleashed-theme.sh light` by hand. Then hard-reload Mainsail (Ctrl+F5).
 
