@@ -92,6 +92,30 @@ if [ -f "$TPL" ] && [ -f "$ADDON" ]; then
   done
 fi
 
+# --- the KAOS console front door -------------------------------------------------------------------
+#
+# kaos-bridge.cfg carries KAOS_ON / KAOS_OFF / KAOS_UPDATE / KAOS_STATUS. It is OURS, not the
+# owner's, and nothing was updating it: the image build installs it once and the sideload copies
+# only its sibling kaos-ams-bridge.cfg. So a change to the front door reached freshly flashed
+# printers and nobody else -- the same shape as the P114 gate and the AddOn.cfg blocks, found on
+# 2026-08-20 when three withdrawn macros were still answering on a printer whose kit no longer had
+# them.
+#
+# Refresh, never install: only a file that is already there is replaced. A printer that never had
+# KAOS should not acquire the front door from an update, and the include that makes it live is the
+# sideload's business either way.
+#
+# The absolute path inside it points at the kit's own sideload script, so copying the kit's copy
+# carries the right path by construction -- that is what optimize-boot.sh's migration rewrite was
+# fixing up after a directory move.
+KB="$CFGDIR/kaos-bridge.cfg"
+KBSRC="$SELFDIR/../unleashed-x-kaos/config/kaos-bridge.cfg"
+if [ -f "$KB" ] && [ -f "$KBSRC" ] && ! cmp -s "$KBSRC" "$KB"; then
+  cp -a "$KB" "$KB.pre-refresh.bak"
+  install -m644 "$KBSRC" "$KB"
+  echo "  refreshed kaos-bridge.cfg from the kit (KAOS_* commands need a klipper restart)"
+fi
+
 # --- the update console -----------------------------------------------------------------------------
 #
 # Same reconciliation problem, different shape. ARCO_UPDATE / ARCO_UPDATE_CHECK are macros, not
