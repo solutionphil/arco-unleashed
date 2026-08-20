@@ -2065,15 +2065,15 @@ per-object exclusion:</p>
 <p align="center">
 <img src="assets/manual/orca-7-label-objects.png" alt="OrcaSlicer Others tab — tick Label objects" width="640">
 </p>
-<p><strong>The AMS flag, once, on the printer</strong> — not in the
-slicer. Set it to match whether an AMS is physically attached, either
-from the SSH setup menu or with one click in Mainsail’s Macros panel
-(<code>AMS ON</code> / <code>AMS OFF</code>, and <code>AMS STATUS</code>
-to check):</p>
-<p align="center">
-<img src="assets/manual/mainsail-ams-macros.png" alt="Mainsail Macros panel — AMS ON / AMS OFF / AMS STATUS buttons" width="820">
-</p>
-<p>With that set, Orca prints in the right mode automatically.</p>
+<p><strong>Nothing to set for the AMS.</strong> There used to be a flag
+here, switched by hand from the setup menu or from Mainsail — it is
+gone, and nothing replaces it. The unit enumerates as a USB serial
+device, the printer follows that by itself, and
+<code>PHROZEN_AMS_START</code> picks the right mode at the start of
+every print. Attach the AMS and slice; unplug it and print
+single-colour. <code>FILA_STATUS</code> in the console shows the current
+reading if you want to see it, and the <strong>AMS</strong> indicator
+under <em>Miscellaneous</em> shows it at a glance.</p>
 <hr />
 <p><a id="step-11"></a></p>
 <h2 id="step-11-optional-unleashed-kaos">Step 11 — <em>Optional:</em>
@@ -2203,7 +2203,7 @@ AMS: KAOS replaces the purge</h3>
 <p>KAOS includes <strong>magic_ams</strong>, which replaces the Arco’s
 proven firmware purge with a slicer-driven one (split into portions with
 a cooling kick between). With <code>KAOS_ON</code> <strong>and</strong>
-the AMS flag on, that is what runs on every colour change — the same
+an AMS attached, that is what runs on every colour change — the same
 behaviour KAOS users get upstream, where it cannot be switched off at
 all.</p>
 <p>Two things to know:</p>
