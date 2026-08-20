@@ -391,7 +391,6 @@ flowchart LR
 
     BR --> B1["r — Emergency repair<br/>runs every repair in order, idempotent,<br/>then reports what actually needed fixing"]
 
-    EX --> X1["a — AMS on / off"]
     EX --> X2["4 — AddOn.cfg + features<br/>Mainsail theme, Fluidd"]
     EX --> X3["5 — PhrozenGo / Cloud<br/>privacy tunnel, OTA, disable<br/>turn OFF before installing Obico"]
     EX --> X4["b — Beacon probe<br/>EXPERIMENTAL, not hardware-tested"]

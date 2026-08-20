@@ -192,7 +192,7 @@ update exists.
                                                 also: restore an image · go back to Buster
                   Check self-heal guards        (all wired? a kit update adds none)
    SOMETHING BROKE: Emergency repair            (halted, no display, update failing)
-   EXTRAS:        AMS on / off · PhrozenGo / Cloud · AddOn.cfg + Features
+   EXTRAS:        PhrozenGo / Cloud · AddOn.cfg + Features
                   Beacon probe (experimental) · Sensorless XY homing (alternative)
    UPDATE:        check GitHub for a newer version
 ```
