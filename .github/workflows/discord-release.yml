@@ -69,7 +69,11 @@ jobs:
             const contributors = [...new Set(commits
               .map(commit => commit.author?.login || commit.commit.author?.name)
               .filter(Boolean))];
-            const notes = (release.body || 'No release notes provided.').slice(0, 1800);
+            const rawNotes = release.body || 'No release notes provided.';
+            const notes = rawNotes
+              .replace(/(?:^|\n)#{1,6}\s*(?:📦\s*)?What to download\b[\s\S]*?(?=\n#{1,6}\s|$)/i, '\n')
+              .trim()
+              .slice(0, 1800);
             const compareUrl = previous
               ? 'https://github.com/' + owner + '/' + repo + '/compare/' + previous.tag_name + '...' + release.tag_name
               : release.html_url;
