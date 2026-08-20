@@ -1,0 +1,127 @@
+name: Discord release notifications
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to preview (leave empty for latest)
+        required: false
+        type: string
+      post_to_discord:
+        description: Post the manual test to Discord
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and send release notification
+        uses: actions/github-script@v8
+        env:
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const manual = context.eventName === 'workflow_dispatch';
+            const requestedTag = context.payload.inputs?.release_tag?.trim();
+
+            let release = context.payload.release;
+            if (manual) {
+              release = requestedTag
+                ? (await github.rest.repos.getReleaseByTag({ owner, repo, tag: requestedTag })).data
+                : (await github.rest.repos.getLatestRelease({ owner, repo })).data;
+            }
+
+            const releases = (await github.rest.repos.listReleases({ owner, repo, per_page: 50 })).data
+              .filter(item => !item.draft);
+            const currentIndex = releases.findIndex(item => item.id === release.id);
+            const previous = currentIndex >= 0
+              ? releases.slice(currentIndex + 1).find(item => !item.prerelease)
+              : undefined;
+
+            const commits = previous
+              ? (await github.rest.repos.compareCommitsWithBasehead({
+                  owner,
+                  repo,
+                  basehead: previous.tag_name + '...' + release.tag_name,
+                  per_page: 100
+                })).data.commits
+              : (await github.rest.repos.listCommits({ owner, repo, sha: release.tag_name, per_page: 15 })).data;
+
+            const shown = commits.slice(0, 10);
+            const commitLines = shown.map(commit => {
+              const subject = commit.commit.message.split('\n')[0].slice(0, 90);
+              const author = commit.author?.login || commit.commit.author?.name || 'Unknown';
+              return '[' + commit.sha.slice(0, 7) + '](' + commit.html_url + ') ' + subject + ' — ' + author;
+            });
+            if (commits.length > shown.length) {
+              commitLines.push('…and ' + (commits.length - shown.length) + ' more commits');
+            }
+
+            const contributors = [...new Set(commits
+              .map(commit => commit.author?.login || commit.commit.author?.name)
+              .filter(Boolean))];
+            const rawNotes = release.body || 'No release notes provided.';
+            const notes = rawNotes
+              .replace(/(?:^|\n)#{1,6}\s*(?:📦\s*)?What to download\b[\s\S]*?(?=\n#{1,6}\s|$)/i, '\n')
+              .trim()
+              .slice(0, 1800);
+            const compareUrl = previous
+              ? 'https://github.com/' + owner + '/' + repo + '/compare/' + previous.tag_name + '...' + release.tag_name
+              : release.html_url;
+
+            const embed = {
+              title: (manual ? '[PREVIEW] ' : '') + (release.name || release.tag_name),
+              url: release.html_url,
+              color: 0x5865F2,
+              description: notes,
+              author: {
+                name: release.author?.login || owner,
+                url: release.author?.html_url || ('https://github.com/' + owner)
+              },
+              fields: [
+                { name: 'Tag', value: release.tag_name, inline: true },
+                {
+                  name: 'Published',
+                  value: new Date(release.published_at || release.created_at)
+                    .toLocaleString('en-GB', { timeZone: 'UTC' }) + ' UTC',
+                  inline: true
+                },
+                { name: 'Commits', value: (commitLines.join('\n') || 'No commits found.').slice(0, 1024) },
+                { name: 'Contributors', value: (contributors.join(', ') || 'No contributors found.').slice(0, 1024) }
+              ],
+              footer: { text: owner + '/' + repo },
+              timestamp: release.published_at || release.created_at
+            };
+
+            const payload = {
+              username: 'GitHub Releases',
+              content: manual ? 'Release notification preview: ' + compareUrl : undefined,
+              embeds: [embed],
+              allowed_mentions: { parse: [] }
+            };
+
+            const shouldPost = !manual || context.payload.inputs?.post_to_discord === 'true';
+            if (!shouldPost) {
+              core.info('Preview generated successfully. Set post_to_discord to true to send it.');
+              core.info(JSON.stringify(payload, null, 2));
+              return;
+            }
+
+            const response = await fetch(process.env.DISCORD_RELEASE_WEBHOOK, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+              throw new Error('Discord webhook failed with HTTP ' + response.status + ': ' + await response.text());
+            }
+            core.info('Release notification sent to Discord.');
