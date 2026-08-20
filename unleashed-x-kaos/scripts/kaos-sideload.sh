@@ -49,7 +49,7 @@ MODULES="kaos_logging kaos_fans kaos_lights kaos_safety kaos_steppers kaos_beepe
          kaos_mesh kaos_z_tilt kaos_screws_tilt kaos_print_features kaos_tools
          kaos_filament_service kaos_menu"
 # magic_ams: resolved authoritatively just before the command dispatch (see bottom of
-# file) — explicit KAOS_MAGIC_AMS env wins, else the persisted state (so MAGIC_AMS_OFF
+# file) — explicit KAOS_MAGIC_AMS env wins, else the persisted state (so `magic-off`
 # sticks), else ON by default. Default-on matches what KAOS users expect: upstream has no
 # switch at all, so installing KAOS there always replaces the purge. This line is only the
 # pre-resolution default. See docs/magic-ams-adaptation.md.
@@ -392,7 +392,7 @@ activate() {
     local anchor; anchor="$(include_line 'AddOn.cfg')"
     [ -n "$anchor" ] || die "[include AddOn.cfg] not found in printer.cfg — refusing to touch it" 3
     # Capture the pre-KAOS printer.cfg ONCE. activate() runs again on every KAOS_UPDATE and
-    # MAGIC_AMS_ON, and an unguarded copy would overwrite the clean snapshot with one that
+    # `magic-on`, and an unguarded copy would overwrite the clean snapshot with one that
     # already carries the KAOS includes — so the emergency restore would re-inject them.
     # Same one-shot rule as the dev.py backup below.
     [ -f "$BACKUP/printer.cfg.pre-kaos" ] || cp -f "$PRINTER_CFG" "$BACKUP/printer.cfg.pre-kaos"
@@ -542,7 +542,7 @@ cmd_on() {
     state_put installed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     boot_guard_present || warn "boot guard is NOT installed — KAOS will not survive a Phrozen update or a Klipper hard-recover. Install it once: sudo $SELF_DIR/scripts/kaos-sideload.sh install-boot-guard"
     if [ "$MAGIC_AMS" = "1" ]; then
-        say "magic_ams is ON — colour changes use KAOS's ORCA_PURGE (MAGIC_AMS_STAGE STAGE=1 keeps the proven purge, MAGIC_AMS_OFF removes it)"
+        say "magic_ams is ON — colour changes use KAOS's ORCA_PURGE instead of the firmware spit"
     else
         say "magic_ams is off — the proven bucket purge stays in place"
     fi
@@ -594,7 +594,7 @@ cmd_update() {
 # we only record the choice, and KAOS_ON applies it.
 cmd_magic() {                     # $1 = 1 (on) | 0 (off)
     require_paths
-    # Same gate as the MAGIC_AMS_ON macro, for the SSH path. magic_ams only runs on the AMS
+    # The AMS gate, which used to live in a macro as well. magic_ams only runs on the AMS
     # tool-change path, which does not exist while ams=0 (M600 fallback, T1-T15 unregistered),
     # so enabling it there restarts Klipper and patches a config file to no observable effect.
     # KAOS_FORCE=1 for the prepare-before-the-AMS-is-attached case.
@@ -643,7 +643,7 @@ cmd_check() {
 
 # Resolve magic_ams authoritatively (state_get is defined by here). Precedence:
 #   1. explicit KAOS_MAGIC_AMS env
-#   2. the persisted state — so an explicit MAGIC_AMS_OFF survives every later KAOS_ON
+#   2. the persisted state — so an explicit `magic-off` survives every later KAOS_ON
 #      and KAOS_UPDATE, and is NOT overridden by the default below
 #   3. unset (fresh install) -> ON, matching upstream KAOS where there is no switch at all
 # state_get prints nothing for an absent key and still exits 0, so test for empty rather
