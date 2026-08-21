@@ -77,11 +77,51 @@ Two things to watch:
   QUICKSTART silently points at nothing. CI checks this.
 - **The `.html` files are generated**, not written. They are built from the markdown with pandoc. If
   you change a `.md`, leave the `.html` alone and say so in the PR — a maintainer regenerates it.
-  CI will note the mismatch; on a pull request that is a warning, not a failure.
+  On a **pull request** the mismatch is a warning. On a **push to a branch** it is a hard failure, so
+  a change that lands without its regenerated `.html` turns that branch red. See "Where a change
+  lands" below: work through a pull request and this cannot happen to you.
 
 Anchors: GitHub and pandoc disagree about how a heading with an em-dash becomes an anchor. That is why
 link targets carry an explicit `<a id="..."></a>` above the heading. If you add a cross-reference,
 point it at one of those, and CI will confirm it resolves.
+
+## Where a change lands
+
+There are three branches and they are a chain, not alternatives: **`alpha` → `beta` → `main`**. A
+printer's update channel is simply the branch its copy of the kit sits on, so moving a branch changes
+what real machines download.
+
+**Open every pull request against `alpha`.** Not against `main`, and not against `beta`. Proven work
+is carried downwards afterwards by a maintainer, as a fast-forward.
+
+**Never push straight to `main`, `beta` or `alpha`.** CI enforces the chain: `main` must be an
+ancestor of `beta`, and `beta` of `alpha`. A direct push to `main` puts commits there that the other
+two do not have, and the next push to either of them fails with
+
+```
+main carries N commit(s) that beta does not, so beta -> main is no longer a fast-forward
+```
+
+If it happens anyway, **repair downwards, never by rewriting**. Every clone in the field depends on
+these branches not moving underneath it, so a force-push is not an option even when it would be
+tidier. Merge in order — the first merge necessarily breaks the second link, which is why it has to be
+walked rather than done in one step:
+
+```bash
+git checkout -B _sync origin/beta && git merge --no-ff origin/main && git push origin _sync:refs/heads/beta
+git checkout -B _sync2 origin/alpha && git merge --no-ff origin/beta && git push origin _sync2:refs/heads/alpha
+```
+
+### Before you commit
+
+- Touching `README.md`, `MANUAL.md` or `QUICKSTART.md`? The matching `.html` has to move with it, or
+  the branch goes red. Open a pull request and say so rather than pushing.
+- Adding a Klipper extra under `scripts/`? Add it to the list in `scripts/apply-arco-extras.sh` in the
+  same change. Its config section arrives with the same update, and a section whose module is missing
+  is not a missing feature — klippy refuses the whole config.
+- Changing `config-templates/AddOn.cfg.template`? Read the header of `scripts/addon_merge.py` first.
+  That file is never regenerated on a printer that already has one, so only whole `#@FEAT` blocks
+  reach existing machines. A change *inside* an existing block reaches nobody.
 
 ## Licence
 
