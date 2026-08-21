@@ -30,7 +30,7 @@
 #
 # Usage:  python3 apply-macro-groups.py [--force]
 #         --force re-seeds even when groups exist (ids of same-named groups are still reused).
-import json, sys, urllib.request, uuid
+import json, os, sys, urllib.request, uuid
 
 API = "http://127.0.0.1:7125"
 FORCE = "--force" in sys.argv
@@ -162,7 +162,31 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         # whole panel into a print.
         g["showInPause"] = any(e.get("showInPause") for e in lst) or g.get("showInPause", False)
         g["showInPrinting"] = any(e.get("showInPrinting") for e in lst) or g.get("showInPrinting", False)
-    if added_ms or dropped_ms:
+    # 🔴 AND THE MODE, in the top-up path too. Setting it only while seeding was right until an image
+    # that had already seeded its groups took an update: the groups were all there, "Simple" hid every
+    # one of them, and top-up cheerfully added macros to a panel nobody could see. Reported from a
+    # printer flashed from an older image and updated through Mainsail (2026-08-21).
+    #
+    # Mainsail shows "Simple" both for an explicit "simple" and for no key at all, so the earlier
+    # reasoning -- absence means nobody chose, an explicit value means somebody did -- cannot be relied
+    # on from the outside. Instead: set it ONCE, record that we did, and never touch it again. Somebody
+    # who switches back to Simple afterwards keeps it, because the marker stops us from fighting them
+    # at every boot.
+    mode_set = False
+    ours = {name for name, _ in GROUPS}
+    have_ours = any(isinstance(g, dict) and g.get("name") in ours for g in ms_groups.values())
+    mark = os.path.expanduser("~/.arco-unleashed/mainsail-expert-set")
+    if have_ours and ms.get("mode") != "expert" and not os.path.exists(mark):
+        ms["mode"] = "expert"
+        mode_set = True
+        try:
+            os.makedirs(os.path.dirname(mark), exist_ok=True)
+            open(mark, "w").close()
+        except OSError:
+            pass
+        print("[macro-groups] Mainsail was on Simple, which hides groups entirely — switched to Expert "
+              "once. Switch it back in the macro settings if you prefer the flat list.")
+    if added_ms or dropped_ms or mode_set:
         call("POST", "/server/database/item", {"namespace": "mainsail", "key": "macros", "value": ms})
 
     # Fluidd: one flat list. "Placed" means it carries a categoryId; anything else is fair game.
