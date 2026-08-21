@@ -123,6 +123,33 @@ git checkout -B _sync2 origin/alpha && git merge --no-ff origin/beta && git push
   That file is never regenerated on a printer that already has one, so only whole `#@FEAT` blocks
   reach existing machines. A change *inside* an existing block reaches nobody.
 
+## Version numbers
+
+Three numbers, and the first one does not move.
+
+| position | when it changes | example |
+| --- | --- | --- |
+| major | never — this stays at `1` | `1.x.x` |
+| minor | new functionality | `1.1` → `1.2` |
+| patch | bug fixes, and anything a printer gains no behaviour from | `1.1.1` → `1.1.2` |
+
+The minor is reserved for functionality a printer actually gains. Documentation, CI, build
+tooling, repository housekeeping — anything that changes nothing about what runs on a machine —
+is a patch, however large the diff.
+
+Tags are annotated, named `vMAJOR.MINOR.PATCH`, and **never moved** — printers in the field clone
+this repository, and a tag that moves under them is the same breach as a rewritten branch.
+
+**Tag the commit an image is baked from, and tag it before building the kit bundle.** The version
+Moonraker shows in the update manager comes from `git describe` run against the clone inside the
+image, so an untagged commit leaves it nothing to describe against and it falls back to an inferred
+`v0.0.0-<count>-g<sha>`. Both halves of that have bitten already: a bundle built without `--tags`
+carried no tags at all, and before `v1.1.0` existed the nearest tag was `full/1.0`.
+
+`full/1.0` is a **release name, not a version**, and it is the reason a printer once reported
+`v0.0.0-231-gfull/1.0-89-g7421520e-inferred`. It stays where it is because the published release
+points at it. Do not add more tags that are not versions.
+
 ## Licence
 
 This project is **AGPL-3.0**. By contributing you agree your contribution is licensed the same way.
