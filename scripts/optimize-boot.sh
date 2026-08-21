@@ -860,7 +860,15 @@ fi
 _kit_commit=""
 if [ -d "$SELFDIR/../.git" ] && command -v git >/dev/null 2>&1; then
   git config --global --add safe.directory "$(cd "$SELFDIR/.." && pwd)" 2>/dev/null || true
-  _kit_commit="$(git -C "$SELFDIR/.." rev-parse HEAD 2>/dev/null || true)"
+  # -c safe.directory, not just the --global write above. This runs as ROOT against a clone owned by
+  # the printer's user, and git refuses that as "dubious ownership" unless it is allowed. The --global
+  # write needs a HOME to land in, and under systemd-run there need not be one -- so it did nothing,
+  # rev-parse returned nothing, and the fallback below stamped the flat .kit-commit that ships INSIDE
+  # the image. That value never changes, so the stamp could never match the kit, and once drop-in 25
+  # existed the reconcile re-armed on EVERY klipper start -- a full optimize-boot run each time.
+  # Found on a printer stamped 5d1efdfa (the full/1.0 commit) while its kit was 89 commits further on.
+  _kit_commit="$(git -c safe.directory='*' -C "$SELFDIR/.." rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$_kit_commit" ] || echo "  WARNING: clone present but HEAD unreadable -- .kit-commit is stale"
 fi
 [ -n "$_kit_commit" ] || _kit_commit="$(tr -dc '0-9a-f' < "$SELFDIR/../.kit-commit" 2>/dev/null | head -c 40)"
 if [ -n "$_kit_commit" ] && [ -d "$AHOME/printer_data" ]; then
