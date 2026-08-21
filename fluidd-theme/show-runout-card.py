@@ -129,6 +129,13 @@ def main():
     ap.add_argument('--config', default=os.path.expanduser('~/printer_data/config'))
     ap.add_argument('--off', action='store_true', help='hide the card again')
     ap.add_argument('--write', action='store_true', help='apply (default: show only)')
+    # Unattended first-run use, and the ONLY automatic path. The rule above still holds: this
+    # refuses the moment a layout exists, so it can never edit an arrangement somebody made --
+    # it only fills a dashboard nobody has touched, which is what the macro-group seeder next to
+    # it already does. Without it the card stayed hidden on every printer whose owner never went
+    # looking in the setup menu, which is the point of shipping the indicators at all.
+    ap.add_argument('--seed', action='store_true',
+                    help='write, but only when no layout is stored yet (first-run use)')
     args = ap.parse_args()
     enable = not args.off
 
@@ -137,6 +144,12 @@ def main():
     except Exception as exc:
         print("Could not ask Moonraker at %s: %s" % (args.moonraker, exc))
         return 1
+
+    if args.seed:
+        args.write = True
+        if layouts:
+            print("Fluidd already has a stored layout — leaving it alone.")
+            return 0
 
     created = False
     if not layouts:
