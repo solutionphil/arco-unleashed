@@ -30,6 +30,31 @@ fi
 # runs as root, and does not hold up the klipper start behind it.
 _kit="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
 _mark="$(cd "$_kit/.." 2>/dev/null && pwd)/printer_data/.arco-reconcile-pending"
+# ARM IT FROM HERE TOO, or the guard that notices a web update reaches nobody who needs it.
+# apply-reconcile-check.sh is what spots that a `git pull` from Mainsail or Fluidd moved the kit without
+# ever calling after_update(). But it is installed as klipper drop-in 25 by optimize-boot.sh, which puts
+# it out of reach of precisely the printers it exists for: an image older than that guard can only
+# receive it through a web update, and a web update is the one path that never applies it.
+#
+# Not a theory. A printer flashed from an older image and updated through Mainsail on 2026-08-21 had no
+# macro groups in either interface, no dashboard layout, and a two-month-old theme -- every file present
+# on disk, nothing root-side ever applied, and no stamp at all, because optimize-boot.sh had never once
+# run there.
+#
+# Drop-in 19 is the way back in: it has been installed far longer, it already runs with '+', and THIS
+# file arrives by a plain `git pull` like any other. So the check is called from here, where the old
+# printers actually see it, and acted on in the same pass rather than one klipper start later.
+if [ -n "$_kit" ] && [ ! -f "$_mark" ] && [ -x "$_kit/scripts/apply-reconcile-check.sh" ]; then
+  # bash, not sh: it declares bash and is not dash-clean -- the same trap as optimize-boot.sh below.
+  # Its output is dropped on purpose. It ends by asking for a power-cycle, which is untrue here: the
+  # block below does the work in this very pass.
+  /bin/bash "$_kit/scripts/apply-reconcile-check.sh" >/dev/null 2>&1 || true
+  # Armed as root here, but as the owner from selfupdate.sh. A root-owned marker the owner cannot
+  # rewrite would break that other path silently, so hand ownership straight back.
+  if [ -f "$_mark" ]; then
+    chown --reference="$_kit" "$_mark" 2>/dev/null || true
+  fi
+fi
 if [ -n "$_kit" ] && [ -f "$_mark" ] && [ -x "$_kit/scripts/optimize-boot.sh" ]; then
   # Consumed FIRST. If optimize-boot.sh fails or the power goes out mid-run it must not re-arm itself
   # into a loop that runs on every single boot -- the next update will notice and ask again.
@@ -52,3 +77,9 @@ if [ -n "$_kit" ] && [ -f "$_mark" ] && [ -x "$_kit/scripts/optimize-boot.sh" ];
     echo "ensure-imageid: post-update setup pending, but systemd-run is missing — run: sudo bash $_kit/scripts/optimize-boot.sh"
   fi
 fi
+
+# The ExecStartPre that runs this is prefixed '+' but NOT '-', so a non-zero exit here does not
+# merely get logged -- it stops klipper from starting at all. Every job in this file is a
+# best-effort self-heal, and none of them is worth trading a printer that boots for one that does
+# not. The block above deliberately ends in commands that are allowed to fail.
+exit 0
