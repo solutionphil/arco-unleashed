@@ -26,18 +26,28 @@ jobs:
   # a pull request on 2026-08-15 that carried a whole feature under the title of a README badge.
   # "Clean" means free of conflicts, not correct. So the check has to be mechanical.
   #
-  # Only this one direction. beta -> main is a fast-forward push rather than a pull request, and a
-  # feature branch may legitimately target any of the three.
+  # EVERY channel, not just alpha -> main. That narrower rule predates CONTRIBUTING.md saying
+  # plainly that pull requests go to alpha and nowhere else, and the gap between the two is not
+  # theoretical: a grouped dependency bump sat on 'Ready to merge' against main, because nothing
+  # checked a head branch that was not called alpha. Merging it there would have put a commit on
+  # main that beta and alpha lack, and the next promotion would have stopped being a
+  # fast-forward. Promotions are pushes, never pull requests, so nothing legitimate is blocked.
   channel-order:
     name: Channel order
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.head_ref == 'alpha' && github.base_ref == 'main'
+    if: github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'beta')
     steps:
-      - name: alpha does not go straight to main
+      - name: pull requests go to alpha
         run: |
-          echo "::error::A change moves alpha -> beta -> main. This pull request skips beta."
-          echo "If it is ready for testers, open it against 'beta' instead."
-          echo "If beta is simply behind, fast-forward it:  git push origin origin/alpha:refs/heads/beta"
+          echo "::error::Pull requests go to 'alpha'. This one targets '${{ github.base_ref }}'."
+          echo "A change moves alpha -> beta -> main, and those two steps are fast-forward pushes by a"
+          echo "maintainer, never merges. Merging here would leave commits on '${{ github.base_ref }}'"
+          echo "that the branches above it do not have, and the next promotion would stop being a"
+          echo "fast-forward -- the breakage CONTRIBUTING.md describes under 'Where a change lands'."
+          echo ""
+          echo "Re-target this pull request at 'alpha'. To promote what is already there:"
+          echo "  git push origin origin/alpha:refs/heads/beta"
+          echo "  git push origin origin/beta:refs/heads/main"
           exit 1
 
   # The three channels only work while they are one line: main an ancestor of beta, beta of alpha. That

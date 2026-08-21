@@ -3,12 +3,17 @@
 # package.json, no go.mod -- so no other ecosystem has anything to look at. Adding one
 # would produce a permanently empty check rather than coverage.
 #
-# The four actions it watches live in .github/workflows: checkout, setup-python,
-# upload-pages-artifact and deploy-pages.
+# The actions it watches live in .github/workflows: checkout, setup-python,
+# upload-pages-artifact, deploy-pages and github-script.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    # ALPHA, not the default branch. Without this Dependabot opens against main, which is the one
+    # place a pull request must never land: main is reached by fast-forward from beta, so a merge
+    # there leaves commits the other two channels lack and the next promotion stops working. One
+    # such pull request reached "Ready to merge" before anyone noticed.
+    target-branch: "alpha"
     schedule:
       interval: "weekly"
     # One pull request for all of them instead of one each -- four separate PRs a month for
