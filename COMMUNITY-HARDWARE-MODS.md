@@ -45,6 +45,16 @@ carefully shortened, degreased and bonded blade.
 - **Download:** [ARCO Extruder Filament Cutter](https://www.printables.com/model/1754871-arco-extruder-filament-cutter)
 - **Caution:** The blade is sharp and can become a projectile while being shortened. Follow the cutting template and safety instructions.
 
+### Chroma Top Clip
+
+Guides filament through a short PTFE tube and prevents it from rubbing against the edge of the
+Chroma Kit feed inlet. The author documented successful filament feeding and switching with a
+demonstration video.
+
+- **Author:** Stephan Phee
+- **Discussion and test video:** [Facebook group thread](https://www.facebook.com/groups/274599705235544/posts/708794245149419/)
+- **Download:** [Phrozen Arco Chroma Top Clip](https://cults3d.com/en/3d-model/tool/phrozen-arco-chroma-top-clip)
+
 ### Rear-mounted part-cooling duct and extruder cover
 
 Moves part cooling to a modified rear cover and uses a 24 V, 8500 RPM GDSTIME 5015 fan. The author
@@ -107,6 +117,16 @@ compatibility was not demonstrated.
 - **Author:** Philippe Humeau
 - **Discussion:** [Facebook group thread](https://www.facebook.com/groups/274599705235544/posts/879462048082637/)
 - **Download:** No public model package linked in the source thread
+
+### Chroma Kit Feeder Clip Enhanced v1
+
+An extended feeder-clip design from the Chinese-language Arco community. Rod Forman reposted the
+files with the creator's permission. It remains in Testing until a documented functional test is
+available.
+
+- **Author:** Tommy Liu / suikaphotography
+- **Source and attached download:** [Facebook group search](https://www.facebook.com/groups/274599705235544/search/?q=Chroma%20Kit%20Feeder%20Clip%20Enhanced)
+- **Public download:** No stable public package has been located yet
 
 ## Maintenance tools
 
