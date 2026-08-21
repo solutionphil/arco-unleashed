@@ -137,6 +137,10 @@ The minor is reserved for functionality a printer actually gains. Documentation,
 tooling, repository housekeeping — anything that changes nothing about what runs on a machine —
 is a patch, however large the diff.
 
+**A version bundles several commits.** Tags are cut when an image is built, not once per commit --
+numbering every merge would be noise rather than diligence. Between two tags a printer reports
+`vX.Y.Z-<n>-g<sha>`, which says exactly what it is: that version plus n commits.
+
 Tags are annotated, named `vMAJOR.MINOR.PATCH`, and **never moved** — printers in the field clone
 this repository, and a tag that moves under them is the same breach as a rewritten branch.
 
