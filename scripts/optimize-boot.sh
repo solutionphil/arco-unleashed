@@ -753,6 +753,11 @@ Wants=moonraker.service
 Type=oneshot
 ExecStart=/bin/bash $SELFDIR/apply-console-filters.sh
 ExecStart=-/usr/bin/python3 $SELFDIR/apply-macro-groups.py
+# Third seed, same preconditions, same one-shot nature: Fluidd ships the card our AMS and
+# USB-stick indicators are drawn on DISABLED, so installing the indicators left them invisible on
+# the second interface. --seed refuses the moment a layout exists, so it fills an untouched
+# dashboard and never edits somebody's arrangement.
+ExecStart=-/usr/bin/python3 $SELFDIR/../fluidd-theme/show-runout-card.py --seed
 Nice=10
 IOSchedulingClass=idle
 
