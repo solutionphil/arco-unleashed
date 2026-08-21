@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://github.com/solutionphil/arco-unleashed/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/solutionphil/arco-unleashed/ci.yml?branch=main&amp;label=CI"></a>
   <a href="https://solutionphil.github.io/arco-unleashed/"><img alt="Documentation" src="https://img.shields.io/badge/docs-manual%20%C2%B7%20quickstart-2f52d6"></a>
+  <a href="COMMUNITY-HARDWARE-MODS.md"><img alt="Community hardware mods" src="https://img.shields.io/badge/community-hardware%20mods-6b7280"></a>
   <img alt="Klipper v0.13" src="https://img.shields.io/badge/Klipper-v0.13-2f52d6">
   <img alt="Debian Bookworm, kernel 6.18" src="https://img.shields.io/badge/Debian-Bookworm%20%C2%B7%20kernel%206.18-a81d33">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0" src="https://img.shields.io/badge/licence-AGPL--3.0-2f52d6"></a>
