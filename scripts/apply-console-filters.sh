@@ -46,7 +46,7 @@ curl -fsS --max-time 3 "$API/server/info" >/dev/null 2>&1 || {
   echo "[console-filters] Moonraker did not answer — nothing seeded"; exit 0; }
 
 python3 - "$API" "$ID" "$NAME" "$RE" <<'PY'
-import json, sys, urllib.request
+import hashlib, json, os, sys, urllib.request
 
 api, fid, name, regex = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].strip()
 
@@ -61,12 +61,37 @@ api, fid, name, regex = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].strip
 #
 # Append the outgoing hash here whenever the regex changes; never remove one.
 SHIPPED = {
-    "d2a164bb2a99",   # first version, seeded from 2026-08-09
+    "d2a164bb2a99",   # first, seeded from 2026-08-09
+    "1eff88c845ac",   # 2026-08-23, the (cmds.py) and serial-narration pass
 }
 
+# 🔴 AND A MARKER, because the list above is maintained by hand and I already forgot it once -- one
+# commit after writing "append the outgoing hash whenever the regex changes" the regex changed and
+# the hash did not, so the guard correctly refused to touch a filter it had written itself and the
+# fix reached nobody. The list still matters: it is the only way to recognise a printer seeded before
+# markers existed. From here on the marker carries it, so nothing has to be remembered.
+MARK = os.path.expanduser("~/.arco-unleashed/console-filter.regex")
+
+def _marked():
+    try:
+        with open(MARK, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except Exception:
+        return None
+
+def _mark(value):
+    try:
+        os.makedirs(os.path.dirname(MARK), exist_ok=True)
+        with open(MARK, "w", encoding="utf-8") as fh:
+            fh.write(value)
+    except Exception:
+        pass          # a filter that cannot be re-updated later is better than a failed boot seed
+
 def ours(stored):
-    import hashlib
-    return hashlib.sha256((stored or "").strip().encode("utf-8")).hexdigest()[:12] in SHIPPED
+    stored = (stored or "").strip()
+    if stored and stored == _marked():
+        return True
+    return hashlib.sha256(stored.encode("utf-8")).hexdigest()[:12] in SHIPPED
 
 def call(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
@@ -83,6 +108,12 @@ def get(ns, key):
 
 def put(ns, key, value):
     call("POST", "/server/database/item", {"namespace": ns, "key": key, "value": value})
+
+# 🔴 ONE MARK, AT THE END. Writing it inside the Mainsail branch moved the goalposts before the
+# Fluidd branch had been asked: the second interface then compared its own, older, perfectly
+# legitimate regex against a marker that already said the new one, decided it was somebody
+# else's edit, and left it behind. Mainsail updated, Fluidd did not. The test caught it.
+wrote = False
 
 # Mainsail keeps a dict keyed by id: {id: {name, bool, regex}}
 cur = get("mainsail", "console.consolefilters")
@@ -102,6 +133,7 @@ else:
     merged[fid] = {"name": name, "bool": True if was is None else bool(was.get("bool", True)),
                    "regex": regex}
     put("mainsail", "console.consolefilters", merged)
+    wrote = True
     print("[console-filters] mainsail: %s" % ("updated" if was else "seeded"))
 
 # Fluidd keeps a list: [{id, enabled, name, type, value}]
@@ -116,6 +148,10 @@ else:
     merged.append({"id": fid, "name": name, "type": "expression", "value": regex,
                    "enabled": True if _mine is None else bool(_mine.get("enabled", True))})
     put("fluidd", "console.consoleFilters", merged)
+    wrote = True
     print("[console-filters] fluidd: %s" % ("updated" if _mine else "seeded"))
+
+if wrote:
+    _mark(regex)
 PY
 exit 0
