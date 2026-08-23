@@ -32,7 +32,7 @@ ID=arco-unleashed-phrozen-noise
 NAME='Arco Unleashed: Phrozen noise'
 
 read -r -d '' RE <<'REGEX'
-(^\s*(try:?|with open|self\.|json_data)|串口[12]第1次打开失败|没有连接任何AMS多色，连接AMS失败|未能打开(任何)?tty.*|\+AMSERROR:\d+|current_directory=/home/mks/klipper|\((dev|cmds|base)\.python\)|Lo_PauseStatus\['is_paused'\]='False'|当前暂停状态-Lo_PauseStatus='\{'is_paused': False\}'|当前模式|未暂停状态|/etc/ImageId\.json|镜像Id==\d+：ARCO300-MKS-RK3328-STM32F407VET6-I\d+)
+(^\s*(try:?|with open|self\.|json_data)|串口[12]第1次打开失败|没有连接任何AMS多色，连接AMS失败|未能打开(任何)?tty.*|\+AMSERROR:\d+|current_directory=/home/mks/klipper|\((dev|cmds|base)\.(py|python)\)|Lo_PauseStatus\['is_paused'\]='False'|当前暂停状态-Lo_PauseStatus='\{'is_paused': False\}'|当前模式|未暂停状态|/etc/ImageId\.json|镜像Id==\d+：ARCO300-MKS-RK3328-STM32F407VET6-I\d+|(重新初始化|重新注册)串口[12]|串口[12](清空|读取数据|发送命令|-AMS结束计时)|Lo_SerialRx|字节个数|字节流|AMS第[0-9]台异步返回|tty[0-9]串口接收|有几台AMS已经打开串口|重复P28串口[0-9]已经打开|^\+Mode:[0-9]|^\{\"dev_id\"|self\.G_|json_data\[)
 REGEX
 
 # Wait for Moonraker the same way arco-update-refresh does. Two minutes is generous; on a first boot
@@ -49,6 +49,24 @@ python3 - "$API" "$ID" "$NAME" "$RE" <<'PY'
 import json, sys, urllib.request
 
 api, fid, name, regex = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].strip()
+
+# Every regex this script has ever written, by sha256[:12]. A stored filter whose regex is one of
+# these is OURS AND UNTOUCHED, so a corrected version may replace it; anything else is the owner's
+# edit and is left exactly where it is.
+#
+# 🔴 WITHOUT THIS A FIX REACHES NOBODY. The script used to exit the moment it found its own id, so
+# the regex a printer was seeded with was the regex it kept for good. That is how "(cmds.py)" lines
+# kept appearing in the console for weeks while the shipped pattern already looked correct -- it
+# matched "(cmds.python)", and phrozen_dev writes both spellings.
+#
+# Append the outgoing hash here whenever the regex changes; never remove one.
+SHIPPED = {
+    "d2a164bb2a99",   # first version, seeded from 2026-08-09
+}
+
+def ours(stored):
+    import hashlib
+    return hashlib.sha256((stored or "").strip().encode("utf-8")).hexdigest()[:12] in SHIPPED
 
 def call(method, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
@@ -68,22 +86,36 @@ def put(ns, key, value):
 
 # Mainsail keeps a dict keyed by id: {id: {name, bool, regex}}
 cur = get("mainsail", "console.consolefilters")
-if isinstance(cur, dict) and fid in cur:
-    print("[console-filters] mainsail: already present")
+# 🔴 "already current" IS TESTED FIRST, and the order is not cosmetic. What we are about to write is
+# ours by definition, but its hash is not in SHIPPED until the NEXT version adds it -- so asking
+# "is this ours?" first would classify our own freshly written regex as somebody's edit and refuse to
+# touch it ever again. The fix would have disabled itself one version later. Caught by the test.
+if isinstance(cur, dict) and fid in cur and cur[fid].get("regex", "").strip() == regex:
+    print("[console-filters] mainsail: already current")
+elif isinstance(cur, dict) and fid in cur and not ours(cur[fid].get("regex")):
+    print("[console-filters] mainsail: left alone (the filter has been edited here)")
 else:
     merged = dict(cur) if isinstance(cur, dict) else {}
-    merged[fid] = {"name": name, "bool": True, "regex": regex}
+    # Keep whatever switch position is already there. Somebody who turned our filter OFF meant it,
+    # and handing them a corrected regex is no reason to turn it back on behind their back.
+    was = merged.get(fid) if isinstance(merged.get(fid), dict) else None
+    merged[fid] = {"name": name, "bool": True if was is None else bool(was.get("bool", True)),
+                   "regex": regex}
     put("mainsail", "console.consolefilters", merged)
-    print("[console-filters] mainsail: seeded (%d filter(s) total)" % len(merged))
+    print("[console-filters] mainsail: %s" % ("updated" if was else "seeded"))
 
 # Fluidd keeps a list: [{id, enabled, name, type, value}]
 cur = get("fluidd", "console.consoleFilters")
-if isinstance(cur, list) and any(isinstance(f, dict) and f.get("id") == fid for f in cur):
-    print("[console-filters] fluidd: already present")
+_mine = next((f for f in cur if isinstance(f, dict) and f.get("id") == fid), None)         if isinstance(cur, list) else None
+if _mine is not None and (_mine.get("value") or "").strip() == regex:
+    print("[console-filters] fluidd: already current")
+elif _mine is not None and not ours(_mine.get("value")):
+    print("[console-filters] fluidd: left alone (the filter has been edited here)")
 else:
-    merged = list(cur) if isinstance(cur, list) else []
-    merged.append({"id": fid, "enabled": True, "name": name, "type": "expression", "value": regex})
+    merged = [f for f in cur if not (isinstance(f, dict) and f.get("id") == fid)]              if isinstance(cur, list) else []
+    merged.append({"id": fid, "name": name, "type": "expression", "value": regex,
+                   "enabled": True if _mine is None else bool(_mine.get("enabled", True))})
     put("fluidd", "console.consoleFilters", merged)
-    print("[console-filters] fluidd: seeded (%d filter(s) total)" % len(merged))
+    print("[console-filters] fluidd: %s" % ("updated" if _mine else "seeded"))
 PY
 exit 0
