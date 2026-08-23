@@ -51,6 +51,33 @@ def get(ns, key, default):
         return default
 
 
+def wrapped_macros():
+    """Macro names Mainsail will not render, however they are grouped.
+
+    🔴 MAINSAIL SKIPS EVERY gcode_macro CARRYING rename_existing. Not a bug and not configurable --
+    its getMacros reads `if ("rename_existing" in f) return`, because such a macro overrides a native
+    command and would otherwise appear twice. Placing one in a group produces an entry that renders
+    nowhere: Settings shows it as "Deleted macro" with no group control, and the panel simply omits
+    it. Seven of ours were in that state, which is how this was found.
+
+    FLUIDD HAS NO SUCH RULE and draws them perfectly well, so this is deliberately asymmetric: the
+    names come out of the Mainsail groups and stay in the Fluidd categories. Taking them from both
+    would remove working buttons for no reason.
+
+    Read from configfile.settings rather than kept as a list here, because that is where the truth
+    is and it follows whatever the owner's config does -- including KAOS, which wraps the same two.
+    An unreachable Moonraker means an empty set, so nothing is pruned on a guess.
+    """
+    try:
+        st = call("GET", "/printer/objects/query?configfile=settings")
+        cfg = st["result"]["status"]["configfile"]["settings"]
+    except Exception:
+        return set()
+    pre = "gcode_macro "
+    return {k[len(pre):].lower() for k, v in cfg.items()
+            if k.startswith(pre) and isinstance(v, dict) and "rename_existing" in v}
+
+
 A, P, I = "always", "pause_only", "idle_only"
 
 # Klipper hides macros whose name starts with "_", so only the visible ones are worth placing. Everything
@@ -122,6 +149,7 @@ def topup(have, ms, fl, ms_groups, fl_cats):
     macro from a group on purpose does not get it pushed back. Nothing is ever removed, reordered, or
     renamed here -- this only fills holes that nobody has an opinion about yet.
     """
+    wrapped = wrapped_macros()
     known = {m: c for _, members in GROUPS for m, c in members}
 
     # Macros the KIT withdrew, cleared out of the groups they were sorted into. A named list rather
@@ -137,7 +165,9 @@ def topup(have, ms, fl, ms_groups, fl_cats):
         if not isinstance(lst, list):
             continue
         keep = [e for e in lst
-                if not (isinstance(e, dict) and e.get("name") in RETIRED + UNGROUPED)]
+                if not (isinstance(e, dict)
+                        and (e.get("name") in RETIRED + UNGROUPED
+                             or (e.get("name") or "").lower() in wrapped))]
         if len(keep) != len(lst):
             dropped_ms += len(lst) - len(keep)
             for i, e in enumerate(keep):     # pos is 1-based and Mainsail sorts by it
@@ -153,6 +183,8 @@ def topup(have, ms, fl, ms_groups, fl_cats):
             continue                      # a group we never made, or one KAOS never created -- leave it
         lst = g.setdefault("macros", [])
         for m, c in members:
+            if m.lower() in wrapped:
+                continue          # Mainsail cannot draw it; Fluidd gets it below
             if m in have and m not in ms_placed:
                 lst.append({"pos": len(lst) + 1, "name": m, "color": "group", "showInStandby": True,
                             "showInPrinting": FLAGS[c][0], "showInPause": FLAGS[c][1]})
@@ -283,6 +315,7 @@ def main():
     # who chose Simple deliberately keeps it.
     old_ids = {g.get("name"): gid for gid, g in ms_groups.items() if isinstance(g, dict)}
     ms["mode"] = "expert"
+    wrapped = wrapped_macros()
     ms["macrogroups"] = {}
     for name, members in placed:
         ms["macrogroups"][old_ids.get(name) or str(uuid.uuid4())] = {
@@ -292,7 +325,8 @@ def main():
             "showInPrinting": any(FLAGS[c][0] for _, c in members),
             "macros": [{"pos": i + 1, "name": m, "color": "group", "showInStandby": True,
                         "showInPrinting": FLAGS[c][0], "showInPause": FLAGS[c][1]}
-                       for i, (m, c) in enumerate(members)],
+                       for i, (m, c) in enumerate(
+                           [mc for mc in members if mc[0].lower() not in wrapped])],
         }
     call("POST", "/server/database/item",
          {"namespace": "mainsail", "key": "macros", "value": ms})
