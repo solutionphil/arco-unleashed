@@ -198,7 +198,12 @@ switch_to(){ # $1 = branch
     sync                        # the marker is seconds old when the plug is pulled; commit=120
     echo
     echo "${CW}   Two things finish this:${C0}"
-    echo "     1) sudo systemctl restart klipper   — moonraker.conf follows the channel"
+    # MOONRAKER, not klipper. apply-update-manager.sh is an ExecStartPre on moonraker.service --
+    # it edits moonraker.conf, which only Moonraker reads. Restarting klipper does nothing for it,
+    # and this line said otherwise for as long as it existed: on 2026-08-23 a switch to alpha left
+    # the clone on alpha and the update manager tracking main, because the advice was followed.
+    echo "     1) sudo systemctl restart moonraker  — moonraker.conf follows the channel"
+    echo "        (its update panel keeps showing the old channel until the next refresh)"
     echo "     2) power-cycle the printer once     — everything that needs root, e.g. the"
     echo "        login banner, which lives under /etc and no guard touches"
     echo "   In a hurry, 2) can be done now instead:"
@@ -207,7 +212,7 @@ switch_to(){ # $1 = branch
     echo
     echo "${CR}   Could not arm the root-side setup${C0} ($RECONCILE_MARK is not writable)."
     echo "   Run it by hand:  sudo bash $DIR/optimize-boot.sh"
-    echo "   Then:            sudo systemctl restart klipper"
+    echo "   Then:            sudo systemctl restart moonraker"
   fi
 }
 
