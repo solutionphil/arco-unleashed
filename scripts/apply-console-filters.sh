@@ -32,7 +32,7 @@ ID=arco-unleashed-phrozen-noise
 NAME='Arco Unleashed: Phrozen noise'
 
 read -r -d '' RE <<'REGEX'
-(^\s*(try:?|with open|self\.|json_data)|串口[12]第1次打开失败|没有连接任何AMS多色，连接AMS失败|未能打开(任何)?tty.*|\+AMSERROR:\d+|current_directory=/home/mks/klipper|\((dev|cmds|base)\.(py|python)\)|Lo_PauseStatus\['is_paused'\]='False'|当前暂停状态-Lo_PauseStatus='\{'is_paused': False\}'|当前模式|未暂停状态|/etc/ImageId\.json|镜像Id==\d+：ARCO300-MKS-RK3328-STM32F407VET6-I\d+|(重新初始化|重新注册)串口[12]|串口[12](清空|读取数据|发送命令|-AMS结束计时)|Lo_SerialRx|字节个数|字节流|AMS第[0-9]台异步返回|tty[0-9]串口接收|有几台AMS已经打开串口|重复P28串口[0-9]已经打开|^\+Mode:[0-9]|^\{\"dev_id\"|self\.G_|json_data\[)
+(^\s*(try:?|with open|self\.|json_data)|串口[12]第1次打开失败|没有连接任何AMS多色，连接AMS失败|未能打开(任何)?tty.*|\+AMSERROR:\d+|current_directory=/home/mks/klipper|\((dev|cmds|base)\.(py|python)\)|Lo_PauseStatus\['is_paused'\]='False'|当前暂停状态-Lo_PauseStatus='\{'is_paused': False\}'|当前模式|未暂停状态|/etc/ImageId\.json|镜像Id==\d+：ARCO300-MKS-RK3328-STM32F407VET6-I\d+|(重新初始化|重新注册)串口[12]|串口[12](清空|读取数据|发送命令|-AMS结束计时)|Lo_SerialRx|字节个数|字节流|AMS第[0-9]台异步返回|tty[0-9]串口接收|有几台AMS已经打开串口|重复P28串口[0-9]已经打开|^\+Mode:[0-9]|^\{\"dev_id\"|self\.G_|json_data\[|^外部宏命令|^命令[=：]|^PRZ_[A-Z_]+$|吐料次数|换料次数|换料首次|自动换料|首层打印|未在暂停中状态|串口[0-9]已打开|写入json文件|打印中跳过P114查询|返回return|^延时[0-9]|AMS固件版本|AMS段码屏烘干第[0-9]台固件版本|^V-H[0-9]+-I[0-9]+-F[0-9]+$|filename=/home/mks/hdlDat|^chan=[0-9]|^gcmd is not None|^SD$|^[0-9]+(,[0-9]+)+$|^\+P[0-9][^:]*:|^\+T[0-9]+:|^\+C:|^extruder_temp = |^g_extruder_|^fan\*[0-9]|^=====record|^PG[0-9]+|command_string=|^g_[a-z_0-9]+=|^P[0-9]+成功)
 REGEX
 
 # Wait for Moonraker the same way arco-update-refresh does. Two minutes is generous; on a first boot
