@@ -42,6 +42,15 @@
 # repaired by scripts/apply-arco-extras.sh before klipper starts.
 
 import logging
+import re
+
+
+# The display's own light button, as it arrives here. voronFDM sends "P0 LED_State=<n>"; the kit's
+# switch sends "P0 LED_SetState=<n>". The two spellings are not a typo to be tidied away -- they are
+# what tells the echo apart from the original, and neither string is a substring of the other, so
+# matching one can never catch the other. The lookbehind only guards against a longer word ending in
+# the same letters.
+P0_LED_RE = re.compile(r'(?<![A-Za-z0-9_])LED_State\s*=\s*([0-9]+)')
 
 
 class VirtualMcu:
@@ -111,6 +120,14 @@ class ArcoVirtualPins:
         ppins = self.printer.lookup_object('pins')
         ppins.register_chip(self.chip_name, self)
 
+        # Mirror the DISPLAY's light button back into the switch. Set to an empty value to switch the
+        # mirroring off; naming a pin that does not exist simply does nothing.
+        self.led_pin = config.get('mirror_led_pin', 'chamber_light').strip()
+        self._suppress = {}
+        self._p0_prev = None
+        if self.led_pin:
+            self.printer.register_event_handler('klippy:ready', self._wrap_p0)
+
     def setup_pin(self, pin_type, pin_params):
         if pin_type not in ('digital_out', 'pwm'):
             raise self.printer.config_error(
@@ -130,6 +147,9 @@ class ArcoVirtualPins:
     def _run_queue(self, eventtime):
         while self._queue:
             name, value = self._queue.pop(0)
+            if self._suppress.get(name) == value:
+                del self._suppress[name]
+                continue      # the display did this; the switch has followed, nothing to send back
             macro = 'gcode_macro _ARCO_PIN_%s' % (name,)
             if self.printer.lookup_object(macro, None) is None:
                 logging.info("arco_virtual_pins: %s changed to %s, no %s to act on it",
@@ -140,6 +160,65 @@ class ArcoVirtualPins:
                     "_ARCO_PIN_%s VALUE=%d" % (name, 1 if value else 0))
             except Exception:
                 logging.exception("arco_virtual_pins: _ARCO_PIN_%s failed", name)
+
+    # ── the display owns the light, so the switch has to be told ────────────────────────────────
+    #
+    # The chamber light is not Klipper's. "P0 LED_SetState=<n>" is passed straight through to the
+    # display program, which is what actually drives it -- phrozen_dev has no LED code at all, no
+    # get_status(), and no object anywhere reports the lamp. So there is nothing to poll: the switch
+    # was synced once at boot and then drifted the moment somebody touched the display.
+    #
+    # What IS observable is the button press. The display sends its command through Moonraker like any
+    # other client, so it arrives here as an ordinary "P0 LED_State=<n>" -- confirmed on hardware in
+    # both directions. Wrapping P0 is therefore enough, and no relay traffic has to be parsed.
+    #
+    # 🔴 P0 IS THE MOST LOAD-BEARING COMMAND ON THE MACHINE -- every AMS mode change goes through it.
+    # The original runs FIRST and the mirror is wrapped in its own try/except, so no fault of ours can
+    # stop a P0 from reaching the AMS. Python rather than a rename_existing macro for the same reason,
+    # plus cost: this runs on every P0 during a print, and a Jinja template would not be free.
+    def _wrap_p0(self):
+        gcode = self.printer.lookup_object('gcode')
+        prev = gcode.register_command('P0', None)      # unregisters and hands back the old handler
+        if prev is None:
+            logging.info("arco_virtual_pins: no P0 to wrap — display light mirroring is off")
+            return
+        self._p0_prev = prev
+        gcode.register_command('P0', self._cmd_P0,
+                               desc="Phrozen P0, plus mirroring the display's light button")
+        logging.info("arco_virtual_pins: mirroring the display's light button into '%s'",
+                     self.led_pin)
+
+    def _cmd_P0(self, gcmd):
+        self._p0_prev(gcmd)
+        try:
+            self._mirror_led(gcmd)
+        except Exception:
+            logging.exception("arco_virtual_pins: mirroring the light failed (P0 itself was fine)")
+
+    def _mirror_led(self, gcmd):
+        m = P0_LED_RE.search(gcmd.get_commandline() or '')
+        if m is None:
+            return
+        pin = self.pins.get(self.led_pin)
+        if pin is None:
+            return
+        value = 1 if int(m.group(1)) else 0
+        if int(bool(pin.value)) == value:
+            return
+        self.reactor.register_callback(
+            lambda et, n=self.led_pin, v=value: self._apply_mirror(n, v))
+
+    def _apply_mirror(self, name, value):
+        # Marked before the write, consumed in _run_queue: the switch must follow, but the light must
+        # NOT be commanded again -- the display has already set it, and echoing it back would have us
+        # arguing with the device that owns it.
+        self._suppress[name] = float(value)
+        try:
+            self.printer.lookup_object('gcode').run_script(
+                "SET_PIN PIN=%s VALUE=%d" % (name, value))
+        except Exception:
+            self._suppress.pop(name, None)
+            logging.exception("arco_virtual_pins: could not move the '%s' switch", name)
 
     def get_status(self, eventtime=None):
         return {'pins': {n: p.value for n, p in self.pins.items()}}
