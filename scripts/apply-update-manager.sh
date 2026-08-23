@@ -89,7 +89,40 @@ if [ -d "$KIT/.git" ]; then
 fi
 
 if [ "$want" = present ]; then
-    has_entry && exit 0                       # already there — ours or the owner's, either is fine
+    # 🔴 AN EXISTING ENTRY IS NOT AUTOMATICALLY CORRECT. This used to exit here, which meant
+    # primary_branch was written once, at seeding, and never again -- so channel.sh could move the
+    # clone to alpha and Moonraker went on tracking main for good. It reaches every printer that
+    # already has the entry, which is all of them, and it makes the whole channel mechanism a no-op
+    # from the outside: the branch says alpha, the update manager says main.
+    #
+    # Only OUR OWN entry is corrected, recognised by the managed marker, and only the one line. An
+    # entry somebody wrote themselves is theirs, branch and all.
+    if has_entry; then
+        has_ours || exit 0
+        BRANCH="$(git -C "$KIT" rev-parse --abbrev-ref HEAD 2>/dev/null | head -1)"
+        case "$BRANCH" in ''|HEAD) BRANCH=main;; esac
+        cur="$(awk '
+            /arco-unleashed: update manager entry \(managed/ { inb = 1 - inb; next }
+            inb && /^primary_branch:/ { print $2; exit }
+        ' "$CFG")"
+        [ "$cur" = "$BRANCH" ] && exit 0
+        tmp="$(mktemp)" || { log "mktemp failed"; exit 0; }
+        awk -v b="$BRANCH" '
+            /arco-unleashed: update manager entry \(managed/ { inb = 1 - inb; print; next }
+            inb && /^primary_branch:/ { print "primary_branch: " b; next }
+            { print }
+        ' "$CFG" > "$tmp" || { rm -f "$tmp"; log "rewrite failed"; exit 0; }
+        # Same shape of check the seeding path makes: refuse to install anything that lost a section.
+        if ! grep -qE '^\[update_manager[[:space:]]+arco-unleashed\][[:space:]]*$' "$tmp"            || ! grep -qE '^\[update_manager\][[:space:]]*$' "$tmp"            || [ "$(grep -c '^primary_branch:' "$tmp")" != "$(grep -c '^primary_branch:' "$CFG")" ]; then
+            rm -f "$tmp"; log "post-edit check failed — $CFG left untouched"; exit 0
+        fi
+        if ! cat "$tmp" > "$CFG"; then
+            rm -f "$tmp"; log "could not write $CFG"; exit 0
+        fi
+        rm -f "$tmp"
+        log "primary_branch: $cur -> $BRANCH (the clone moved channel)"
+        exit 0
+    fi
     # `|| echo main` is NOT enough here: in a repository with no commits yet, rev-parse prints "HEAD"
     # AND exits non-zero, so both sides run and BRANCH becomes two lines -- which lands a bare "main"
     # in moonraker.conf as an option with no key, and Moonraker then refuses to start at all. Take the
