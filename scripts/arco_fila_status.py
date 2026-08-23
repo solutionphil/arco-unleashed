@@ -90,7 +90,6 @@ class ArcoFilaStatus:
         self.pause_delay = config.getfloat('pause_delay', 90., above=0.)
         self._phrozen = None
         self._mcu_adc = None
-        self._deadline = None
         self._warned = False
         self._pause_deadline = None
         self._pause_checked = False
@@ -229,12 +228,12 @@ class ArcoFilaStatus:
         if print_stats is None:
             return self.reactor.NEVER
         try:
-            state = print_stats.get_status(eventtime).get('state')
+            ps = print_stats.get_status(eventtime)
+            state = ps.get('state')
         except Exception:
             logging.exception("arco_fila_status: print_stats read failed")
             return eventtime + self.check_interval
         if state not in ('printing', 'paused'):
-            self._deadline = None
             self._warned = False
             self._pause_deadline = None
             self._pause_checked = False
@@ -263,11 +262,27 @@ class ArcoFilaStatus:
                     # Own callback, same reason as the first-load above: this one runs a
                     # macro that can pause, heat and move, so it is the longest of the three.
                     self.reactor.register_callback(self._pause_if_empty)
+            # print_duration, NOT wall time since the job was accepted -- the same trap the pause
+            # check above already had to learn, arrived at from the other side.
+            #
+            # 🔴 MEASURED on 2026-08-23. Job accepted 14:02:12, warning fired 14:07:13 -- 301 s
+            # later, exactly the delay -- while the bed mesh was still probing (14:07:08-14:08:35).
+            # Printing itself began at 14:09:33, so PHROZEN_AMS_START had not run and the mode was
+            # legitimately still unset. The machine was configured correctly: minutes later it
+            # reported mode 1 with protection active. The warning was true and useless, which is
+            # the worst thing a warning can be. A fixed delay from job acceptance cannot keep the
+            # promise made above -- not on a printer whose start sequence includes a full mesh.
+            #
+            # print_duration is Klipper's own answer to "has printing actually begun": it leaves
+            # out the heat-soak, homing and probing before the first move, and it leaves out paused
+            # time, which is exactly the accounting this warning wants. On the run above the two
+            # clocks were 441 s apart.
             if not self._warned:
-                if self._deadline is None:
-                    self._deadline = eventtime + self.warn_delay
-                elif eventtime >= self._deadline:
-                    self._deadline = None
+                try:
+                    printed = float(ps.get('print_duration') or 0.)
+                except (TypeError, ValueError):
+                    printed = 0.
+                if printed >= self.warn_delay:
                     self._warned = True
                     self.reactor.register_callback(self._warn_if_unprotected)
         return eventtime + self.check_interval
