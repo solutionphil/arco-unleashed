@@ -84,7 +84,8 @@ GROUPS = [
                         ("AMS_SETUP", I),
                         ("MAGIC_AMS_STATUS", A)]),
     ("Calibration", [(m, I) for m in
-                     ["G29", "G30", "G31", "G40", "bed_screw_adjust", "SCREWS_TILT_CALCULATE",
+                     ["G29", "G30", "G31", "G40", "bed_screw_adjust", "Z_TILT_LEVEL",
+                      "SCREWS_TILT_CALCULATE",
                       "Z_TILT_ADJUST", "SHAPER_CALIBRATE", "CALIBRATE_SHAPER_NEW", "PID_BED",
                       "PID_NOZZLE", "M303", "M304", "BELT_TENSION", "probe_off", "probe_up"]]),
     ("Maintenance", [("CLEAN_IDLERS", I), ("CLEAN_IDLERS_STOP", A),

@@ -515,6 +515,27 @@ gcode:
   _Z_TILT_ADJUST
 #@ENDFEAT
 
+#@FEAT z_tilt_button | A Z-tilt button Mainsail will actually show (Z_TILT_LEVEL)
+# WHY AN ALIAS AND NOT JUST THE WRAPPER. Mainsail hides every gcode_macro carrying rename_existing --
+# literally `if ("rename_existing" in f) return` in its getMacros. Z_TILT_ADJUST is such a wrapper, so
+# it has a button in Fluidd and none in Mainsail; ours showed up under Settings as "Deleted macro"
+# with no group control, which is how this was found. bed_screw_adjust has played exactly this role
+# for the bed screws since the PhrozenArco days -- this is the missing counterpart for the gantry.
+#
+# It is NAME-based on purpose, so it survives the KAOS toggle without knowing about it: with KAOS off
+# it reaches our wrapper (home, then Klipper's own), and with KAOS on the bridge has replaced that
+# wrapper with KAOS's and the alias reaches theirs. Both sides use rename_existing, so both are hidden
+# in Mainsail and both need this.
+#
+# 🔴 IT BELONGS TO THE BASE, NOT THE BRIDGE. Everything the bridge installs goes away again at
+# KAOS_OFF, and a button that disappears with the toggle is precisely the failure the integration rule
+# guards against: the base has to stay complete standing alone.
+[gcode_macro Z_TILT_LEVEL]
+description: Level the gantry with both Z motors (homes first)
+gcode:
+    Z_TILT_ADJUST
+#@ENDFEAT
+
 #@FEAT g30 | G30 = load saved mesh (THE MESH FIX!)
 # ───── Bed mesh: unify everything on the 'phrozen' profile ─────
 # Phrozen's G30 (slicer start-gcode AND display quick-level) calibrated a throwaway 'default' profile
