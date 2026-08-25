@@ -183,8 +183,13 @@ class ArcoVirtualPins:
             logging.info("arco_virtual_pins: no P0 to wrap — display light mirroring is off")
             return
         self._p0_prev = prev
-        gcode.register_command('P0', self._cmd_P0,
-                               desc="Phrozen P0, plus mirroring the display's light button")
+        # 🔴 NO desc, AND THAT IS THE WHOLE POINT. Klipper only writes gcode_help[cmd] when a desc is
+        # passed, and unregistering does not clear it -- so leaving it out keeps phrozen_dev's own
+        # description exactly as it was. Passing our own changed it, and voronFDM evidently matches on
+        # it: for two days the display stayed on its main page during a print and showed no status,
+        # while everything else about P0 behaved normally. Disabling the wrap restored it immediately.
+        # The command's description is part of the display's contract. Do not decorate it.
+        gcode.register_command('P0', self._cmd_P0)
         logging.info("arco_virtual_pins: mirroring the display's light button into '%s'",
                      self.led_pin)
 
