@@ -1122,20 +1122,40 @@ can reach the printer could then install packages as root. A printer login would
 
 Two consequences are worth knowing. The package list is refreshed when the image is built and **not again**
 by itself — so a green *UP-TO-DATE* means "nothing pending as of the build date", and it will keep saying
-that rather than visibly going stale. And eight packages are deliberately held: the kernel, the device tree,
-u-boot and the BCM43430 WiFi firmware. Upgrading those is what replaces the custom device tree with a stock
+that rather than visibly going stale. And packages are deliberately held back from upgrades. **Five of them
+are the kit's doing and are the ones that matter**: the kernel, the device tree, u-boot, the board support
+package and the BCM43430 WiFi firmware. Upgrading those is what replaces the custom device tree with a stock
 one and brings the printer back with no WiFi at all.
+
+A stock image carries three more — `linux-headers`, `base-files` and `armbian-zsh`. Those come with the base
+system rather than from us, so `showhold` usually lists eight. They are not dangerous: the headers only ever
+matter if you build kernel modules yourself, and the other two are the system's identity and its shell setup.
 
 Do system updates over SSH instead, where you can type your password:
 
 ```bash
-apt-mark showhold          # expect 8 packages before you go further
+apt-mark showhold          # kernel, dtb, u-boot, armbian-bsp*, armbian-firmware must be listed
 sudo apt update && sudo apt full-upgrade
 ```
 
-That is safe while the holds are in place — apt keeps those eight back and upgrades everything else. If the
-list is shorter than eight, put them back first with `sudo bash ~/arco-unleashed/scripts/apt-hold.sh` and
-only then upgrade.
+That is safe while the holds are in place — apt keeps them back and upgrades everything else. If any of the
+five above is missing from the list, put them back with `sudo bash ~/arco-unleashed/scripts/apt-hold.sh`
+before you upgrade. That script restores those five and does not touch the other three, which is deliberate:
+it holds what the kit is responsible for rather than claiming ownership of the base system's choices.
+
+**If you use KIAUH, leave two of its entries alone.** It is a fine way to update Klipper, Moonraker and the
+web interface, and a poor one for the rest of this printer.
+
+*KlipperScreen* is the trap. The service is called that, and there is a real KlipperScreen checkout in your
+home directory — but the service starts Phrozen's touchscreen program instead, and nothing ever runs the
+checkout. KIAUH cannot tell the difference: it looks for the directory and the service name, both of which
+are there. *Update* is merely wasteful — it stops the display for the duration, pulls code nobody executes
+and installs packages nobody imports, then starts it again. **Remove deletes the directory and the service,
+and the touchscreen is gone for good.**
+
+*System packages* fail outright, with `Held packages were changed and -y was used without
+--allow-change-held-packages`. That is the holds above doing their job: KIAUH hands apt an explicit list of
+everything upgradable, held packages included, and apt refuses. Use the two commands above instead.
 
 **Two update channels: stable and beta.** A fresh image follows `stable`, and that is where it should stay
 unless you want to help test. `beta` is the same kit plus the changes that have not earned their way over
