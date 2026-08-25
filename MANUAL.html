@@ -1790,21 +1790,47 @@ become a root login.</p>
 <p>Two consequences are worth knowing. The package list is refreshed
 when the image is built and <strong>not again</strong> by itself — so a
 green <em>UP-TO-DATE</em> means “nothing pending as of the build date”,
-and it will keep saying that rather than visibly going stale. And eight
-packages are deliberately held: the kernel, the device tree, u-boot and
-the BCM43430 WiFi firmware. Upgrading those is what replaces the custom
-device tree with a stock one and brings the printer back with no WiFi at
-all.</p>
+and it will keep saying that rather than visibly going stale. And
+packages are deliberately held back from upgrades. <strong>Five of them
+are the kit’s doing and are the ones that matter</strong>: the kernel,
+the device tree, u-boot, the board support package and the BCM43430 WiFi
+firmware. Upgrading those is what replaces the custom device tree with a
+stock one and brings the printer back with no WiFi at all.</p>
+<p>A stock image carries three more — <code>linux-headers</code>,
+<code>base-files</code> and <code>armbian-zsh</code>. Those come with
+the base system rather than from us, so <code>showhold</code> usually
+lists eight. They are not dangerous: the headers only ever matter if you
+build kernel modules yourself, and the other two are the system’s
+identity and its shell setup.</p>
 <p>Do system updates over SSH instead, where you can type your
 password:</p>
 <div class="sourceCode" id="cb25"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">apt-mark</span> showhold          <span class="co"># expect 8 packages before you go further</span></span>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">apt-mark</span> showhold          <span class="co"># kernel, dtb, u-boot, armbian-bsp*, armbian-firmware must be listed</span></span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt update <span class="kw">&amp;&amp;</span> <span class="fu">sudo</span> apt full-upgrade</span></code></pre></div>
-<p>That is safe while the holds are in place — apt keeps those eight
-back and upgrades everything else. If the list is shorter than eight,
-put them back first with
-<code>sudo bash ~/arco-unleashed/scripts/apt-hold.sh</code> and only
-then upgrade.</p>
+<p>That is safe while the holds are in place — apt keeps them back and
+upgrades everything else. If any of the five above is missing from the
+list, put them back with
+<code>sudo bash ~/arco-unleashed/scripts/apt-hold.sh</code> before you
+upgrade. That script restores those five and does not touch the other
+three, which is deliberate: it holds what the kit is responsible for
+rather than claiming ownership of the base system’s choices.</p>
+<p><strong>If you use KIAUH, leave two of its entries alone.</strong> It
+is a fine way to update Klipper, Moonraker and the web interface, and a
+poor one for the rest of this printer.</p>
+<p><em>KlipperScreen</em> is the trap. The service is called that, and
+there is a real KlipperScreen checkout in your home directory — but the
+service starts Phrozen’s touchscreen program instead, and nothing ever
+runs the checkout. KIAUH cannot tell the difference: it looks for the
+directory and the service name, both of which are there. <em>Update</em>
+is merely wasteful — it stops the display for the duration, pulls code
+nobody executes and installs packages nobody imports, then starts it
+again. <strong>Remove deletes the directory and the service, and the
+touchscreen is gone for good.</strong></p>
+<p><em>System packages</em> fail outright, with
+<code>Held packages were changed and -y was used without --allow-change-held-packages</code>.
+That is the holds above doing their job: KIAUH hands apt an explicit
+list of everything upgradable, held packages included, and apt refuses.
+Use the two commands above instead.</p>
 <p><strong>Two update channels: stable and beta.</strong> A fresh image
 follows <code>stable</code>, and that is where it should stay unless you
 want to help test. <code>beta</code> is the same kit plus the changes
