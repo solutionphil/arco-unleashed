@@ -1300,13 +1300,13 @@ choose_mode() {
   hr
   echo "  What would you like to do?"
   echo
-  echo "    1) Check      find the image, verify it, show the target."
+  echo "    1) Check      Find the image, verify it, show the target."
   echo "                  Changes nothing."
-  echo "    2) Back up    copy THIS printer's eMMC onto the stick first."
+  echo "    2) Back up    Copy THIS printer's eMMC onto the stick first."
   echo "                  The only way back to the system you have today."
-  echo "    3) Install    flash the image. Asks again before it writes."
+  echo "    3) Install    Flash the image. Asks again before it writes."
   echo "                  IRREVERSIBLE once the write has started."
-  echo "    4) Cancel     undo a flash or backup that is already armed."
+  echo "    4) Cancel     Undo a flash or backup that is already armed."
   echo "    5) Quit"
   hr
   read -rp "  Choice [1]: " a || a=""
