@@ -123,6 +123,13 @@ jobs:
           fi
           echo "selfflash/collect_data_arco.sh is byte-identical to the root copy."
 
+      # A guard with no off switch is a decision made for the owner, which is the one thing
+      # guards-toggle.sh exists to prevent. check-guards.sh derives its list from optimize-boot.sh and
+      # cannot fall behind; the toggle screen's table is hand-written, because "what breaks without
+      # this" cannot be derived -- and it had fallen four guards behind before anyone noticed.
+      - name: Every guard has an off switch
+        run: bash .github/ci/check-guards-toggle.sh
+
       - name: Ensure shellcheck
         run: command -v shellcheck >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y shellcheck; }
 
