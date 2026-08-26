@@ -442,16 +442,7 @@ sudo bash ~/selfflash/install-unleashed.sh
 
 One command, and it asks what you want:
 
-```
-    1) Check      find the image, verify it, show the target.
-                  Changes nothing.
-    2) Back up    copy THIS printer's eMMC onto the stick first.
-                  The only way back to the system you have today.
-    3) Install    flash the image. Asks again before it writes.
-                  IRREVERSIBLE once the write has started.
-    4) Cancel     undo a flash or backup that is already armed.
-    5) Quit
-```
+<p align="center"><img src="assets/manual/selfflash-0-menu.png" alt="The install menu: 1 Check, 2 Back up, 3 Install, 4 Cancel, 5 Quit, with the prompt Choice [1] at the bottom" width="760"></p>
 
 **1** is the default and the safe one: it finds the image, checks it against its `.sha256`, names the
 eMMC it would write to, and stops. Read that line and make sure it is the device you mean. **2** is
@@ -1547,6 +1538,25 @@ opening it. Come here for one of three reasons:
   limit and no compression to worry about. [Step 2](#step-2) does the same thing without opening the
   printer, and is no longer limited by size — a backup too large for one file on FAT32 is written as a
   numbered set.
+
+> 🛑 **On this road nothing of ours ever runs on the original printer — so nothing collects the AMS
+> files for you.** [Step 3](#step-3) does that by itself while it flashes, and refuses to write without
+> them. Writing the module in a PC skips that entirely. `phrozen_master`, `device_table` and `~/hdlDat`
+> exist only in the original system, in no download and in none of Phrozen's packages.
+>
+> **So do [Step 1](#step-1) by hand first, while the printer still boots** — one command over SSH:
+>
+> ```bash
+> bash ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB
+> ```
+>
+> Keep the resulting `arco-phrozen-ams.tar.gz` on the stick the new system will see at its first boot.
+> Without it AMS detection hangs and the display will not return home after calibration.
+>
+> **If you are here for recovery and the printer no longer boots, this is already too late.** The
+> archive from an earlier run is then the only copy there will ever be — which is the reason to make one
+> before you need it. A **spare module** is the safer arrangement precisely because the original keeps
+> booting: collect from it at your leisure.
 
 **In addition to the usual tools you need:** a **USB-to-eMMC adapter** (the white MKS case), a **small
 Phillips screwdriver** for the module's retaining screws, and **[balenaEtcher](https://etcher.balena.io/)**

@@ -167,8 +167,9 @@ slicer profile, the optional features — not a fourth copy of the procedure.
 > install.
 >
 > ⚠️ **`arco-phrozen-ams.tar.gz` exists nowhere else.** The installer collects it for you while your
-> printer is still the original one, and refuses to flash if it cannot. It is in no download and in none
-> of Phrozen's packages. Everything else on the stick comes out of
+> printer is still the original one, and refuses to flash if it cannot — by hand only if you pull the
+> eMMC instead ([Appendix A](MANUAL.md#appendix-a)). It is in no download and in none of Phrozen's
+> packages. Everything else on the stick comes out of
 > **[`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)** — extract it to
 > the top level and you are done.
 >
