@@ -9,11 +9,17 @@
 #       Before the write starts, pulling the USB stick + a power-cycle makes the flasher stand down. ***
 #
 # Usage:
-#   sudo bash install-unleashed.sh                # inspect: find image, verify, show target — no changes
+#   sudo bash install-unleashed.sh                # menu: check / back up / install / cancel a pending one
 #   sudo bash install-unleashed.sh --arm          # verify + confirm + arm the initramfs flash + reboot
 #   sudo bash install-unleashed.sh --backup       # back THIS printer's eMMC up to the stick (read-only)
 #   sudo bash install-unleashed.sh --disarm       # remove a pending flash or backup + rebuild initramfs
 #   options: --image PATH  --usb DIR  --yes(skip typed confirm; discouraged)  --no-reboot
+#
+# The bare command used to mean "inspect, change nothing". It still does whenever there is nobody to
+# ask -- no terminal, a pipe, --yes -- so nothing scripted changed. With a terminal it offers the menu
+# instead, because the flags were the part people got wrong: --backup and --arm differ by one word and
+# one of them cannot be undone. Picking from a list is NOT a confirmation: --arm still asks for `yes`
+# and for the target device to be typed out in full.
 #
 # --backup is the way back that otherwise does not exist. Phrozen publish no stock image, so today
 # returning a printer to factory means opening it and pulling the eMMC. Run --backup BEFORE flashing and
@@ -66,11 +72,11 @@ SPLITSZ="${ARCO_BACKUP_SPLIT:-3972005888}"
 # -- they use the same fast deflate strategy as 1 and measured byte-identical on zeros.
 GZLEVEL="${ARCO_BACKUP_GZIP:-1}"
 
-MODE=inspect; IMG=""; USBDIR=""; ASSUME_YES=0; DO_REBOOT=1
+MODE=inspect; MODE_EXPLICIT=0; IMG=""; USBDIR=""; ASSUME_YES=0; DO_REBOOT=1
 while [ $# -gt 0 ]; do case "$1" in
-  --arm)       MODE=arm ;;
-  --backup)    MODE=backup ;;
-  --disarm)    MODE=disarm ;;
+  --arm)       MODE=arm;    MODE_EXPLICIT=1 ;;
+  --backup)    MODE=backup; MODE_EXPLICIT=1 ;;
+  --disarm)    MODE=disarm; MODE_EXPLICIT=1 ;;
   --image)     IMG="${2:?}"; shift ;;
   --usb)       USBDIR="${2:?}"; shift ;;
   --fast)      GZLEVEL=1 ;;
@@ -641,6 +647,54 @@ stop_display_owner() {
   # TODO(v1): draw the static 'DO NOT POWER OFF' screen here via the tft.sh/TJC serial path.
 }
 
+# ---- rescue the AMS files while the ORIGINAL system is still standing ---------------------------
+# phrozen_master, device_table and ~/hdlDat exist ONLY on the running original printer. Until now this
+# script merely checked whether the owner had collected them by hand and refused to flash if not -- a
+# refusal issued at the one moment the files are still there and a copy costs seconds. So collect them
+# here instead, and keep the refusal for when that genuinely fails.
+#
+# Announced, not asked. It is read-only on the printer: the files are copied to the owner's own stick
+# and nothing on the machine changes. The install path already asks twice -- the disclaimer, then the
+# target device typed out in full -- and a third prompt in front of the harmless step is exactly what
+# teaches people to answer yes without reading the one that matters.
+#
+# An existing tarball is never overwritten. A copy made earlier is worth more than a fresh one: it may
+# come from a healthier system, or from before an attempt that already damaged something.
+collect_ams_now() {
+  local usb="$1" collector="$SELFDIR/collect_data_arco.sh" home="$HOME" h
+  if [ -f "$usb/arco-phrozen-ams.tar.gz" ]; then
+    note "AMS backup already on the stick -- kept as it is, not re-collected"
+    return 0
+  fi
+  [ -f "$collector" ] || { warn "collect_data_arco.sh missing from this bundle -- cannot rescue the AMS files"; return 1; }
+  # $HOME under sudo is ROOT'S home, and this script is always run with sudo. The collector reads
+  # ~/hdlDat and ~/klipper/extras/..., so without this it would look in /root, find nothing and abort --
+  # the same trap prepare_unleashed_self_flash.sh documents at its top, met here from the other side.
+  if [ -n "${SUDO_USER:-}" ]; then
+    h="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)"
+    [ -n "$h" ] && home="$h"
+  fi
+  hr
+  echo "  No AMS backup on the stick yet -- collecting it now, while this"
+  echo "  printer is still the original one. phrozen_master, device_table and"
+  echo "  ~/hdlDat are in no download and in no Phrozen package; after the flash"
+  echo "  they are gone. Nothing on the printer is changed: the files are"
+  echo "  copied onto your stick."
+  echo "  Reading them from: $home"
+  hr
+  HOME="$home" ARCO_COLLECT_EMBEDDED=1 bash "$collector" "$usb" \
+    || { warn "collecting the AMS files did not succeed"; return 1; }
+  sync
+  [ -f "$usb/arco-phrozen-ams.tar.gz" ] || { warn "no tarball on the stick after collecting"; return 1; }
+  # Verify the CONTENT, not just the name: an archive that exists but carries no phrozen_master passes
+  # the -f test above and strands the owner after the flash -- the exact failure this gate exists for.
+  if ! tar -tzf "$usb/arco-phrozen-ams.tar.gz" 2>/dev/null | grep -q '^frp-oms/phrozen_master$'; then
+    warn "the collected archive carries no frp-oms/phrozen_master"
+    return 1
+  fi
+  note "AMS backup collected and verified: $usb/arco-phrozen-ams.tar.gz"
+}
+
 # ---- verify the stick also carries what the FIRST BOOT needs (checked after consent, before flashing) --
 check_usb_payload() {
   # first-boot payload (Phrozen FW + AMS backup) is only consumed by the Unleashed firstrun;
@@ -650,6 +704,9 @@ check_usb_payload() {
     *) note "non-Unleashed image ($(basename "$IMG")) -> skipping Unleashed first-boot payload check"; return 0 ;;
   esac
   local usb; usb="$(dirname "$IMG")" miss=""
+  # Rescue what only this still-original system has, instead of refusing because the owner did not
+  # collect it by hand. Leaves an existing tarball alone; the refusal below still stands if this fails.
+  collect_ams_now "$usb" || true
   # The AMS backup is still fatal: phrozen_master and ~/hdlDat exist ONLY on the running original
   # printer -- they are in no download and in no Phrozen package, so once this flash is done they are
   # gone for good. Verified against Phrozen's own public repository too: frp-oms there holds only frp/.
@@ -1227,6 +1284,47 @@ disarm() {
   run_update_initramfs || die "update-initramfs failed"
   note "initramfs rebuilt — flash disarmed."
 }
+
+# ---- one command, a menu instead of four flags --------------------------------------------------
+# The flags were the part people got wrong: --backup and --arm differ by one word, and one of them
+# cannot be undone. A list says what each one does at the moment of choosing, which a flag typed from
+# memory never does.
+#
+# Only when there is a terminal on both ends. Without one -- a pipe, a script, --yes -- the bare
+# command keeps its old meaning, "inspect, change nothing", so nothing automated is disturbed.
+#
+# Choosing is NOT confirming. Item 3 walks into exactly the same disclaimer and the same typed-out
+# target device as --arm always did. The menu shortens the path to that question, never the question.
+choose_mode() {
+  local a
+  hr
+  echo "  What would you like to do?"
+  echo
+  echo "    1) Check      Find the image, verify it, show the target."
+  echo "                  Changes nothing."
+  echo "    2) Back up    Copy THIS printer's eMMC onto the stick first."
+  echo "                  The only way back to the system you have today."
+  echo "    3) Install    Flash the image. Asks again before it writes."
+  echo "                  IRREVERSIBLE once the write has started."
+  echo "    4) Cancel     Undo a flash or backup that is already armed."
+  echo "    5) Quit"
+  hr
+  read -rp "  Choice [1]: " a || a=""
+  case "${a:-1}" in
+    1|"") MODE=inspect ;;
+    2)    MODE=backup  ;;
+    3)    MODE=arm     ;;
+    4)    MODE=disarm  ;;
+    5)    note "nothing done."; exit 0 ;;
+    # Anything else is a slip, and the safe reading of a slip in front of an irreversible tool is the
+    # one that changes nothing -- never the one that flashes.
+    *)    warn "not one of the choices -- taking it as 1 (check only)."; MODE=inspect ;;
+  esac
+}
+
+if [ "$MODE_EXPLICIT" = 0 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ] && [ -t 1 ]; then
+  choose_mode
+fi
 
 case "$MODE" in
   inspect) disclaimer; hr; echo "  INSPECT (no changes)"; hr; plan; echo; note "looks flashable. Arm with: sudo bash $0 --arm"; ;;

@@ -127,14 +127,14 @@ Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs 
 You get a finished image (a `.img.gz`, or a pre-flashed spare eMMC module). The whole software stack is
 already on it — you only need to flash it, set WiFi, and flash your printer's MCUs.
 
-> 🛑 **Before you flash anything, rescue the AMS server.** One command on the **still-running original
-> printer**, written out with the SSH details in **[MANUAL › Step 1](MANUAL.md#step-1)** — do not run it
-> from memory, it takes the stick's path as an argument.
+> 🛑 **The AMS server is rescued for you — but only on the road where our installer runs.** It saves
+> **two files** — `phrozen_master` and `~/hdlDat` — which live only in Phrozen's original OS. They are
+> in no download and in none of Phrozen's packages, and the flash erases them for good. Without them
+> AMS detection hangs and the display will not return home after calibration.
 >
-> It writes `arco-phrozen-ams.tar.gz` onto your stick, and the new system re-installs it by itself on
-> first boot. It saves **two files** — `phrozen_master` and `~/hdlDat` — which live only in Phrozen's
-> original OS. They are in no download and in none of Phrozen's packages, and the flash erases them for
-> good. Without them AMS detection hangs and the display will not return home after calibration.
+> The self-flash tool collects them itself, while the old system is still there, and refuses to flash if
+> it cannot. **[MANUAL › Step 1](MANUAL.md#step-1)** carries the by-hand command for the one road where
+> nothing of ours ever runs on the original printer: pulling the eMMC and writing it from a PC.
 >
 > It is **not** a backup of the printer. For a way back to the factory system, image the whole eMMC onto
 > the stick first — [MANUAL › Step 2](MANUAL.md#step-2), no teardown needed.
@@ -166,9 +166,10 @@ slicer profile, the optional features — not a fourth copy of the procedure.
 > something older and the display can misbehave — on a machine where the display is how you follow the
 > install.
 >
-> ⚠️ **`arco-phrozen-ams.tar.gz` exists nowhere else.** `collect_data_arco.sh` makes it on your
-> *still-running* printer, and the flash erases the original for good. It is in no download and in none
-> of Phrozen's packages. Everything else on the stick comes out of
+> ⚠️ **`arco-phrozen-ams.tar.gz` exists nowhere else.** The installer collects it for you while your
+> printer is still the original one, and refuses to flash if it cannot — by hand only if you pull the
+> eMMC instead ([Appendix A](MANUAL.md#appendix-a)). It is in no download and in none of Phrozen's
+> packages. Everything else on the stick comes out of
 > **[`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)** — extract it to
 > the top level and you are done.
 >

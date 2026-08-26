@@ -328,8 +328,9 @@ Windows) · <strong>2.0 mm and 2.5 mm hex keys</strong> for Step 6.</p>
 <p><strong>Three things are irreversible, so decide now:</strong></p>
 <ol type="1">
 <li>The AMS server exists <strong>only on your printer</strong> and the
-flash erases it. <strong>Step 1 saves it.</strong> Skip that and AMS
-detection hangs afterwards, with no way to recover the files.</li>
+flash erases it. <strong>Step 3 saves it for you</strong> and refuses to
+flash if it cannot. Pull the eMMC instead, and Step 1 by hand is the
+only way.</li>
 <li>The eMMC is overwritten in place. If you may ever want to return to
 stock, the only way to keep that option is Step 2 below: it images the
 whole eMMC onto your stick, no teardown needed. Phrozen do not publish a
@@ -343,8 +344,8 @@ inputs by pattern (<code>Arco-Unleashed*.img.gz</code>,
 so an old firmware zip or a <code>(1)</code> re-download left on the
 stick can win silently and install something you did not intend.</p>
 <hr />
-<h2 id="step-1-save-what-only-your-printer-has">Step 1 — Save what only
-your printer has</h2>
+<h2 id="step-1-usually-automatic-save-what-only-your-printer-has">Step 1
+— <em>usually automatic:</em> save what only your printer has</h2>
 <blockquote>
 <p>🛑 <strong>Not a backup of your printer.</strong> This rescues
 <strong>two files</strong> that exist nowhere else. Your calibration,
@@ -353,6 +354,12 @@ gone</strong>. If you want a way back, make one first — <strong>Step
 2</strong> below images the whole eMMC onto your stick, without opening
 the printer.</p>
 </blockquote>
+<p><strong>You can skip this.</strong> Step 3 collects these files
+itself, while the printer is still the original one, and refuses to
+flash if it cannot. Do it here only if you will <strong>pull the
+eMMC</strong> and write it from a PC — nothing of ours ever runs on the
+original system on that road — or if you simply want the archive in hand
+before you start.</p>
 <p>On the <strong>still-running original printer</strong>. Insert the
 stick — it auto-mounts at <code>~/printer_data/gcodes/USB</code> (check
 with <code>lsblk</code> if in doubt) — then SSH in (<code>mks</code> /
@@ -374,7 +381,9 @@ Found</strong>, which looks like a broken link rather than a permission
 problem — use the stick.</p>
 <p><strong>Done when:</strong> <code>arco-phrozen-ams.tar.gz</code> is
 on the stick — <em>check it on your PC</em>, not just on screen. If it
-is missing, re-insert the stick and run the command again.</p>
+is missing, re-insert the stick and run the command again. Skipping this
+step is fine on the ordinary route: Step 3 collects the same archive,
+and keeps yours if it is already there.</p>
 <hr />
 <h2 id="step-2-optional-your-way-back">Step 2 — <em>optional:</em> your
 way back</h2>
@@ -408,8 +417,8 @@ that takes you back to Phrozen’s system.)</p>
 <p>Extract <strong><a
 href="https://github.com/solutionphil/arco-unleashed/releases"><code>Arco-Unleashed-USB.zip</code></a></strong>
 to the <strong>top level</strong> of the stick. That supplies the image,
-its checksums, the self-flash tool and the guides. Then add the two
-files only you can provide:</p>
+its checksums, the self-flash tool and the guides. Then add Phrozen’s
+firmware zip if you want it:</p>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -438,7 +447,7 @@ files only you can provide:</p>
 </tr>
 <tr>
 <td><code>arco-phrozen-ams.tar.gz</code></td>
-<td>Step 1</td>
+<td>collected for you in Step 3 — Step 1 only if you pull the eMMC</td>
 </tr>
 </tbody>
 </table>
@@ -458,15 +467,20 @@ COUNTRY=US</code></pre></li>
 on purpose, and the printer raises its own setup hotspot on first boot
 so you can pick the network from your phone.</p></li>
 </ul>
-<p><strong>Done when:</strong> all four rows above are on the stick, and
-no <em>older</em> image or firmware zip is.</p>
+<p><strong>Done when:</strong> the <em>release zip</em> rows are on the
+stick, plus the firmware zip if you want it, and no <em>older</em> image
+or firmware zip is.</p>
 <hr />
 <h2 id="step-3-flash">Step 3 — Flash</h2>
-<p>Put the filled stick back in the printer, then SSH in again and arm
-it:</p>
+<p>Put the filled stick back in the printer, then SSH in again:</p>
 <div class="sourceCode" id="cb5"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span></span></code></pre></div>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh</span></code></pre></div>
+<p>The single command opens a menu — <strong>1</strong> check only,
+<strong>2</strong> back up first, <strong>3</strong> install,
+<strong>4</strong> cancel something already armed. The old flags
+(<code>--arm</code>, <code>--backup</code>, <code>--disarm</code>) still
+work. Choose <strong>3</strong>.</p>
 <p>Type <code>yes</code> to the disclaimer, then the target device to
 confirm. Reboot the printer: the display shows a progress bar and
 <strong>DO NOT POWER OFF</strong>, then it restarts by itself.</p>

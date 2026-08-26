@@ -52,12 +52,30 @@ chmod +x "$DEST/install-unleashed.sh" "$DEST/initramfs/arco-emmc-flash" "$DEST/i
 echo ""
 echo "Ready. The self-flash tool is unpacked to: $DEST"
 echo ""
-echo "  Next — inspect first (no changes):"
+echo "  Next:"
 echo "    sudo bash $DEST/install-unleashed.sh"
 echo ""
-echo "  Then, when you're ready to flash:"
-echo "    sudo bash $DEST/install-unleashed.sh --arm"
+echo "  That one command now offers a menu — check, back up, install, or cancel"
+echo "  something already armed. The old flags still work."
 echo ""
-echo "  (The image and arco-phrozen-ams.tar.gz must be on the same USB stick. Phrozen's"
-echo "   Arco_FW_V*.zip is optional — add it only if the printer will have no internet"
-echo "   during setup, or you want PhrozenGo.)"
+echo "  (The image must be on the USB stick. arco-phrozen-ams.tar.gz is collected"
+echo "   for you if it is not there yet. Phrozen's Arco_FW_V*.zip is optional —"
+echo "   add it only if the printer will have no internet during setup, or you"
+echo "   want PhrozenGo.)"
+echo ""
+
+# Offer to go straight on, so the guide is one command instead of two. Chained with the ABSOLUTE path,
+# never ~: this script deliberately runs WITHOUT sudo (see the note at the top about $HOME under sudo),
+# and "sudo bash ~/selfflash/..." from here would resolve ~ to root's home and could start an OLD tool
+# — the failure of 2026-08-10, met from the other direction.
+#
+# Offered, never assumed, and it defaults to no. A script that starts a flashing tool on its own would
+# be the wrong kind of helpful.
+if [ -t 0 ] && [ -t 1 ]; then
+  printf "Start it now? [y/N] "
+  read -r _a || _a=""
+  case "$_a" in
+    y|Y|yes|YES) echo ""; exec sudo bash "$DEST/install-unleashed.sh" ;;
+    *)           echo "Not started — run the command above when you are ready." ;;
+  esac
+fi
