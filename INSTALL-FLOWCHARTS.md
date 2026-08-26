@@ -55,17 +55,23 @@ begins; B costs a teardown and is also the recovery route for a failed A.
 
 ## 2. Before anything is flashed — the two things you cannot get back later
 
-`collect_data_arco.sh` · `install-unleashed.sh --backup` — QUICKSTART Step 0 and 0b.
+`install-unleashed.sh` · `collect_data_arco.sh` — MANUAL Steps 1 and 2.
 
 ```mermaid
 flowchart TD
-    P(["Printer still running its<br/>original Phrozen system"]) --> S0["Step 0 — rescue the AMS server<br/>bash collect_data_arco.sh ~/printer_data/gcodes/USB"]
-    S0 --> S0C{"arco-phrozen-ams.tar.gz<br/>really on the stick?<br/>check it on your PC"}
-    S0C -->|"No"| S0R["Re-insert the stick,<br/>run it again"] --> S0C
-    S0C -->|"Yes"| W{"Do you ever want to go<br/>back to the factory system?"}
+    P(["Printer still running its<br/>original Phrozen system"]) --> R{"Which road?"}
+
+    R -->|"Path A — self-flash"| A0["AMS server rescued FOR YOU:<br/>the installer collects it before it writes,<br/>and refuses to flash if it cannot"]
+    R -->|"Path B — eMMC comes out"| B0["Nothing of ours ever runs here.<br/>Rescue it BY HAND first:<br/>bash collect_data_arco.sh /path/to/stick"]
+
+    B0 --> B0C{"arco-phrozen-ams.tar.gz<br/>really on the stick?<br/>check it on your PC"}
+    B0C -->|"No"| B0R["Re-insert the stick,<br/>run it again"] --> B0C
+
+    A0 --> W{"Do you ever want to go<br/>back to the factory system?"}
+    B0C -->|"Yes"| W
 
     W -->|"No"| GO(["Ready to install — section 3"])
-    W -->|"Yes, and I take path A"| B1["Step 0b — image the whole eMMC to the stick<br/>sudo bash ~/selfflash/install-unleashed.sh --backup<br/>needs a stick of 8 GB or more, about 30 min"]
+    W -->|"Yes, and I take path A"| B1["Image the whole eMMC to the stick<br/>menu item 2, or --backup"]
     W -->|"Yes, and I take path B"| B2["Dump the eMMC on the PC<br/>while it is out — section 5"]
 
     B1 --> B1D{"arco-emmc-backup.img.gz<br/>plus .sha256 on the stick?"}
@@ -81,14 +87,14 @@ flowchart TD
     class GO okay
 ```
 
-> Phrozen publish **no** stock image. Step 0b is the only way to make one, and only *before* the flash —
-> from Unleashed you can only ever image Unleashed.
+> Phrozen publish **no** stock image. The eMMC backup is the only way to make one, and only *before* the
+> flash — from Unleashed you can only ever image Unleashed.
 
 ---
 
 ## 3. What goes on the USB stick
 
-One **FAT32** stick, ≥ 4 GB (≥ 8 GB if you also take the Step 0b image), plugged **straight into the
+One **FAT32** stick, ≥ 4 GB (≥ 8 GB if you also take the eMMC backup image), plugged **straight into the
 printer** — never through a hub. Start from an **empty** stick: the tools take the *first* pattern match,
 so an old image or a `(1)` re-download can win silently.
 
@@ -100,18 +106,18 @@ flowchart LR
         A3[".img.gz.rawsize — drives the on-display percentage"]
         A4["unleashed-selfflash.tar.gz"]
         A5["prepare_unleashed_self_flash.sh"]
-        A6["arco-phrozen-ams.tar.gz — from Step 0"]
+        A6["arco-phrozen-ams.tar.gz — collected for you while flashing"]
         A7["Arco_FW_V zip — optional, see section 8"]
         A8["wifi-seed.txt or no_wifi.txt — optional, see section 7"]
     end
 
     subgraph SB["Path B — eMMC swap: the image goes on the eMMC, not the stick"]
-        B6["arco-phrozen-ams.tar.gz — from Step 0"]
+        B6["arco-phrozen-ams.tar.gz — by hand, path B"]
         B7["Arco_FW_V zip — optional, see section 8"]
     end
 
     Z["Arco-Unleashed-USB.zip<br/>extract to the top level of the stick"]
-    S0["collect_data_arco.sh<br/>run on the original printer"]
+    S0["collect_data_arco.sh<br/>path B only — run by hand"]
     PH["You download Phrozen's<br/>firmware zip yourself"]
 
     Z --> A1
@@ -137,16 +143,16 @@ flowchart LR
 flowchart TD
     A0(["SSH in as mks — stick plugged in,<br/>auto-mounted at ~/printer_data/gcodes/USB"])
     A0 --> A1["sh prepare_unleashed_self_flash.sh<br/>unpacks the tool to ~/selfflash"]
-    A1 --> A2["sudo bash ~/selfflash/install-unleashed.sh<br/>INSPECT — changes nothing"]
+    A1 --> A2["sudo bash ~/selfflash/install-unleashed.sh<br/>menu item 1 — CHECK, changes nothing"]
     A2 --> A3{"Image found, sha256 valid,<br/>target eMMC is the right one?"}
     A3 -->|"No"| AF["Fix the stick and repeat<br/>a mismatch is usually the stick itself:<br/>no hub, or try a plain USB 2.0 one"] --> A2
-    A3 -->|"Yes"| A4["sudo bash ~/selfflash/install-unleashed.sh --arm"]
+    A3 -->|"Yes"| A4["Menu item 3 — Install<br/>(or --arm)"]
 
     A4 --> A5["Disclaimer — type yes"]
     A5 --> A6["Type the exact target device, e.g. /dev/mmcblk1"]
-    A6 --> A7{"First-boot files on the stick?<br/>arco-phrozen-ams.tar.gz"}
-    A7 -->|"Missing"| AX["Aborts — nothing written"] --> AF
-    A7 -->|"Present"| A8{"Confirm the WiFi it will use<br/>live-captured or from wifi-seed.txt"}
+    A6 --> A7{"AMS archive on the stick?<br/>if not, it is collected here"}
+    A7 -->|"Cannot be collected"| AX["Aborts — nothing written"] --> AF
+    A7 -->|"Present or just collected"| A8{"Confirm the WiFi it will use<br/>live-captured or from wifi-seed.txt"}
     A8 -->|"Decline"| A9["Fall through to the<br/>first-boot phone portal"]
     A8 -->|"Confirm"| A10
     A9 --> A10["Initramfs rebuilt — ARMED"]
@@ -253,7 +259,7 @@ flowchart TD
     C1 -->|"Nothing — recommended"| L["Live capture: copies the network<br/>this printer already uses,<br/>including its country"]
     C1 -->|"wifi-seed.txt"| SD["SSID= / PSK= / COUNTRY=<br/>plain text, no quotes, 2.4 GHz"]
     C1 -->|"no_wifi.txt"| NW["Leave WiFi empty on purpose"]
-    L --> CONF{"--arm shows the SSID<br/>and asks you to confirm"}
+    L --> CONF{"The install pass shows the SSID<br/>and asks you to confirm"}
     SD --> CONF
     CONF -->|"Confirm"| TRY
     CONF -->|"Decline"| NW
@@ -562,7 +568,7 @@ flowchart TD
 | Section | Source in this repo |
 |---|---|
 | 1, 3 | [README](README.md) "Two ways to install", [QUICKSTART](QUICKSTART.md) Step 1 |
-| 2 | `collect_data_arco.sh`, [QUICKSTART](QUICKSTART.md) Steps 0 / 0b |
+| 2 | `collect_data_arco.sh`, [QUICKSTART](QUICKSTART.md) Steps 1 / 2 |
 | 4 | [`selfflash/install-unleashed.sh`](selfflash/install-unleashed.sh), [`selfflash/README.md`](selfflash/README.md) |
 | 5 | [MANUAL](MANUAL.md) Steps 1–3 |
 | 6, 7, 8 | [`scripts/arco-firstrun.sh`](scripts/arco-firstrun.sh), [`scripts/wifi-portal/`](scripts/wifi-portal), [`scripts/fetch-phrozen-fw.sh`](scripts/fetch-phrozen-fw.sh) |

@@ -107,6 +107,22 @@ jobs:
           if [ "$fail" = 0 ]; then echo "All $(git ls-files '*.sh' | wc -l) shell scripts parse."; fi
           exit "$fail"
 
+      # The self-flash bundle is assembled BY HAND and has already shipped stale three times. It now
+      # carries its own copy of collect_data_arco.sh, because install-unleashed.sh collects the AMS
+      # files itself while the original system is still standing. A copy that quietly drifts from the
+      # one in the repository root would ship a flasher rescuing files with last month's logic, and
+      # nothing on the printer would say so. Byte-identical or the build stops.
+      - name: Self-flash bundle carries the same collector
+        run: |
+          if ! cmp -s collect_data_arco.sh selfflash/collect_data_arco.sh; then
+            echo "::error file=selfflash/collect_data_arco.sh::drifted from collect_data_arco.sh"
+            diff -u collect_data_arco.sh selfflash/collect_data_arco.sh || true
+            echo
+            echo "Copy it over:  cp collect_data_arco.sh selfflash/collect_data_arco.sh"
+            exit 1
+          fi
+          echo "selfflash/collect_data_arco.sh is byte-identical to the root copy."
+
       - name: Ensure shellcheck
         run: command -v shellcheck >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y shellcheck; }
 

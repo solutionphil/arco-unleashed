@@ -32,11 +32,12 @@ module, and for keeping a way back to the factory system.
 > support on a printer running it** — if something is wrong, ask here, not them. *Phrozen* and *Arco*
 > are the manufacturer's trademarks and are used only to say which machine this fits.
 
-> 🛑 **Do [Step 1](#step-1) before you flash anything.** The new system needs data — the AMS server
+> 🛑 **The one thing that cannot be recovered later.** The new system needs data — the AMS server
 > `phrozen_master` and `~/hdlDat` — that exists **only on your original, still-running printer**. It is
-> in no download and in none of Phrozen's packages, and the flash erases it for good. Collect it now,
-> while the old system still boots. Skip it and AMS detection hangs and the display will not return home
-> after calibration.
+> in no download and in none of Phrozen's packages, and the flash erases it for good. [Step 3](#step-3)
+> now collects it for you, while the old system is still there, and refuses to flash if it cannot.
+> If you pull the eMMC and write it from a PC instead, nothing of ours ever runs on the original system
+> — then do [Step 1](#step-1) by hand first, or the AMS is gone.
 
 ---
 
@@ -47,7 +48,7 @@ module, and for keeping a way back to the factory system.
 | | | |
 |---|---|---|
 | [Before you begin](#before-you-begin) | tools, space, what goes on the USB stick | |
-| [Step 1](#step-1) | **Rescue your AMS data** | required, and only possible *before* flashing |
+| [Step 1](#step-1) | **Rescue your AMS data** | done for you while flashing — by hand only if you pull the eMMC |
 | [Step 2](#step-2) | Back up the whole printer | optional, your way back to stock |
 | [Step 3](#step-3) | **Flash the printer from the USB stick** | the printer overwrites its own eMMC |
 | [Step 4](#step-4) | First boot: WiFi portal + USB install | from your phone |
@@ -129,15 +130,15 @@ machine against a wall, and it is not something you want to do twice.
 ### What goes on the stick
 
 Extract [`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases) to the **top
-level** of the stick. That covers everything marked *release zip* below. Then add the one file only you
-can make.
+level** of the stick. That covers everything marked *release zip* below. The one file no download can
+replace is collected for you while you flash — you do not have to make it first.
 
 | File | | Where from |
 |---|:---:|---|
 | `Arco-Unleashed_bookworm_6.18.30.img.gz` | required | the release zip |
 | `…img.gz.sha256` **+** `…img.gz.rawsize` | required | the release zip |
 | `unleashed-selfflash.tar.gz` **+** `prepare_unleashed_self_flash.sh` | required | the release zip |
-| **`arco-phrozen-ams.tar.gz`** | **required** | **you make it** in [Step 1](#step-1) |
+| **`arco-phrozen-ams.tar.gz`** | automatic | collected for you in [Step 3](#step-3) — or by hand, [Step 1](#step-1) |
 | `Arco_FW_V*.zip` | optional | [Phrozen](https://fs.phrozen3d.com/arco/Arco_199/Arco_FW_V199.zip) — see below |
 | `wifi-seed.txt` *or* `no_wifi.txt` | optional | you write it — see [Step 3](#step-3) |
 
@@ -149,7 +150,7 @@ and not in the repository. Display and AMS firmware are *not* a reason — those
 USB firmware update, not from this stick.
 
 If a zip is on the stick it always wins and nothing is downloaded. On the stick it sits beside the AMS
-backup from Step 1:
+archive:
 
 <p align="center"><img src="assets/manual/usb-files-with-fw.png" alt="The same USB stick with Arco_FW_V199.zip added" width="760"></p>
 
@@ -161,7 +162,7 @@ printer. Nothing of Phrozen's is hosted, mirrored or redistributed here.*
 
 <a id="step-1"></a>
 
-## Step 1 — Rescue your AMS data · **do this first**
+## Step 1 — Rescue your AMS data · **now automatic**
 
 > 🛑 **This is not a backup of your printer.** It rescues **two files** that exist nowhere else — nothing
 > more. Everything else on the printer (your calibration, uploaded G-code, settings, Phrozen's own system)
@@ -176,10 +177,21 @@ printer. Nothing of Phrozen's is hosted, mirrored or redistributed here.*
 > system, and after the flash that system no longer exists here to copy. The setup menu's
 > *b — going back to Buster* needs exactly this file; without it, that road is closed.
 
-**Before you flash anything, grab data off the original printer while it still boots.** The AMS server
-(**`phrozen_master` + `~/hdlDat`**) lives **only** in the original base OS — it is *not* in Phrozen's
-`Arco_FW_V*.zip`. The flash wipes it, and without it AMS detection hangs and the display won't return home
-after calibration. There is **no way to recover it later** — so do this **now, on the original printer**:
+**The installer does this for you now.** [Step 3](#step-3) collects these files itself, at the only
+moment it still can — while this printer is the original one — and refuses to flash if it cannot. On
+the ordinary route there is nothing to type here.
+
+They matter that much: the AMS server (**`phrozen_master` + `~/hdlDat`**) lives **only** in the original
+base OS — it is *not* in Phrozen's `Arco_FW_V*.zip`. Without it AMS detection hangs and the display
+won't return home after calibration. The flash wipes it, and there is **no way to recover it later**.
+
+**Do it by hand when the installer will never run here** — when you take the eMMC out and write it from
+a PC ([Appendix A](#appendix-a)). Nothing of ours runs on the original system on that road, and the
+files are gone the moment the module is written.
+
+You may also simply want it done early, to have the archive safe and checked on your PC before you
+start. It costs seconds, and it is never done twice: an archive already on the stick is kept, never
+overwritten.
 
 1. Copy **`collect_data_arco.sh`** (from this repo) onto the FAT32 USB stick and plug it into the printer.
 2. SSH into the *original* printer (PuTTY on Windows, `ssh` on Mac/Linux): *Host* = the printer's **IP**
@@ -207,9 +219,9 @@ When you're done the stick holds this — keep it, you'll reuse the same stick i
 <p align="center"><img src="assets/manual/usb-files.png" alt="USB stick after Step 1, with arco-phrozen-ams.tar.gz highlighted" width="820"></p>
 
 Everything above the highlighted line came out of **`Arco-Unleashed-USB.zip`**, extracted to the top
-level of the stick. The highlighted **`arco-phrozen-ams.tar.gz`** is what Step 1 just produced — the
-one file no download and no Phrozen package can replace. The new system re-installs it by itself on
-first boot.
+level of the stick. The highlighted **`arco-phrozen-ams.tar.gz`** is the one file no download and no
+Phrozen package can replace — collected here by hand, or by the installer in [Step 3](#step-3). The
+new system re-installs it by itself on first boot.
 
 ---
 
@@ -401,7 +413,7 @@ Nothing here is a dead end. If the WiFi does not connect, the first boot falls b
 reach from your phone, and if even that fails you can still hand the printer a network from the stick
 afterwards ([Step 4](#step-4)).
 
-### 1. Unpack the tool and look before you leap
+### 1. Unpack the tool
 
 SSH in as `mks` — [Step 5](#step-5) shows how if you have not done that before. The stick mounts itself
 at `~/printer_data/gcodes/USB`, on Phrozen's system and on this one alike.
@@ -411,13 +423,12 @@ cd ~/printer_data/gcodes/USB
 sh prepare_unleashed_self_flash.sh
 ```
 
+That unpacks the flashing tool to `~/selfflash` and then offers to start it. Say yes and you are in the
+menu below; say no and start it yourself whenever you are ready:
+
 ```bash
 sudo bash ~/selfflash/install-unleashed.sh
 ```
-
-That second command is the **inspect pass. It changes nothing.** It finds the image, checks it against
-its `.sha256`, names the eMMC it would write to, and stops. Read that line and make sure it is the
-device you mean.
 
 > **Nothing under `~/printer_data/gcodes/USB`?** Then the stick did not mount itself. Mount it to that
 > same path and the commands above work unchanged — `lsblk` tells you which partition it is:
@@ -427,11 +438,30 @@ device you mean.
 > sudo mount /dev/sda1 /home/mks/printer_data/gcodes/USB
 > ```
 
-### 2. Arm it
+### 2. Choose, then install
 
-```bash
-sudo bash ~/selfflash/install-unleashed.sh --arm
+One command, and it asks what you want:
+
 ```
+    1) Check      find the image, verify it, show the target.
+                  Changes nothing.
+    2) Back up    copy THIS printer's eMMC onto the stick first.
+                  The only way back to the system you have today.
+    3) Install    flash the image. Asks again before it writes.
+                  IRREVERSIBLE once the write has started.
+    4) Cancel     undo a flash or backup that is already armed.
+    5) Quit
+```
+
+**1** is the default and the safe one: it finds the image, checks it against its `.sha256`, names the
+eMMC it would write to, and stops. Read that line and make sure it is the device you mean. **2** is
+[Step 2](#step-2), put here so you do not have to go back for it. Anything the menu does not recognise
+is taken as **1**.
+
+The old flags still work — `--arm`, `--backup`, `--disarm` — and where there is no terminal to ask on
+(a script, a pipe, `--yes`) the bare command still means *inspect, change nothing*.
+
+Pick **3** to install. Choosing from a list is not a confirmation, and nothing after it is shortened:
 
 <p align="center"><img src="assets/manual/selfflash-1-arm.png" alt="install-unleashed.sh --arm: disclaimer, image, target eMMC, checksum verify" width="760"></p>
 
@@ -440,9 +470,11 @@ once the write starts it cannot be stopped or reversed.
 
 <p align="center"><img src="assets/manual/selfflash-2-confirm.png" alt="Typing yes and the exact target device /dev/mmcblk1" width="760"></p>
 
-Then it checks the stick for the files the first boot will need, shows you **the WiFi it is going to
-use** and asks you to confirm that too — decline, and it sets up the phone portal instead. Finally it
-rebuilds the initramfs and arms the flash.
+Then it makes sure the first boot will have what it needs. If `arco-phrozen-ams.tar.gz` is not on the
+stick yet it **collects it here**, from this still-original printer — read-only, nothing on the machine
+is changed — and refuses to flash if that does not work. An archive already on the stick is kept, never
+overwritten. Then it shows you **the WiFi it is going to use** and asks you to confirm that too —
+decline, and it sets up the phone portal instead. Finally it rebuilds the initramfs and arms the flash.
 
 <p align="center"><img src="assets/manual/selfflash-3-armed.png" alt="USB payload OK, WiFi captured, initramfs rebuilt, ARMED" width="760"></p>
 
@@ -512,7 +544,8 @@ The image ships **without** Phrozen's software. So the first boot does two thing
 network from your phone, and then installs Phrozen's module — from the zip on your stick if there is one,
 otherwise by downloading it from Phrozen's own repository once you confirm.
 
-The stick needs `arco-phrozen-ams.tar.gz` from [Step 1](#step-1) on it. Everything else it might use is
+The stick needs `arco-phrozen-ams.tar.gz` on it — [Step 3](#step-3) put it there while flashing, unless
+you had already made it yourself. Everything else it might use is already there from
 already there from [Before you begin](#before-you-begin).
 
 ### 1. Stick in first, then connect
