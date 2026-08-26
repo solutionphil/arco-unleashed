@@ -29,8 +29,8 @@ PhrozenGo app — now running on a current, maintained and fully open system.
   **Spoolman** (filament tracking), **Obico** (remote monitoring) — neither of which runs on the frozen
   factory stack. Adaptive bed meshing you already have: it is built into this Klipper
   (`BED_MESH_CALIBRATE ADAPTIVE=1`), so no add-on is needed for it.
-- **Both web interfaces, like the stock printer** — **Mainsail** on `http://<printer-ip>/` (and `:81`) and
-  **Fluidd** on `:8808`, the ports your Arco came with. Both current, both themed.
+- **Both web interfaces, like the stock printer** — **Mainsail** on `http://unleashed.local/` (and `:81`) and
+  **Fluidd** on `unleashed.local:8808`, the ports your Arco came with. Both current, both themed.
 - **It's your printer** — full SSH / root access, Obico-ready, no cloud lock-in.
 
 ## What the AddOn layer adds
@@ -39,9 +39,11 @@ PhrozenGo app — now running on a current, maintained and fully open system.
 same profile; the printer works out which AMS mode to start in, at print start, on its own. No second
 profile, no switching in the slicer, no hand-edited G-code. And nothing to set: the printer sees the
 AMS on its own and keeps its own flag in step, so attaching or removing the unit needs no command and
-no menu. That plus what you sliced is all it needs. See [OrcaSlicer](#orcaslicer--multicolor--ams-auto-mode).
+no menu. The flag and your slice are all the printer needs. See
+[OrcaSlicer](#orcaslicer--multicolor--ams-auto-mode).
 
-**When something goes wrong.** The four the setup menu leads with — the reason you can try this at all:
+**When something goes wrong.** These four entries come first in the setup menu. They are the reason
+you can try this at all:
 
 | | |
 |---|---|
@@ -50,12 +52,13 @@ no menu. That plus what you sliced is all it needs. See [OrcaSlicer](#orcaslicer
 | **Emergency repair** | One action, no diagnosis required, for a printer that is halted, has no display, or whose update is failing. Fixes what it can, then says what broke. |
 | **Check self-heal guards** | Everything this project patches heals itself — but only if a service still carries the guard that does it. A kit update adds none, so a printer that has run a while can be missing one, and nothing else says so. |
 
-**Printing, calibration and comfort.** Every line here is a switch in the setup menu:
+**Printing, calibration and comfort.** Every line here is a switch in the setup menu, except the one
+marked *always on*:
 
 | | |
 |---|---|
 | `G30` | loads your saved bed mesh — **the mesh fix**, the factory behaviour that never stuck |
-| `Z_TILT_ADJUST` | dual-Z alignment, homes first |
+| `Z_TILT_ADJUST` · `Z_TILT_LEVEL` | dual-Z alignment, homes first — the second name is the one Mainsail will show as a button |
 | `SCREWS_TILT_CALCULATE` | manual screw bed levelling |
 | `CALIBRATE_SHAPER_NEW` | input-shaper calibration, sweeping to 130 Hz |
 | `PID_BED` · `PID_NOZZLE` | PID tuning |
@@ -64,8 +67,11 @@ no menu. That plus what you sliced is all it needs. See [OrcaSlicer](#orcaslicer
 | `CLEAN_IDLERS` | turns the idlers in fixed steps, with a Mainsail dialog |
 | `M600` · `M601` | filament change and pause, two-stage |
 | `LOAD_FILAMENT` · `UNLOAD_FILAMENT` | manual, with priming — single-colour or no AMS |
-| `FILA_STATUS` | is filament present, and is runout protection actually armed |
-| `TOGGLE_LIGHT` | chamber light |
+| `FILA_STATUS` *(always on)* | is filament present, and is runout protection actually armed |
+| `ARCO_FILA_EMPTY` | what happens when a print runs with an empty toolhead — `M600` standalone, `PAUSE` with an AMS, and yours to rewrite |
+| `TOGGLE_LIGHT` | chamber light — also a real toggle switch in Mainsail, and it follows the display |
+| `AMS_SETUP` | one dialog: which slot serves which tool, and the refeed switch |
+| `AMS_SLOTS` · `AMS_REFEED` | the same two settings as plain commands |
 | board fan (PA2) | PID-controlled instead of always-on |
 | piezo beeper (PB2) | short startup chime |
 
@@ -96,20 +102,20 @@ and wires it in; `KAOS_OFF` puts the printer back exactly as it was and keeps th
 an instant switch back; `KAOS_STATUS` says which commit is installed and whether it is active. So the
 printer needs internet the first time, and **KAOS itself is never redistributed here** — you get it
 from its author, like Phrozen's module.
-The bridge exists because KAOS and this kit each replace some of Phrozen's macros, and running them
-naively together breaks homing; it wires the two so both keep working.
-See [MANUAL › Step 11](MANUAL.md#step-11).
+KAOS and this kit each replace some of Phrozen's macros, and running them naively together breaks
+homing. That is why the sideloader exists: it wires the two together so both keep working.
+See [MANUAL › Step 10](MANUAL.md#step-10).
 
-Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs — running in minutes.
+Install the **easy way**: flash the pre-built image, set WiFi, flash your MCUs — running in minutes.
 
 > **Disclaimer.** Arco Unleashed is an independent, community-made project. It is **not** developed,
 > supported, sponsored, endorsed by, or affiliated with Phrozen Tech Co., Ltd. or ThroughTek Co., Ltd.
 > **No proprietary Phrozen/ThroughTek software is bundled, hosted or mirrored** by this project.
-> Phrozen's parts reach the printer either from the owner's own `Arco_FW_V*.zip`, obtained from
-> official Phrozen sources and provided on a USB stick, or — only after the owner confirms — by
-> downloading the `phrozen_dev` module from **Phrozen's own public repository**
-> ([phrozen3d/klipper](https://github.com/phrozen3d/klipper), GPL-3.0), pinned to a fixed commit and
-> checksum-verified. *Phrozen*, *Arco* and *PhrozenGo* are trademarks of their
+> Phrozen's parts reach the printer in one of two ways. The owner supplies their own
+> `Arco_FW_V*.zip`, obtained from official Phrozen sources and provided on a USB stick. Or, only
+> after the owner confirms, the `phrozen_dev` module is downloaded from **Phrozen's own public
+> repository** ([phrozen3d/klipper](https://github.com/phrozen3d/klipper), GPL-3.0), pinned to a
+> fixed commit and checksum-verified. *Phrozen*, *Arco* and *PhrozenGo* are trademarks of their
 > respective owners, used here only for identification (nominative fair use).
 >
 > 
@@ -127,17 +133,18 @@ Install the **easy way**: flash the pre-built image, set Wi-Fi, flash your MCUs 
 You get a finished image (a `.img.gz`, or a pre-flashed spare eMMC module). The whole software stack is
 already on it — you only need to flash it, set WiFi, and flash your printer's MCUs.
 
-> 🛑 **The AMS server is rescued for you — but only on the road where our installer runs.** It saves
-> **two files** — `phrozen_master` and `~/hdlDat` — which live only in Phrozen's original OS. They are
-> in no download and in none of Phrozen's packages, and the flash erases them for good. Without them
+> 🛑 **Phrozen's gateway is rescued for you — but only if the printer flashes itself.** It saves
+> `phrozen_master`, `phrozen_slave_ota`, `device_table` and `~/hdlDat`, which live only in Phrozen's
+> original OS — the display talks to that gateway, and the AMS work mode lives beside it. You cannot
+> download them, and no Phrozen package contains them. The flash then erases them for good. Without them
 > AMS detection hangs and the display will not return home after calibration.
 >
 > The self-flash tool collects them itself, while the old system is still there, and refuses to flash if
-> it cannot. **[MANUAL › Step 1](MANUAL.md#step-1)** carries the by-hand command for the one road where
-> nothing of ours ever runs on the original printer: pulling the eMMC and writing it from a PC.
+> it cannot. There is one route where it never runs: pulling the eMMC and writing it from a PC. On that route,
+> **[MANUAL › A0](MANUAL.md#appendix-a0)** has the command to collect the two files by hand.
 >
 > It is **not** a backup of the printer. For a way back to the factory system, image the whole eMMC onto
-> the stick first — [MANUAL › Step 2](MANUAL.md#step-2), no teardown needed.
+> the stick first — [MANUAL › Step 1](MANUAL.md#step-1), no teardown needed.
 
 ### Installing
 
@@ -153,7 +160,7 @@ setting up a spare module, or for keeping an untouched copy of the factory syste
 | | |
 |---|---|
 | **[QUICKSTART](QUICKSTART.md)** | the condensed checklist — start here if you have done this kind of thing before |
-| **[MANUAL](MANUAL.md)** | every screen and screwdriver step pictured, 1 → 11 in order |
+| **[MANUAL](MANUAL.md)** | every screen and screwdriver step pictured, 1 → 10 in order |
 | **[INSTALL-FLOWCHARTS](INSTALL-FLOWCHARTS.md)** | the same paths as diagrams, including the base-image and revert routes |
 
 Those three are the install instructions. Everything below on this page is **reference** — the menu, the
@@ -167,9 +174,10 @@ slicer profile, the optional features — not a fourth copy of the procedure.
 > install.
 >
 > ⚠️ **`arco-phrozen-ams.tar.gz` exists nowhere else.** The installer collects it for you while your
-> printer is still the original one, and refuses to flash if it cannot — by hand only if you pull the
-> eMMC instead ([Appendix A](MANUAL.md#appendix-a)). It is in no download and in none of Phrozen's
-> packages. Everything else on the stick comes out of
+> printer is still the original one, and refuses to flash if it cannot. Only one case needs your hand:
+> if you pull the eMMC and flash it from a PC, collect the file yourself
+> ([Appendix A](MANUAL.md#appendix-a)). It is in no download and in none of Phrozen's packages.
+> Everything else on the stick comes out of
 > **[`Arco-Unleashed-USB.zip`](https://github.com/solutionphil/arco-unleashed/releases)** — extract it to
 > the top level and you are done.
 >
@@ -210,7 +218,7 @@ update exists.
     incrementally carries the fixes — nothing gets clobbered and **you never need to recover**.
   - **Restore** — the fallback *only* if an update ever slips through un-patched: one click puts back the
     v0.13 core, patched module and your config (calibration preserved) and the printer comes back up.
-- **Backup / restore settings** — the guards restore the Klipper core and the phrozen_dev module on
+- **Save / restore SETTINGS** — the guards restore the Klipper core and the phrozen_dev module on
   their own, so the software needs no preparation any more. What no guard can do is give back the
   numbers **your** machine measured. `Backup` captures your printer configuration and calibration, the
   web interface's own settings (theme, presets, macro groups, history — none of it in `printer.cfg`),
@@ -222,15 +230,16 @@ update exists.
   button keeps failing. It runs every repair in order without asking what went wrong, because at that
   moment nobody knows whether Phrozen's firmware, a Klipper update, a Moonraker update or a "hard recover"
   caused it. Every step is idempotent, so it is a no-op on a healthy printer, and it reports what actually
-  needed fixing. It also covers two things no automatic guard catches: an `AddOn.cfg` that lost its
-  `[arco_mcu_timing]` section (the MCU timing would silently stop being applied), and root-owned files in
-  `~/klipper` or `~/moonraker`, which make Moonraker's update button fail with a git error that points
-  nowhere near the actual cause.
+  needed fixing. It also covers two things no automatic guard catches. First: an `AddOn.cfg` that
+  lost its `[arco_mcu_timing]` section, which silently stops the MCU timing from being applied.
+  Second: root-owned files in `~/klipper` or `~/moonraker`, which make Moonraker's update button
+  fail with a git error that points nowhere near the actual cause.
 - **Check self-heal guards** — the entry that replaced *"Re-apply Klipper patches"*, which had become
   redundant: those patches are re-applied by a guard on every Klipper start and by Emergency repair. What
-  nothing checked is whether the guards are wired at all. They are installed when the image is built, not
-  when the kit updates itself, so a printer that has been running a while can be missing a guard the
-  current kit assumes — with no symptom until the failure it exists to catch. This compares
+  nothing checked is whether the guards are wired at all. Guards are installed when the image is
+  built, not when the kit updates itself. So a printer that has been running a while can be missing
+  a guard the current kit assumes is there, and there is no symptom until the failure that guard
+  exists to catch. This compares
   `klipper.service` against what the kit's own installer writes, so the expected list cannot drift, and
   offers to install anything missing.
   **You do not have to do anything about that:** `klipper.service` runs seven `ExecStartPre` guards before
@@ -246,9 +255,9 @@ update exists.
   > and Moonraker offers new versions normally — nothing is greyed out or held back.
   > (`scripts/pin-klipper-updates.sh` can hold a version deliberately, if you want that.)
 - **PhrozenGo / Cloud** (`scripts/phrozengo.sh`) — *Privacy* closes the frpc **SSH tunnel** to the
-  vendor's server (app still works via TUTK); *OTA* toggles Phrozen's auto-update — turn it **OFF** to
-  protect your v0.13 from a hostile Phrozen firmware update; *Disable* stops the cloud app entirely
-  (no phone-home), frees the webcam + resources, and stops Phrozen from deleting **Obico** on boot.
+vendor's server; the app still works via TUTK. *OTA* toggles Phrozen's auto-update — turn it **OFF**
+to protect your v0.13 from a hostile Phrozen firmware update. *Disable* stops the cloud app entirely
+(no phone-home), frees the webcam + resources, and stops Phrozen from deleting **Obico** on boot.
   Defaults are as Phrozen ship them (all on); local display + light always stay.
   > ⚠️ **Installing Obico? Turn PhrozenGo off first.** Phrozen's own KlipperScreen launcher runs
   > `rm -rf ~/moonraker-obico` and `~/moonraker-obico-env` on **every boot**, and PhrozenGo ships
@@ -310,10 +319,10 @@ keeps your calibrated `beacon.cfg`. It edits only the lines it marked as its own
 > the retries make it worse. Check with `STEPPER_BUZZ STEPPER=stepper_z` / `stepper_z1` and watch which
 > side of the gantry moves.
 
-**What it changes.** Four things have to *disappear* from `printer.cfg`, which no include can do —
-`[probe]` (claims the same `!PB9`), `[homing_override]` (claims `G28` and drives Z against the piezo),
-`stepper_z`'s `position_endstop` (Klipper rejects it as unused once the endstop is virtual) and
-`stepper_z1`'s `endstop_pin` (a second endstop on a probe-homed rail). Each is commented with a
+**What it changes.** Four things have to *disappear* from `printer.cfg`, which no include can do.
+They are: `[probe]` (claims the same `!PB9`); `[homing_override]` (claims `G28` and drives Z against
+the piezo); `stepper_z`'s `position_endstop` (Klipper rejects it as unused once the endstop is
+virtual); and `stepper_z1`'s `endstop_pin` (a second endstop on a probe-homed rail). Each is commented with a
 `#:beacon:` marker, so `off` is a prefix strip. Everything additive lives in `beacon.cfg`, included
 **last** so its section merges win.
 
@@ -355,13 +364,14 @@ endstop and clear first, on switches and on StallGuard alike — see *Homing a s
 happens *at* the mechanical stop, so the zero does not shift and the filament cutter (X=319), the wipe
 position (Y=322) and any saved mesh stay valid.
 
-`on` equalises the two homing speeds (levelling *down*, never up — StallGuard's reading is
-velocity-dependent, so two axes at different speeds cannot share one sensitivity), installs a
-`sensorless.cfg` that gates StallGuard by velocity, and rolls everything back if Klipper does not come
-up. `off` puts the endstop and homing-speed lines back exactly as they were, and removes the include —
+`on` equalises the two homing speeds, installs a `sensorless.cfg` that gates StallGuard by velocity,
+and rolls everything back if Klipper does not come up. It levels the speeds *down*, never up:
+StallGuard's reading is velocity-dependent, so two axes at different speeds cannot share one
+sensitivity. `off` puts the endstop and homing-speed lines back exactly as they were, and removes the include —
 verified against the toggle's own backup. It edits those lines and nothing else, so anything else in
-`printer.cfg` is carried through both directions untouched. A Phrozen update replaces `printer.cfg`; the kit re-applies sensorless mode before every
-Klipper start while it is enabled, because handing back a dead switch is exactly the wrong failure.
+`printer.cfg` is carried through both directions untouched. A Phrozen update replaces `printer.cfg`.
+So while sensorless mode is enabled, the kit re-applies it before every Klipper start. Otherwise the
+update would hand you back the dead switch you switched away from.
 
 > ### ⚠️ Read this before switching
 > **1. Watch the first few homings, with `M112` in reach.** Wrong sensitivity means the carriage grinds
@@ -393,8 +403,9 @@ send `G28 X`, and the head is dragged sideways through the wipe unit at Y=322 on
 endstop — confirmed on the machine it happened to. Two
 things make that possible. Phrozen's homing section is declared `axes: z`, so Klipper never routed a
 single-axis home through it and the Y-first order it already contained was skipped. And a firmware
-restart does not leave the printer unhomed — it declares a position instead, so Klipper believes the
-head sits at the middle of the bed no matter where it really is, and nothing refuses the move.
+restart leaves the printer looking homed. Instead of clearing the position, it
+declares one, so Klipper believes the head sits at the middle of the bed no matter where it really
+is, and nothing refuses the move.
 
 Y is *homed* rather than nudged forward a fixed distance because a homing move watches the endstop
 while it travels. A plain move does not, and no fixed distance can know how far back the head started.
@@ -402,9 +413,9 @@ while it travels. A plain move does not, and no fixed distance can know how far 
 Same behaviour on microswitches and on StallGuard.
 
 **One thing this does not fix:** Z. After a firmware restart the declared height is an assumption, not
-a measurement, so **home before you move Z**. The declaration is deliberately set to the bottom of the
-travel, which means Klipper refuses anything more than 5 mm downward until a real home — but it also
-means a large upward move is still yours to get wrong. `G28` works from anywhere and settles it.
+a measurement, so **home before you move Z**. The declaration is deliberately set to the bottom of
+the travel, so Klipper refuses anything more than 5 mm downward until a real home. It gives you no
+protection upward: a large upward move is still yours to get wrong. `G28` works from anywhere and settles it.
 
 </details>
 
@@ -431,9 +442,10 @@ every update), so the kit ships **two `.theme` variants + a switcher** instead �
 | **Voron Dark** | near-black `#02050c` (same accents / logo / favicon) |
 | **Stock** | theme off (plain Mainsail) |
 
-Switch over SSH — `sh ~/printer_data/config/unleashed-theme.sh next` (cycles light → dark → stock) — or
-one-click in the **Macros panel** via `SWITCH_THEME` (needs the `gcode_shell_command` extension;
-`setup-theme-macros.sh` wires it up). Hard-reload after switching (**Ctrl+F5**). The active state is kept
+Switch over SSH with `sh ~/printer_data/config/unleashed-theme.sh next`, which cycles light → dark →
+stock. Or switch with one click in the **Macros panel** via `SWITCH_THEME` (needs the
+`gcode_shell_command` extension; `setup-theme-macros.sh` wires it up). Hard-reload after switching
+(**Ctrl+F5**). The active state is kept
 in `.theme-state` and survives reboots. Note: the `.theme` overlay is global, so it also tints the
 built-in themes — keeping those pristine would need a Mainsail fork (out of scope, not update-safe).
 
@@ -452,9 +464,9 @@ The Arco is a single-nozzle multicolor printer (filament-swap, like a Bambu AMS)
 before you slice. Slice single-colour or multicolour as the model needs, send it, and the printer picks
 the right AMS mode at print start by itself.
 
-That works because the decision is made on the printer, not in the slicer, from two things: **what you
-sliced** (one filament or several — the start G-code passes that through) and **whether an AMS is
-attached**, which the printer remembers.
+That works because the printer makes the decision, not the slicer. It decides from two things:
+**what you sliced** — one filament or several, which the start G-code passes through — and **whether
+an AMS is attached**, which the printer remembers.
 
 **Nothing to set, not even when the hardware changes.** Attaching or removing the AMS used to need a
 command; it does not any more. The unit is a USB serial device, the printer watches for it, and the
@@ -462,16 +474,17 @@ flag OrcaSlicer reads follows within seconds — no restart, no menu, nothing to
 shows what the printer currently thinks, if you want to check.
 
 The flag lives in `[save_variables]`, so it survives reboots and updates, and `arco_tool_gate` keeps it
-honest: `T1`–`T15` are registered exactly while an AMS is attached. The one case it will not act on is a
-running print — a unit that drops off the bus mid-job leaves both the tools and the flag as they are
-until the job has finished, because taking either away underneath a multicolour print is worse than a
+honest: `T1`–`T15` are registered exactly while an AMS is attached. There is one case it will not
+act on: a running print. If a unit drops off the bus mid-job, the tools and the flag stay as they
+are until the job has finished. Taking either away underneath a multicolour print is worse than a
 stale reading.
 
 **Profile.** Stock OrcaSlicer already ships the official **Phrozen Arco** profile (vendor `Phrozen`, no
 fork needed). The kit adds an enhanced variant in [`orca/`](orca/) with the Machine G-code already filled
-in — import it via *File → Import → Import Configs…*. Setting the fields by hand instead, or checking an
-older profile against the current one, is **[MANUAL › Step 10](MANUAL.md#machine-gcode)**: all four given in
-full, with a screenshot of the tab each belongs in.
+in — import it via *File → Import → Import Configs…*. To set the fields by hand instead, or to check
+an older profile against the current one, go to
+**[MANUAL › Step 9](MANUAL.md#machine-gcode)**. It gives all four G-code fields in full, with a
+screenshot of the tab each belongs in.
 
 All of that happens inside the start G-code: `PHROZEN_AMS_START` reads the flag and the print begins in
 the right mode. Nothing to pick, nothing to remember — and if you slice multicolour with no AMS attached,
@@ -500,7 +513,7 @@ actually sits. Adaptive meshes are transient (`adaptive-XXXX`) and never overwri
 profile, so switching back is just switching back. It needs OrcaSlicer's *Label objects* checkbox — that
 is what emits the object bounding boxes adaptive meshing reads.
 
-How to switch, and the one thing to check on your first slice: **[MANUAL › Step 10](MANUAL.md#machine-gcode)**.
+How to switch, and the one thing to check on your first slice: **[MANUAL › Step 9](MANUAL.md#machine-gcode)**.
 
 </details>
 
@@ -509,11 +522,12 @@ How to switch, and the one thing to check on your first slice: **[MANUAL › Ste
 <details>
 <summary>Show what the printer does on a pause or a colour change</summary>
 
-**You do not need mode-specific *Pause* or *Change filament* G-code.** One profile covers both cases,
-because the printer-side macros read the `ams` flag themselves: a colour change purges the slice's flush
-volume through the AMS, or runs the full manual retract → load → purge → resume without one. Pause behaves
-the same either way — the kit maps Orca's `M601` onto Klipper's `PAUSE`, which stock Klipper does not have,
-so a pause-at-layer works instead of hitting *Unknown command*.
+**You do not need mode-specific *Pause* or *Change filament* G-code.** One profile covers both
+cases, because the printer-side macros read the `ams` flag themselves. With an AMS, a colour change
+purges the slice's flush volume through it. Without one, it runs the full manual retract → load →
+purge → resume. Pause behaves the same either way. Stock Klipper has no `M601`, so the kit maps
+Orca's `M601` onto Klipper's `PAUSE` and a pause-at-layer works instead of hitting *Unknown
+command*.
 
 **Runout protection depends on the start G-code.** The toolhead sensor is watched by Phrozen's module, but
 only once a print mode has been set — which is what `PHROZEN_AMS_START` does. A start G-code without it
@@ -542,8 +556,9 @@ span length. Leave the steppers energised; `M84` lets the belts go slack and the
 
 **`BELT_WARMUP`** — runs the gantry through its range to warm the belts and steppers up.
 `BELT_WARMUP ACCEL=5000 MARGIN=40 SPEED=200 CYCLES=10`. It bounds its own acceleration rather than
-inheriting the machine's 40000 ceiling, keeps `MARGIN` off the frame at the low end, and stays clear of the
-purge/wipe unit at the high end — those two ends are not symmetric, which is why it derives them separately.
+inheriting the machine's 40000 ceiling. At the low end it keeps `MARGIN` off the frame; at the high
+end it stays clear of the purge/wipe unit. Those two ends are not symmetric, so it derives them
+separately.
 Previous limits are restored, and it re-homes at the end rather than trusting the step count, because a
 cold-belt warm-up at speed is precisely what can lose steps.
 
@@ -555,8 +570,9 @@ cotton bud. A second dialog with a **Stop** button replaces it while it runs.
 One turn of a 20-tooth GT2 pulley is 40 mm of belt, so the default 1.5 turns is 60 mm — and on CoreXY that
 is also 60 mm of carriage travel, with no ratio to correct for. Everything is adjustable:
 `CLEAN_IDLERS SIDE=left TURNS=1.5 TEETH=20 SPEED=45 PAUSE=3 PAUSE_TURN=1`. It pauses **before** each
-forward pass — that is when you hold the bud against the pulley, not while it moves — and only briefly at
-the far end. It refuses while a print is running, and refuses if the requested turns would carry Y past the
+forward pass, which is when you hold the bud against the pulley — not while it moves. At the far end
+it pauses only briefly. It refuses while a print is running, and refuses if the requested turns
+would carry Y past the
 purge unit.
 
 </details>
@@ -584,7 +600,8 @@ scripts/  unleashed_setup.sh   the setup MENU; _arco-lib.sh = shared helpers/act
           arco-firstrun (portal→fetch→install) · wifi-portal/ · tft.sh (boot progress screen)
           arco-splash (loading-screen branding)
 system/                   USB automount (udev rule + mount service) for the gcodes/USB stick path
-collect_data_arco.sh      grab phrozen_master + ~/hdlDat (AMS server, NOT in Arco_FW_V*.zip) from YOUR printer -> USB
+collect_data_arco.sh grab phrozen_master + ~/hdlDat (Phrozen gateway, NOT in the zip) from YOUR
+printer -> USB
 mainsail-theme/           optional Arco Unleashed Mainsail theme (Voron Light/Dark + switcher + mainsail-seed)
 orca/                     OrcaSlicer profile (flag-driven AMS auto-mode; import or copy the start-gcode line)
 ```
@@ -592,13 +609,13 @@ orca/                     OrcaSlicer profile (flag-driven AMS auto-mode; import 
 </details>
 
 ## Credits & notes
-- **No Phrozen software is redistributed, hosted or mirrored here.** Everything Phrozen ship as their own
-  reaches the printer either from a **USB stick you provide** (their official `Arco_FW_V*.zip`, obtained
-  by you from Phrozen) or, after you confirm, straight from **Phrozen's own public repository**: the
-  **`phrozen_dev` Python module** (GPL-3.0,
-  [phrozen3d/klipper](https://github.com/phrozen3d/klipper)) and the proprietary parts — the `voronFDM`
-  display binary (Phrozen's own closed-source C++, *not* GPL despite the name), the display `.tft` and
-  the AMS firmware. This repository ships the patch *rules* and its own scripts; the DTB and the WiFi
+- **No Phrozen software is redistributed, hosted or mirrored here.** Everything Phrozen ship as
+their own reaches the printer by one of two routes: from a **USB stick you provide** (their official
+`Arco_FW_V*.zip`, obtained by you from Phrozen), or — after you confirm — straight from **Phrozen's
+own public repository**. The parts in question are the **`phrozen_dev` Python module** (GPL-3.0,
+[phrozen3d/klipper](https://github.com/phrozen3d/klipper)) and the proprietary ones: the `voronFDM`
+display binary (Phrozen's own closed-source C++, *not* GPL despite the name), the display `.tft` and
+the AMS firmware. This repository ships the patch *rules* and its own scripts; the DTB and the WiFi
   firmware are in the **image**, not here. The config templates under `config-templates/` do derive from
   Phrozen's own Arco configuration, which they publish under **AGPL-3.0**
   ([phrozen3d/Phrozen_ARCO](https://github.com/phrozen3d/Phrozen_ARCO)) — the same licence as this

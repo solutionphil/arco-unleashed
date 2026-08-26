@@ -21,9 +21,11 @@
 # one of them cannot be undone. Picking from a list is NOT a confirmation: --arm still asks for `yes`
 # and for the target device to be typed out in full.
 #
-# --backup is the way back that otherwise does not exist. Phrozen publish no stock image, so today
-# returning a printer to factory means opening it and pulling the eMMC. Run --backup BEFORE flashing and
-# the owner keeps their own restore image; restoring it later is the ordinary flash with --image.
+# --backup is the way back that is immediately in the owner's hands. Phrozen do not publish a stock image
+# for download -- their support has supplied one on request -- so without a backup, going back to factory
+# means waiting on an email and settling for a factory image instead of this printer's own state.
+# Run --backup BEFORE flashing and the owner keeps their own restore image; restoring it later is the
+# ordinary flash with --image.
 # The result is a copy of Phrozen's system, licensed to that one owner: it stays on their stick and is
 # never shared or redistributed.
 #
@@ -41,9 +43,9 @@ TEST="${ARCO_SELFFLASH_TEST:-0}"              # 1 = relax HW gates so a loop dev
 # the first match, so a backup named like a release could be flashed instead of the release.
 #
 # The name carries WHICH SYSTEM was imaged, and that is not cosmetic. With one fixed name and a single
-# .previous, an image of Phrozen's original system -- which cannot be obtained any other way, because
-# Phrozen publish none -- was rotated out by the second routine backup taken afterwards and deleted by
-# the third. Two ordinary backups destroyed the only way back. Rotation is per name, so an Unleashed
+# .previous, an image of Phrozen's original system -- which no download provides, and which support can
+# only replace with a generic factory image -- was rotated out by the second routine backup taken
+# afterwards and deleted by the third. Two ordinary backups destroyed the only way back. Rotation is per name, so an Unleashed
 # backup can no longer displace a stock one; and the revert menu can label its candidates instead of
 # asking the owner to remember.
 # In the NAME, not a sidecar: a sidecar can be left behind when the file is copied to another stick,
@@ -788,8 +790,9 @@ arm() {
     echo "  by OPENING the housing and re-flashing the eMMC on a PC (path B)."
     echo "  Arming also records your consent to install Phrozen's software and"
     echo "  to Phrozen's software and cloud terms."
-    echo "  The USB stick must ALSO hold, for the first boot after flashing:"
-    echo "    - arco-phrozen-ams.tar.gz  (from collect_data_arco.sh, step 0)"
+    echo "  For the first boot after flashing, the stick also needs:"
+    echo "    - arco-phrozen-ams.tar.gz  (collected here if it is not already"
+    echo "      on the stick; by hand only on the eMMC-out road, MANUAL A0)"
     echo "      Checked right after your consent; without it nothing is flashed,"
     echo "      because it cannot be obtained any other way once this eMMC is"
     echo "      overwritten."

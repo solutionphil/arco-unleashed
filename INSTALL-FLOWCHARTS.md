@@ -2,7 +2,7 @@
 
 The same procedure as [QUICKSTART](QUICKSTART.md) (checklist), [MANUAL](MANUAL.md) (pictures) and
 [README](README.md) (reference) — drawn. Nothing here is new information: every box maps to a step in
-those documents or to a script in this kit, named at the top of each section.
+those documents or to a script in this kit, named at the top of each section or in the table at the end.
 
 Diagrams render on GitHub, in VS Code and in any Markdown viewer with Mermaid.
 
@@ -55,13 +55,13 @@ begins; B costs a teardown and is also the recovery route for a failed A.
 
 ## 2. Before anything is flashed — the two things you cannot get back later
 
-`install-unleashed.sh` · `collect_data_arco.sh` — MANUAL Steps 1 and 2.
+`install-unleashed.sh` · `collect_data_arco.sh` — MANUAL [A0](MANUAL.md#appendix-a0) and [Step 1](MANUAL.md#step-1).
 
 ```mermaid
 flowchart TD
     P(["Printer still running its<br/>original Phrozen system"]) --> R{"Which road?"}
 
-    R -->|"Path A — self-flash"| A0["AMS server rescued FOR YOU:<br/>the installer collects it before it writes,<br/>and refuses to flash if it cannot"]
+    R -->|"Path A — self-flash"| A0["Phrozen's gateway rescued FOR YOU:<br/>the installer collects it before it writes,<br/>and refuses to flash if it cannot"]
     R -->|"Path B — eMMC comes out"| B0["Nothing of ours ever runs here.<br/>Rescue it BY HAND first:<br/>bash collect_data_arco.sh /path/to/stick"]
 
     B0 --> B0C{"arco-phrozen-ams.tar.gz<br/>really on the stick?<br/>check it on your PC"}
@@ -74,7 +74,7 @@ flowchart TD
     W -->|"Yes, and I take path A"| B1["Image the whole eMMC to the stick<br/>menu item 2, or --backup"]
     W -->|"Yes, and I take path B"| B2["Dump the eMMC on the PC<br/>while it is out — section 5"]
 
-    B1 --> B1D{"arco-emmc-backup.img.gz<br/>plus .sha256 on the stick?"}
+    B1 --> B1D{"arco-emmc-backup-stock.img.gz<br/>— or its .001, .002 parts —<br/>plus .sha256 and .rawsize on the stick?"}
     B1D -->|"No"| B1
     B1D -->|"Yes — keep it private,<br/>it holds your WiFi password<br/>and SSH keys"| GO
     B2 --> GO
@@ -87,7 +87,8 @@ flowchart TD
     class GO okay
 ```
 
-> Phrozen publish **no** stock image. The eMMC backup is the only way to make one, and only *before* the
+> Phrozen do not publish a stock image for download. Their support has supplied one on request, but that
+> is a factory image; a copy you take here is *this* printer. And it can only be taken **before** the
 > flash — from Unleashed you can only ever image Unleashed.
 
 ---
@@ -125,7 +126,6 @@ flowchart LR
     Z --> A3
     Z --> A4
     Z --> A5
-    S0 --> A6
     S0 --> B6
     PH --> A7
     PH --> B7
@@ -135,15 +135,15 @@ flowchart LR
 
 ## 4. Path A — self-flash from the running printer
 
-`prepare_unleashed_self_flash.sh` · `selfflash/install-unleashed.sh` — MANUAL "Path A",
+`prepare_unleashed_self_flash.sh` · `selfflash/install-unleashed.sh` — [MANUAL Step 2](MANUAL.md#step-2),
 [`selfflash/README.md`](selfflash/README.md). Works from stock Buster **and** from an Unleashed system
 (that is also how you re-install or move to a newer image).
 
 ```mermaid
 flowchart TD
     A0(["SSH in as mks — stick plugged in,<br/>auto-mounted at ~/printer_data/gcodes/USB"])
-    A0 --> A1["sh prepare_unleashed_self_flash.sh<br/>unpacks the tool to ~/selfflash"]
-    A1 --> A2["sudo bash ~/selfflash/install-unleashed.sh<br/>menu item 1 — CHECK, changes nothing"]
+    A0 --> A1["sh prepare_unleashed_self_flash.sh<br/>unpacks to ~/selfflash, then asks:<br/>Start it now? y / N"]
+    A1 -->|"y — it starts the flasher for you"| A2["Password, then the menu opens<br/>item 1 — CHECK, changes nothing"]
     A2 --> A3{"Image found, sha256 valid,<br/>target eMMC is the right one?"}
     A3 -->|"No"| AF["Fix the stick and repeat<br/>a mismatch is usually the stick itself:<br/>no hub, or try a plain USB 2.0 one"] --> A2
     A3 -->|"Yes"| A4["Menu item 3 — Install<br/>(or --arm)"]
@@ -169,7 +169,7 @@ flowchart TD
     A13 -.->|"image missing, checksum<br/>mismatch, or it hangs"| E1["ESCAPE HATCH — only before the write:<br/>pull the stick, power-cycle<br/>the old system boots normally"]
     E1 --> E2{"Retry?"}
     E2 -->|"Yes"| E3["Put a good image back,<br/>power-cycle — it is still armed"] --> A13
-    E2 -->|"No, keep using the old system"| E4["sudo bash ~/selfflash/install-unleashed.sh --disarm<br/>otherwise the next boot with that stick<br/>overwrites the eMMC without asking"]
+    E2 -->|"No, keep using the old system"| E4["Menu item 4 — Cancel (or --disarm)<br/>otherwise the next boot with that stick<br/>overwrites the eMMC without asking"]
 
     F2 -.->|"failure after the write began"| R["No escape hatch left —<br/>recover with path B"]
 
@@ -187,7 +187,7 @@ flowchart TD
 
 ## 5. Path B — eMMC replacement and recovery
 
-MANUAL Steps 1–3. Also the recovery route when a path-A write fails.
+MANUAL [Appendix A](MANUAL.md#appendix-a). Also the recovery route when a path-A write fails.
 
 ```mermaid
 flowchart TD
@@ -301,14 +301,15 @@ flowchart TD
     F2 -->|"No terminal, no consent"| STOP["Aborts — nothing installed"]
     U --> P["Apply the v0.13 patches"]
     DL --> P
-    P --> DONE(["Display, AMS server and<br/>Phrozen macros in place"])
+    P --> DONE(["Display, gateway and<br/>Phrozen macros in place"])
 
     classDef okay fill:#e7f6e7,stroke:#22aa22,color:#000
     class DONE okay
 ```
 
 **Put the zip on the stick if** the printer will have no internet during setup, **or** you want
-PhrozenGo, a display-firmware (`.tft`) update, or the AMS firmware.
+PhrozenGo. Display (`.tft`) and AMS firmware are *not* a reason — those come through Phrozen's own USB
+firmware update, not from this stick.
 
 ---
 
@@ -333,7 +334,7 @@ flowchart TD
 
     F407 --> PC
     FL --> PC["Power the printer fully OFF for ~10 s,<br/>then on. A reboot is not enough —<br/>Klipper is deliberately left stopped"]
-    PC --> CHK{"Mainsail on http://printer-ip/<br/>comes up ready, display popup gone?"}
+    PC --> CHK{"Mainsail on http://unleashed.local/<br/>comes up ready, display popup gone?"}
     HOST --> CHK
     CHK -->|"No — mcu: Unable to connect<br/>or Command format mismatch"| RETRY["Repeat the flash for the MCU that failed"] --> SEL
     CHK -->|"Yes"| OK(["Printer is alive — calibrate next"])
@@ -346,7 +347,7 @@ flowchart TD
 
 ## 10. Calibrate, save it, print
 
-QUICKSTART Steps 5–6. The image ships **no** calibration on purpose — another printer's numbers are
+QUICKSTART Steps 4–5. The image ships **no** calibration on purpose — another printer's numbers are
 worthless. There is **no z-offset step**: the Arco probes with a load cell.
 
 ```mermaid
@@ -364,7 +365,7 @@ flowchart TD
     ORCA -->|"Stock profile is enough"| O1["OrcaSlicer already ships the<br/>official Phrozen Arco profile"]
     ORCA -->|"Want the kit's AMS auto-mode"| O2["Import orca/ presets:<br/>Unleashed loads your saved mesh,<br/>Unleashed adaptive mesh probes<br/>the print area each time"]
     ORCA -->|"Own profile"| O3["Paste the start G-code<br/>from the README"]
-    O1 --> AMS["Set AMS on/off once in the setup menu<br/>whenever you attach or remove it"]
+    O1 --> AMS["Nothing to set — the printer detects the AMS<br/>on USB and keeps the flag in step"]
     O2 --> AMS
     O3 --> AMS
     AMS --> P(["A sliced file prints"])
@@ -403,6 +404,7 @@ flowchart LR
     EX --> X5["s — Sensorless XY homing<br/>alternative, for a failed switch"]
 
     UP --> U1["6 — Check for updates<br/>section 15"]
+    UP --> U2["c — Update channel<br/>stable, or beta to test new features early"]
 ```
 
 ---
@@ -450,10 +452,11 @@ flowchart TD
     Q -->|"s — save an image now"| S1["Checks the stick has room,<br/>then reboots"]
     S1 --> S2["Images the eMMC before the system<br/>starts, progress bar on the display"]
     S2 --> S3["Carries on booting by itself —<br/>nothing on the printer was touched"]
-    S3 --> S4(["arco-emmc-backup.img.gz + .sha256<br/>on the stick, about 2 GB, ~30 min"])
+    S2 -->|"stick fills up"| SX["Stops on that screen and waits.<br/>Half-written backup deleted,<br/>BACKUP-STOPPED-READ-ME.txt on the stick"]
+    S3 --> S4(["arco-emmc-backup-stock or -unleashed.img.gz<br/>+ .sha256 and .rawsize, about 2 GB, ~30 min<br/>— written as .001/.002 parts over 4 GiB"])
     S4 --> S5["Keep it private — byte-for-byte,<br/>so it holds WiFi password and SSH keys"]
 
-    Q -->|"r — restore from an image"| R1{"arco-emmc-backup.img.gz<br/>plus its .sha256 on the stick?"}
+    Q -->|"r — restore from an image"| R1{"arco-emmc-backup-stock/-unleashed.img.gz<br/>— or its .001, .002 parts —<br/>plus its .sha256 on the stick?"}
     R1 -->|"No"| RX["Refuses — the checksum is not optional"]
     R1 -->|"Yes"| R2["Hands over to install-unleashed.sh:<br/>type the target device in full"]
     R2 --> R3["Same three display steps as a flash —<br/>check, write, verify"]
@@ -480,8 +483,8 @@ find its own hardware.
 ```mermaid
 flowchart TD
     D0(["Running Unleashed printer"]) --> D1{"Do you have an image of the<br/>ORIGINAL system, made before<br/>Unleashed was installed?"}
-    D1 -->|"No"| DX["End of the road from here.<br/>Phrozen's firmware zip is an update<br/>package, not a system. The only<br/>remaining option is a stock eMMC<br/>from elsewhere — path B"]
-    D1 -->|"Yes, on the stick as .img.gz + .sha256"| D2["Menu i → b, confirm the image is<br/>the original, then type REMOVE UNLEASHED"]
+    D1 -->|"No"| DX["Ask Phrozen support — they publish no stock<br/>image, but have supplied a factory image on request.<br/>Repackage it as .img.gz + .sha256 and come back here.<br/>A stock eMMC from elsewhere still needs the MCUs<br/>flashed back to v0.11 as well."]
+    D1 -->|"Yes — .img.gz, or its .001/.002 parts, with .sha256"| D2["Menu i → b, confirm the image is<br/>the original, then type REMOVE UNLEASHED"]
 
     D2 --> D3["1 of 2 — flash both MCUs back to v0.11<br/>F103 through Katapult, F407 via USB DFU,<br/>BOOT0 + RESET only as a fallback"]
     D3 --> D3C{"MCU flash succeeded?"}
@@ -519,7 +522,7 @@ flowchart TD
     end
 
     subgraph HEAL["Surviving other people's updates"]
-        H1["klipper.service runs seven ExecStartPre<br/>guards before klippy loads — the restart<br/>after any update puts things back"]
+        H1["klipper.service runs a set of ExecStartPre<br/>guards before klippy loads — the restart<br/>after any update puts things back"]
         H2["Menu 3 — check the guards are all wired.<br/>They are installed when the image is built,<br/>so an older printer can be missing one"]
         H3{"Moonraker's three buttons"}
         H3 -->|"Update"| H3a["Refuses on a modified repo,<br/>otherwise just pulls"]
@@ -567,13 +570,13 @@ flowchart TD
 
 | Section | Source in this repo |
 |---|---|
-| 1, 3 | [README](README.md) "Two ways to install", [QUICKSTART](QUICKSTART.md) Step 1 |
-| 2 | `collect_data_arco.sh`, [QUICKSTART](QUICKSTART.md) Steps 1 / 2 |
+| 1, 3 | [README](README.md) *Flash \& Run* and *Installing*, [QUICKSTART](QUICKSTART.md) *Fill the stick* |
+| 2 | `collect_data_arco.sh`, [MANUAL](MANUAL.md#appendix-a0) A0 and Step 1 |
 | 4 | [`selfflash/install-unleashed.sh`](selfflash/install-unleashed.sh), [`selfflash/README.md`](selfflash/README.md) |
-| 5 | [MANUAL](MANUAL.md) Steps 1–3 |
+| 5 | [MANUAL](MANUAL.md#appendix-a) Appendix A |
 | 6, 7, 8 | [`scripts/arco-firstrun.sh`](scripts/arco-firstrun.sh), [`scripts/wifi-portal/`](scripts/wifi-portal), [`scripts/fetch-phrozen-fw.sh`](scripts/fetch-phrozen-fw.sh) |
-| 9 | [`scripts/flash_mcus.sh`](scripts/flash_mcus.sh), [MANUAL](MANUAL.md) Step 5 |
-| 10 | [QUICKSTART](QUICKSTART.md) Steps 5–6, [`orca/`](orca) |
+| 9 | [`scripts/flash_mcus.sh`](scripts/flash_mcus.sh), [MANUAL](MANUAL.md#step-5) Step 5 |
+| 10 | [QUICKSTART](QUICKSTART.md) Steps 4–5, [`orca/`](orca) |
 | 11 | [`scripts/unleashed_setup.sh`](scripts/unleashed_setup.sh) |
 | 12 | [`scripts/unleashed_setup_manual.sh`](scripts/unleashed_setup_manual.sh) |
 | 13, 14 | [`scripts/_arco-lib.sh`](scripts/_arco-lib.sh), [`revert-to-buster/`](revert-to-buster) |
