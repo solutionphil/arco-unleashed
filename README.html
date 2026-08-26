@@ -481,8 +481,10 @@ printer flashes itself.</strong> It saves <code>phrozen_master</code>,
 <code>~/hdlDat</code>, which live only in Phrozen’s original OS — the
 display talks to that gateway, and the AMS work mode lives beside it.
 You cannot download them, and no Phrozen package contains them. The
-flash then erases them for good. Without them AMS detection hangs and
-the display will not return home after calibration.</p>
+flash then erases them for good. Without them the display spams
+<em>connect to the server fail</em> about eleven times a minute, stops
+returning to its home screen after calibration, and AMS detection
+hangs.</p>
 <p>The self-flash tool collects them itself, while the old system is
 still there, and refuses to flash if it cannot. There is one route where
 it never runs: pulling the eMMC and writing it from a PC. On that route,

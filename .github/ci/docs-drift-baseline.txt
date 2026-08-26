@@ -4,8 +4,8 @@
 # these two documents may both carry this text, and that whoever changes one will change the other.
 # Removing a line is always safe -- the check simply starts reporting the pair again.
 #
-# Three entries. Two are warnings that have to be readable without following a link; the third is a
-# command whose omission cannot be undone. None of them is a copy that could quietly stop matching
+# Five entries. Two are warnings that have to be readable without following a link; the rest are the
+# commands a checklist cannot omit. None of them is a copy that could quietly stop matching
 # the machine, which is the class this gate exists to prevent.
 #
 # A fourth was recorded here briefly -- the sentence describing what sensorless homing is, verbatim in
@@ -20,7 +20,16 @@ README.md MANUAL.md 5a9768d30ce2
 # install from. If it changes it changes in both, and this gate is what tells whoever forgets.
 README.md MANUAL.md 9d794c02bac0
 
-# The AMS-rescue command. MANUAL and QUICKSTART both own the procedure, and this is the one command
-# whose omission is unrecoverable -- it saves files that exist nowhere else and that the flash
-# destroys. The README carried a third copy; that one was removed rather than recorded here.
+# The by-hand rescue command. It used to sit in both documents; since the installer collects those
+# files itself, only the MANUAL carries it (Appendix A0) and QUICKSTART points there. Kept on record
+# because the pair returns the moment anyone puts the command back into the checklist.
 MANUAL.md QUICKSTART.md 900a2f259cbf
+
+# The one command that starts the flash. QUICKSTART exists to be the short path through the same
+# procedure, and a checklist that omits the command it is a checklist for is not one. If the command
+# changes it changes in both -- which is exactly what this gate is for.
+MANUAL.md QUICKSTART.md 181eb3010073
+
+# What that command then does: unpack from the stick and offer to start the flasher. It is the sentence
+# that tells the reader the two-command route is gone, so both documents carry it or neither does.
+MANUAL.md QUICKSTART.md 14abd2abdacb

@@ -137,7 +137,8 @@ already on it — you only need to flash it, set WiFi, and flash your printer's 
 > `phrozen_master`, `phrozen_slave_ota`, `device_table` and `~/hdlDat`, which live only in Phrozen's
 > original OS — the display talks to that gateway, and the AMS work mode lives beside it. You cannot
 > download them, and no Phrozen package contains them. The flash then erases them for good. Without them
-> AMS detection hangs and the display will not return home after calibration.
+> the display spams *connect to the server fail* about eleven times a minute, stops returning to its
+> home screen after calibration, and AMS detection hangs.
 >
 > The self-flash tool collects them itself, while the old system is still there, and refuses to flash if
 > it cannot. There is one route where it never runs: pulling the eMMC and writing it from a PC. On that route,
