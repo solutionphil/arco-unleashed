@@ -121,8 +121,8 @@ case "$state" in
            echo "  If it still refuses to start, the message in Mainsail names the section it choked on."
            echo "  A missing phrozen_dev cannot be repaired from here: reinstall the module from your"
            echo "  own Arco_FW_V*.zip via this menu — Phrozen's software is never shipped with the kit."
-           echo "  Note: the AMS server frp-oms/phrozen_master is NOT in that zip. It belongs to the"
-           echo "  printer's original OS, so its only copy is the arco-phrozen-ams.tar.gz you made"
+           echo "  Note: the gateway frp-oms/phrozen_master is NOT in that zip. It"
+           echo "  belongs to the original OS, so its only copy is the arco-phrozen-ams.tar.gz"
            echo "  before flashing:  tar xzf arco-phrozen-ams.tar.gz -C /tmp"
            echo "                    cp -a /tmp/frp-oms/. ~/klipper/klippy/extras/phrozen_dev/frp-oms/";;
 esac

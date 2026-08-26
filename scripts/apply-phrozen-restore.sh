@@ -30,8 +30,9 @@ PD="$KL/klippy/extras/phrozen_dev"
 BK="${ARCO_PHROZEN_BK:-$HOME/.arco-phrozen-backup}"
 
 # "complete enough to be worth trusting". The three .py files are what klippy needs to import the
-# module — but they are NOT the whole story, and assuming they were cost a real printer its AMS server:
-# frp-oms/phrozen_master is the AMS UDS server (/tmp/UNIX.domain). It lives inside this directory, so a
+# module — but they are NOT the whole story, and assuming they were cost a real printer its gateway:
+# frp-oms/phrozen_master serves /tmp/UNIX.domain — voronFDM (the display) is the client, and it holds
+# the AMS work mode in hdlDat/Phrozen_Dev.json. It lives inside this directory, so a
 # git clean deletes it too — yet it does NOT come from Arco_FW_V*.zip. It is part of the printer's
 # ORIGINAL base OS, and the only copy a user has is the arco-phrozen-ams.tar.gz that collect_data_arco.sh
 # produced before flashing. Restoring the module from a firmware package therefore brings back something
@@ -70,8 +71,8 @@ mirror(){ # $1=src $2=dst
 }
 
 if complete "$PD"; then
-  # Never trade a backup that still has the AMS server for one that does not — that is how the last
-  # copy disappears without anybody noticing until the AMS is needed.
+  # Never trade a backup that still has the gateway for one that does not — that is how the last copy
+  # disappears without anybody noticing until the display or the AMS needs it.
   if complete "$BK" && has_master "$BK" && ! has_master "$PD"; then
     echo "  phrozen_dev: installed module has no frp-oms/phrozen_master — keeping the older backup, which does" >&2
     echo "  phrozen_dev: (restore it with: tar xzf arco-phrozen-ams.tar.gz -C /tmp && cp -a /tmp/frp-oms/. $PD/frp-oms/)" >&2
@@ -79,7 +80,7 @@ if complete "$PD"; then
   fi
   if ! complete "$BK"; then
     mirror "$PD" "$BK" && echo "  phrozen_dev: safety copy created ($BK)"
-    has_master "$PD" || echo "  phrozen_dev: NOTE the module has no frp-oms/phrozen_master (AMS server) — see arco-phrozen-ams.tar.gz" >&2
+    has_master "$PD" || echo "  phrozen_dev: NOTE no frp-oms/phrozen_master (the gateway) — see the tarball" >&2
   elif [ "$PD/cmds.py" -nt "$BK/cmds.py" ]; then
     mirror "$PD" "$BK" && echo "  phrozen_dev: safety copy refreshed (installed module is newer)"
   fi
@@ -103,7 +104,8 @@ echo "  phrozen_dev: Phrozen's own public repository, keeping everything a re-in
 echo "  phrozen_dev:     bash ~/arco-unleashed/scripts/repair-phrozen.sh" >&2
 echo "  phrozen_dev: If they are GONE, re-install from Phrozen's Arco_FW_V*.zip via the setup menu" >&2
 echo "  phrozen_dev: (type: unleashed)." >&2
-echo "  phrozen_dev: The AMS server frp-oms/phrozen_master is NOT in that zip — it comes from the printer's" >&2
-echo "  phrozen_dev: original OS. Restore it from your own arco-phrozen-ams.tar.gz (collect_data_arco.sh)." >&2
+echo "  phrozen_dev: The gateway frp-oms/phrozen_master is NOT in that zip. It" >&2
+echo "  phrozen_dev: belongs to the original OS. Restore it from your own" >&2
+echo "  phrozen_dev: arco-phrozen-ams.tar.gz (collect_data_arco.sh)." >&2
 # Never fail the unit: klippy's own config error names the problem more precisely than we can.
 exit 0

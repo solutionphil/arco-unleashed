@@ -183,7 +183,7 @@ if [ "$SRC" = zip ]; then
   find "$WORK/x" -maxdepth 4 \( -name "*.tft" -o -name "FW_Arco-AMS*" \) -exec cp -f {} "$PD"/ \; 2>/dev/null || true
 fi
 
-# ---- AMS server (phrozen_master + ~/hdlDat): these are Phrozen BASE-OS files, NOT inside the
+# ---- Phrozen gateway (phrozen_master + ~/hdlDat): these are Phrozen BASE-OS files, NOT inside the
 # Arco_FW_V*.zip. The user collects them from their own printer with collect_data_arco.sh and puts
 # the resulting arco-phrozen-ams.tar.gz on the same USB. Without them voronFDM hangs ~60s on the AMS
 # unix socket (/tmp/UNIX.domain) + spams "connect to server fail", and page-home after auto-cal
@@ -192,14 +192,14 @@ AMS_TAR="${AMS_TARBALL:-}"
 [ -n "$AMS_TAR" ] && [ -f "$AMS_TAR" ] || \
   AMS_TAR="$(find "$(dirname "$FWZIP")" /media /mnt -maxdepth 4 -iname 'arco-phrozen-ams.tar.gz' 2>/dev/null | head -1)"
 if [ -n "$AMS_TAR" ] && [ -f "$AMS_TAR" ]; then
-  echo ">> Installing Phrozen AMS server (phrozen_master + hdlDat) from $AMS_TAR"
+  echo ">> Installing Phrozen gateway (phrozen_master + hdlDat) from $AMS_TAR"
   mkdir -p "$WORK/ams" "$PD/frp-oms" "$HOME/hdlDat"
   tar -xzf "$AMS_TAR" -C "$WORK/ams"
   cp -rf "$WORK/ams/frp-oms/." "$PD/frp-oms/" 2>/dev/null || true
   cp -af "$WORK/ams/hdlDat/." "$HOME/hdlDat/" 2>/dev/null || true
   # 32-bit ARM static binary; runs on our aarch64 via CONFIG_COMPAT. tar kept the exec bit, re-set anyway.
   chmod +x "$PD/frp-oms/phrozen_master" "$PD/frp-oms/phrozen_slave_ota" 2>/dev/null || true
-  echo "   AMS server installed (KlipperScreen-start.sh launches phrozen_master at boot)."
+  echo "   Gateway installed (KlipperScreen-start.sh launches phrozen_master at boot)."
 else
   echo "   WARN: arco-phrozen-ams.tar.gz not found on USB -> phrozen_master/hdlDat NOT installed."
   echo "         Run collect_data_arco.sh on your ORIGINAL Arco first, otherwise AMS detection and"

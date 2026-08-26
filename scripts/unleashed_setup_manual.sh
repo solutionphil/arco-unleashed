@@ -27,7 +27,7 @@ menu() {
   printf "    c)  Update channel        ${CC}(stable, or beta to test new features early)${C0}\n\n"
   printf "    q)  Quit\n\n"
   printf "${CW}   DTB and WiFi are baked in. Step 2 unpacks your USB and installs${C0}\n"
-  printf "${CW}   the display and AMS server; then restart klipper to bring it up.${C0}\n"
+  printf "${CW}   the display and AMS gateway; then restart klipper to bring it up.${C0}\n"
   printf "${CW}   Display setup is pre-seeded. Finally calibrate (mesh, z-offset,${C0}\n"
   printf "${CW}   PID, input shaper).${C0}\n\n"
 }
