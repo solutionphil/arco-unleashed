@@ -202,8 +202,20 @@ a_revert_to_buster(){
   # Any *.img.gz with a checksum, minus the Unleashed release image: a stock image the owner named
   # something of their own is still perfectly valid, and refusing it over a filename would be silly.
   local imgs="" f skipped=0
-  for f in "$stick"/*.img.gz; do
-    [ -f "$f" ] && [ -f "$f.sha256" ] || continue
+  # BOTH shapes. The glob alone matches whole files only -- a split backup exists solely as
+  # PREFIX.img.gz.001, .002, ... so it never appeared here, and the "no usable image" message below
+  # told the owner the road was closed while their backup lay on the stick. The second arm picks up
+  # the .001 part and hands on the plain name, which is what the flasher wants and what the sidecar
+  # is called.
+  for f in "$stick"/*.img.gz "$stick"/*.img.gz.001; do
+    case "$f" in *.001) f="${f%.001}";; esac
+    _arco_img_present "$f" && [ -f "$f.sha256" ] || continue
+    # A whole file and a .001 for the same name cannot both exist, but the two arms would list one
+    # twice if they ever did.
+    case "
+$imgs" in *"
+$f
+"*) continue;; esac
     case "$(basename "$f")" in
       Arco-Unleashed*) continue;;                 # the release image, not anyone's backup
       # A backup named -unleashed holds THIS project, so writing it here would flash the MCUs back to
@@ -216,10 +228,10 @@ a_revert_to_buster(){
   done
   if [ -z "$imgs" ]; then
     printf "${CR}   No usable image on this stick:${C0} %s\n" "$stick"
-    printf "   There must be a .img.gz with its .sha256\n"
-    printf "   beside it. If you never took one before installing Unleashed, this\n"
-    printf "   is the end of the road from here — the original system no longer\n"
-    printf "   exists on this printer to copy. Nothing was changed.\n"
+    printf "   There must be a .img.gz — or the .001, .002 parts of one —\n"
+    printf "   with its .sha256 beside it. If you never took one before installing\n"
+    printf "   Unleashed, this is the end of the road from here: the original system\n"
+    printf "   no longer exists on this printer to copy. Nothing was changed.\n"
     return 1
   fi
   # NUMBERED, because the prompt below asks for a number. Without the index the list and the question do
@@ -231,7 +243,7 @@ a_revert_to_buster(){
     [ -n "$f" ] || continue
     i=$((i+1))
     printf "     ${CW}%s)${C0} %s  ${CC}%s, %s${C0}\n" "$i" "$(basename "$f")" \
-      "$(du -h "$f" 2>/dev/null | cut -f1)" "$(date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null)"
+      "$(_arco_img_size "$f")$(_arco_img_parts "$f")" "$(_arco_img_date "$f")"
   done; }
   local n pick
   n=$(printf '%s' "$imgs" | grep -c .)
@@ -275,6 +287,37 @@ a_revert_to_buster(){
   sudo ARCO_RESTORING=1 bash "$sf" --arm --image "$pick"
 }
 
+# ---- split backups -------------------------------------------------------------------------------
+# A backup that would cross FAT32's 4 GiB per-file ceiling is written as PREFIX.001, .002, ... and then
+# NO file exists under the plain name. install-unleashed.sh has understood that from the start --
+# find_image() accepts either shape -- but the two collectors below tested `[ -f "$f" ]` against the
+# plain name alone. So a split set was silently missing from the restore list, and the revert helper
+# told the owner "no usable image on this stick" while their parts sat right there on it. The whole
+# point of splitting is to survive a full eMMC; being unable to see the result defeats it.
+#
+# The sidecar requirement does not change: a split set carries one .sha256 under the plain name too,
+# holding a "# arco-stream-sha256:" line for the whole stream plus one line per part.
+_arco_img_present(){   # <plain base name> — here as one file, or as a set of parts?
+  [ -f "$1" ] || [ -f "$1.001" ]
+}
+_arco_img_size(){      # <plain base name> — human size, summed across the parts of a split set
+  if [ -f "$1" ]; then
+    du -h "$1" 2>/dev/null | cut -f1
+  else
+    du -ch "$1".[0-9][0-9][0-9] 2>/dev/null | awk '$2=="total"{print $1}'
+  fi
+}
+_arco_img_date(){      # <plain base name> — timestamp of the file, or of the first part
+  local r="$1"; [ -f "$r" ] || r="$1.001"
+  date -r "$r" '+%Y-%m-%d %H:%M' 2>/dev/null
+}
+_arco_img_parts(){     # <plain base name> — "" for one file, " (N parts)" for a set
+  local c; [ -f "$1" ] && { printf ''; return; }
+  c=$(ls -1 "$1".[0-9][0-9][0-9] 2>/dev/null | grep -c .)
+  [ "$c" -gt 0 ] && printf ' (%s part%s)' "$c" "$([ "$c" = 1 ] || echo s)"
+  return 0   # the test above is the last command: without this the function reports 1 for a whole file
+}
+
 # Restoring belongs next to saving -- someone who made the backup here should not have to find a command
 # line to use it. It is also the most destructive thing this kit can do, so it names the file it will
 # write, says plainly what happens if it fails, and then hands over to install-unleashed.sh, which still
@@ -289,13 +332,13 @@ a_image_restore(){
            "$stick"/arco-emmc-backup.img.gz \
            "$stick"/arco-emmc-backup-stock.img.gz.previous "$stick"/arco-emmc-backup-unleashed.img.gz.previous \
            "$stick"/arco-emmc-backup.img.gz.previous; do
-    [ -f "$f" ] && [ -f "$f.sha256" ] && imgs="$imgs$f
+    _arco_img_present "$f" && [ -f "$f.sha256" ] && imgs="$imgs$f
 "
   done
   if [ -z "$imgs" ]; then
     printf "${CR}   No restorable image on the stick.${C0} There must be an\n"
-    printf "   arco-emmc-backup-*.img.gz ${CW}and${C0} its .sha256 beside it — without\n"
-    printf "   the checksum the flasher refuses, and rightly so.\n"
+    printf "   arco-emmc-backup-*.img.gz — or its .001, .002 parts — ${CW}and${C0} its\n"
+    printf "   .sha256 beside it. Without the checksum the flasher refuses, rightly.\n"
     return 1
   fi
   printf "   Found on %s:\n\n" "$stick"
@@ -314,7 +357,7 @@ a_image_restore(){
       *)            k="older backup, system unknown";;
     esac
     printf "     ${CW}%s)${C0} %-38s ${CC}%s, %s${C0}\n        ${CY}%s${C0}\n" "$i" "$(basename "$f")" \
-      "$(du -h "$f" 2>/dev/null | cut -f1)" "$(date -r "$f" '+%Y-%m-%d %H:%M' 2>/dev/null)" "$k"
+      "$(_arco_img_size "$f")$(_arco_img_parts "$f")" "$(_arco_img_date "$f")" "$k"
   done; }
   n=$(printf '%s' "$imgs" | grep -c .)
   # The trap this closes: restoring an image that PREDATES Unleashed leaves the MCUs on v0.13 under a
