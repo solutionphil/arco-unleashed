@@ -1938,6 +1938,14 @@ needed, and it restores the module from the safety copy the kit keeps outside th
 Phrozen's cloud component polls on a timer. There is nothing to switch off: the kit follows the AMS
 itself and swallows that poll while no unit is present. `FILA_STATUS` in the console shows what it sees.
 
+**A `BlockingIOError: [Errno 11]` traceback in `klippy.log`**
+Nothing is wrong with the printer. Klipper always opens a second, legacy G-code channel — a
+pseudo-terminal that nothing on this machine reads, and that no setting turns off. Its buffer fills,
+the next write to it is refused, and Klipper records the traceback. It appears **at most once each
+time Klipper starts or restarts**, and often not at all: after the first refusal Klipper marks the
+channel dead and never writes to it again. It is safe to ignore, on every printer. If you opened the
+log to chase a real fault, this is not it — keep reading.
+
 **"Timer too close" during calibration or a fast print**
 The real-time tuning is what keeps this machine stable at high acceleration: performance governor, CPU
 affinity, IRQ pinning, and the MCU timing declaration. If they are not all in place the step queue
