@@ -42,7 +42,12 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 # directory is derived per guard instead of fixed. A guard on a unit this screen does not know about
 # would have no off switch at all -- and one that cannot be switched off is not a guard, it is a
 # decision made for the owner.
-DD_ROOT=/etc/systemd/system
+# Overridable for the same reason optimize-boot.sh makes its own drop-in directory overridable, and
+# with the same variable: this function renames files under /etc, and "it looked right when I read it"
+# is not how this project has been finding its bugs. It found this one -- cmd_apply referenced a
+# variable it never set, so no guard could actually be switched -- only once the rename path could be
+# exercised against a throwaway tree. Nothing but a test ever sets it.
+DD_ROOT="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}"
 dd_of(){ printf '%s/%s.service.d' "$DD_ROOT" "${1:-klipper}"; }
 
 # id | drop-in prefix | short (fits a whiptail row) | risk | service
@@ -255,7 +260,15 @@ cmd_apply(){
   # which reads as "nothing needed doing" when it actually means "nothing could be done". A guard
   # the owner believes they switched off, and which is still running, is worse than either state.
   for g in "${GUARDS[@]}"; do
-    local id pre st; id=$(field "$g" 1); pre=$(field "$g" 2); st=$(state_of "$pre")
+    # svc and dd BOTH matter here, and both were missing. $dd was never assigned in this function --
+    # it is a `local` belonging to state_of, which does not survive that function returning, so under
+    # `set -u` the first rename died with "dd: unbound variable" before sudo was ever reached. Every
+    # guard was therefore switchable in the display and none of them in fact. And state_of was called
+    # without the service, so the one guard on moonraker was measured against klipper.service.d, came
+    # back ABSENT, and was skipped in silence.
+    local id pre svc dd st
+    id=$(field "$g" 1); pre=$(field "$g" 2); svc=$(field "$g" 5)
+    dd="$(dd_of "$svc")"; st=$(state_of "$pre" "$svc")
     [ "$st" = ABSENT ] && continue
     if printf '%s' "$want" | grep -q " $id "; then
       [ "$st" = OFF ] || continue
@@ -327,9 +340,9 @@ cmd_checkbox(){
   # Confirm the load-bearing ones separately. Not a veto -- the owner asked for individual control --
   # but "your printer will not start after the next Phrozen update" is worth one deliberate keypress.
   for g in "${GUARDS[@]}"; do
-    local id risk pre; id=$(field "$g" 1); risk=$(field "$g" 4); pre=$(field "$g" 2)
+    local id risk pre svc; id=$(field "$g" 1); risk=$(field "$g" 4); pre=$(field "$g" 2); svc=$(field "$g" 5)
     [ "$risk" = HIGH ] || continue
-    [ "$(state_of "$pre")" = ABSENT ] && continue
+    [ "$(state_of "$pre" "$svc")" = ABSENT ] && continue
     if ! printf ' %s ' $SEL | grep -q " $id "; then
       if ! whiptail --title "Turning off: $id" --yesno \
         "$(detail_of "$id")\n\nThis one is load-bearing. Really switch it off?" 18 76; then
