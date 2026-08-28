@@ -547,31 +547,53 @@ gcode:
 
 #@RETIRE g30 | the silent profile load left the display waiting for ever — replaced by g30_meshdone
 
-#@FEAT g30_meshdone | G30 = load the saved mesh, and say so (THE MESH FIX)
+# WHY g30_meshdone WAS WITHDRAWN IN TURN. It made the display work again, but it left the LOADING in
+# place for every caller -- including the G30 that sits in the shipped Orca start G-code. On the
+# non-adaptive preset that G30 is the only bed-mesh instruction a print has, so those printers stopped
+# measuring the bed altogether: they applied whatever mesh the last Auto-Cal had saved, print after
+# print, however old it had become. Phrozen's own G30 measured there. Restoring that is the point of
+# this block.
+
+#@RETIRE g30_meshdone | it loaded for every caller, so prints on the non-adaptive preset never measured — replaced by g30_measure
+
+#@FEAT g30_measure | G30 = measure during a print, load for the display's quick-level
 # ───── Bed mesh: unify everything on the 'phrozen' profile ─────
 # Phrozen's G30 (slicer start-gcode AND display quick-level) calibrated a throwaway 'default' profile
 # and never saved it -> it overwrote the 'phrozen' mesh that voronFDM + the Auto-Cal use, so
-# calibrations "didn't save". Override: G30 LOADs the saved 'phrozen' mesh - or, if none exists yet
-# (fresh install / Auto-Cal never run), calibrates a fresh one for this print instead of erroring.
-# No SAVE_CONFIG (would restart Klipper mid-print, since G30 runs in the slicer start-gcode);
-# persisting 'phrozen' stays in the Auto-Cal (BED_MESH_CALIBRATE PROFILE=phrozen + SAVE_CONFIG) / G29.
+# calibrations "didn't save". Everything below keeps that fixed: every calibration here names 'phrozen'.
 # Override mechanism: re-declare the section - Klipper merges same-named [gcode_macro] across includes
 # (AddOn.cfg is included AFTER printer_gcode_macro.cfg), so our gcode wins. NOT rename_existing: that
 # needs a separate original to rename ("Existing command 'G30' not found"), and a traditional G-code
 # can't be renamed to an extended name anyway.
 #
-# THE LOAD BRANCH REPORTS COMPLETION, and that is not a white lie: the mesh IS complete and active
-# after a load. The measuring still happens too -- the slicer's own start G-code runs
-# BED_MESH_CALIBRATE ADAPTIVE=1 for every print, ungated. Nothing else on this printer reads the line
-# (checked across the kit, the config and KlipperScreen). The CALIBRATE branch already prints it
-# itself, so it must NOT be repeated there. RESPOND TYPE=command yields "// <msg>" -- the space
-# matters, the display compares the first 24 characters -- and [respond] is declared at the top of
-# this file, outside every switchable block, so it cannot be turned off underneath this macro.
+# ONE COMMAND, TWO CALLERS, AND THEY WANT DIFFERENT THINGS.
+#   * From a print file's start G-code: MEASURE. This is the only mesh instruction the non-adaptive
+#     preset carries, so loading here means the bed is never probed again after the first Auto-Cal.
+#   * From the display's quick-level, before the print begins: LOAD, and say so. Probing here would
+#     make the operator wait for a measurement the file is about to take anyway, seconds later.
+#
+# THE TEST BETWEEN THEM is print_stats: virtual_sdcard's work_handler calls print_stats.note_start()
+# BEFORE it feeds the first line of the file, so the state is already "printing" while the start
+# G-code runs -- and it is not yet, when the display quick-levels ahead of sending its print command.
+# `exclude_object.objects` would also separate the two, but it depends on "label objects" being on in
+# the slicer; this does not.
+#
+# WHY THE LOAD BRANCH ANNOUNCES COMPLETION. Loading a profile is silent: Klipper prints "Mesh Bed
+# Leveling Complete" only when a CALIBRATION finishes. The display waits for exactly that line before
+# it will start the print, so without this it waits for ever with the heaters at temperature. Not a
+# white lie -- the mesh IS complete and active after a load. RESPOND TYPE=command yields "// <msg>";
+# the space matters, and [respond] is declared at the top of this file, outside every switchable block.
+#
+# NO SAVE_CONFIG HERE, on purpose: it restarts Klipper, and this runs inside a print. Calibrating with
+# PROFILE=phrozen does leave Klipper's "configuration has been updated" flag set -- persisting the
+# fresh mesh is then one click, AFTER the print. See the manual: do not press it while printing.
 [gcode_macro G30]
 variable_k: 1
 gcode:
     {% if k|int == 1 %}
-        {% if 'phrozen' in printer.bed_mesh.profiles %}
+        {% if printer.print_stats.state == 'printing' %}
+            BED_MESH_CALIBRATE PROFILE=phrozen
+        {% elif 'phrozen' in printer.bed_mesh.profiles %}
             BED_MESH_PROFILE LOAD=phrozen
             RESPOND TYPE=command MSG="Mesh Bed Leveling Complete"
         {% else %}

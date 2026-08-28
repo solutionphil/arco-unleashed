@@ -1946,8 +1946,9 @@ pick one:</p>
 <tbody>
 <tr>
 <td><code>Phrozen Arco 0.4 (Unleashed).json</code></td>
-<td><strong><code>G30</code></strong> — loads the mesh you saved as
-<code>phrozen</code>. Instant.</td>
+<td><strong><code>G30</code></strong> — probes the <strong>whole
+bed</strong> (36 points) each print, into the <code>phrozen</code>
+profile.</td>
 </tr>
 <tr>
 <td><code>Phrozen Arco 0.4 (Unleashed, adaptive mesh).json</code></td>
@@ -1969,6 +1970,16 @@ adaptive preset, the bed probing itself. A file sliced for a different
 printer still prints, but it begins without any of that — the AMS is
 never started, and the bed keeps whatever mesh was loaded last. Worth
 remembering for files that arrive ready-sliced from someone else.</p>
+</blockquote>
+<blockquote>
+<p><strong>After a print you may see “Configuration has been
+updated”.</strong> Measuring the bed writes the fresh mesh into the
+<code>phrozen</code> profile, and Klipper marks the configuration as
+changed. Saving it keeps that mesh across restarts, which is worth doing
+— but <strong>never press <code>SAVE_CONFIG</code> while a print is
+running</strong>: it restarts Klipper, and the print ends there. Wait
+until the printer is idle, or leave it alone entirely; the bed is
+measured again at the start of the next print either way.</p>
 </blockquote>
 <p><a id="machine-gcode"></a></p>
 <h3 id="or-set-the-four-fields-by-hand">Or set the four fields by
