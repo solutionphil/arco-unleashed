@@ -92,8 +92,5 @@ fi
 # ADXL accelerometer: re-convert software-SPI -> hardware SPI1 (a Phrozen firmware update restores the
 # stock software-SPI printer.cfg). Hardware SPI offloads the F103 -> fewer 'Timer too close' at the shaper.
 [ -f "$SCRIPTDIR/apply-adxl-hwspi.sh" ] && bash "$SCRIPTDIR/apply-adxl-hwspi.sh" || echo "NOTE: apply-adxl-hwspi.sh not found — ADXL SPI left as-is."
-# TFT reprint bridge: ensure voronFDM's stdout redirect + the bridge are in place (a Phrozen update
-# restores KlipperScreen-start.sh's /dev/null redirect, so this self-heals like the others).
-[ -f "$SCRIPTDIR/apply-reprint-redirect.sh" ] && bash "$SCRIPTDIR/apply-reprint-redirect.sh" || echo "NOTE: apply-reprint-redirect.sh not found — reprint bridge redirect left as-is."
 
 echo "Then: sudo systemctl restart klipper"

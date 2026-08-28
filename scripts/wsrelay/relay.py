@@ -9,8 +9,9 @@
 #  - If moonraker ever closes, sends voronFDM a clean WS CLOSE (1001) so its reconnect fires.
 # moonraker-neutral (no moonraker patch) + voronFDM-binary untouched (redirected via the connshim
 # LD_PRELOAD). Runs under the moonraker-env python (tornado). Listens on 127.0.0.1:7126.
-# NOTE: the TFT-reprint print.start injection lives in a SEPARATE helper (arco-reprint-bridge.py)
-# that reads voronFDM's stdout; this relay is pure freeze-protection and touches no message.
+# NOTE: this relay is pure freeze-protection and touches no message. A helper used to sit beside it
+# that read voronFDM's stdout and injected the print.start the display was not sending; it was retired
+# once the display's own print flow was repaired, and nothing has replaced it.
 import asyncio
 import tornado.web, tornado.websocket, tornado.ioloop
 from tornado.websocket import websocket_connect

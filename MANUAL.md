@@ -1237,6 +1237,13 @@ Then in OrcaSlicer: *File → Import → Import Configs…*, and pick one:
 Either one fills in all four G-code fields for you, and you can stop reading here. *Label objects*, which
 adaptive meshing needs, is already on in the official Arco print profiles.
 
+> **Starting a print from the printer's own display?** Then slice it with one of these presets. The
+> display prepares the machine — it homes, heats, and, with the levelling box ticked, applies the mesh
+> you saved as `phrozen`. Everything after that comes from the file's own start G-code: the AMS
+> start-up, and, with the adaptive preset, the bed probing itself. A file sliced for a different
+> printer still prints, but it begins without any of that — the AMS is never started, and the bed keeps
+> whatever mesh was loaded last. Worth remembering for files that arrive ready-sliced from someone else.
+
 <a id="machine-gcode"></a>
 
 ### Or set the four fields by hand
