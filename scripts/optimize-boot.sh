@@ -857,6 +857,44 @@ EOF
   systemctl daemon-reload 2>/dev/null || true
   echo "  klipper: Mainsail theme refresh (ExecStartPre) installed"
 fi
+
+# ── Retire the TFT reprint bridge ──────────────────────────────────────────────────────────────────
+# WHAT IT WAS. A helper that read voronFDM's stdout, recovered the filename the display printed there,
+# and sent the printer.print.start the display itself was not sending. It treated a symptom: the
+# display was waiting for a message our own G30 override had stopped producing. That is fixed in
+# AddOn.cfg now and the display starts its own prints again -- verified end to end on 2026-08-28, with
+# the helper stopped: G30 went out and print.start followed five seconds later.
+#
+# WHY IT HAS TO BE UNWOUND RATHER THAN JUST DELETED FROM THE KIT. It was launched from
+# apply-phrozen-patches.sh on every klipper start, so it has been running on every printer in the
+# field -- not, as first assumed, only where somebody started it by hand. It needed voronFDM's stdout,
+# which it obtained by rewriting Phrozen's KlipperScreen-start.sh to send that output to a capture file
+# instead of /dev/null. The logrotate rule that was meant to cap the file was installed only by a
+# script nothing ever called, so the file has been growing unbounded -- roughly 18 MB a day, with
+# nobody reading it. Deleting the helper alone would leave the redirect and the file behind for ever.
+#
+# The capture file is unlinked rather than truncated: voronFDM holds it open without O_APPEND, so
+# truncating would leave it writing past a hole. The space comes back when the display next restarts.
+if [ -n "${AHOME:-}" ]; then
+  _KS="$AHOME/klipper/klippy/extras/phrozen_dev/KlipperScreen-start.sh"
+  _rb=0
+  pkill -f "[a]rco-reprint-bridge" 2>/dev/null && _rb=1
+  if [ -f "$_KS" ] && grep -q 'serial-screen/voronFDM >[^ ]*vfdm-capture\.log' "$_KS" 2>/dev/null; then
+    sed -i 's#serial-screen/voronFDM >[^ ]*vfdm-capture\.log 2>&1 #serial-screen/voronFDM >/dev/null 2>\&1 #' "$_KS" \
+      && { _rb=1; echo "  reprint bridge: voronFDM stdout redirect reverted to /dev/null"; }
+  fi
+  for _f in "$AHOME/wsrelay/arco-reprint-bridge.py" "$AHOME/vfdm-capture.log" "$AHOME/arco-reprint-bridge.out"; do
+    [ -e "$_f" ] && { rm -f "$_f" && _rb=1; }
+  done
+  if [ -f "$SD/arco-reprint-bridge.service" ]; then
+    systemctl disable --now arco-reprint-bridge.service >/dev/null 2>&1 || true
+    rm -f "$SD/arco-reprint-bridge.service"
+    systemctl daemon-reload 2>/dev/null || true
+    _rb=1
+  fi
+  if [ -f /etc/logrotate.d/arco-vfdm-capture ]; then rm -f /etc/logrotate.d/arco-vfdm-capture; _rb=1; fi
+  [ "$_rb" = 1 ] && echo "  reprint bridge retired (helper, capture log and unit removed)"
+fi
 _kit_commit=""
 if [ -d "$SELFDIR/../.git" ] && command -v git >/dev/null 2>&1; then
   git config --global --add safe.directory "$(cd "$SELFDIR/.." && pwd)" 2>/dev/null || true
