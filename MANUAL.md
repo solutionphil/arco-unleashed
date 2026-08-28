@@ -1231,7 +1231,7 @@ Then in OrcaSlicer: *File → Import → Import Configs…*, and pick one:
 
 | Profile | Bed mesh at print start |
 |---|---|
-| `Phrozen Arco 0.4 (Unleashed).json` | **`G30`** — loads the mesh you saved as `phrozen`. Instant. |
+| `Phrozen Arco 0.4 (Unleashed).json` | **`G30`** — probes the **whole bed** (36 points) each print, into the `phrozen` profile. |
 | `Phrozen Arco 0.4 (Unleashed, adaptive mesh).json` | **probes the print area** each print (~30–60 s), leaving your saved mesh untouched |
 
 Either one fills in all four G-code fields for you, and you can stop reading here. *Label objects*, which
@@ -1243,6 +1243,12 @@ adaptive meshing needs, is already on in the official Arco print profiles.
 > start-up, and, with the adaptive preset, the bed probing itself. A file sliced for a different
 > printer still prints, but it begins without any of that — the AMS is never started, and the bed keeps
 > whatever mesh was loaded last. Worth remembering for files that arrive ready-sliced from someone else.
+
+> **After a print you may see “Configuration has been updated”.** Measuring the bed writes the fresh
+> mesh into the `phrozen` profile, and Klipper marks the configuration as changed. Saving it keeps that
+> mesh across restarts, which is worth doing — but **never press `SAVE_CONFIG` while a print is
+> running**: it restarts Klipper, and the print ends there. Wait until the printer is idle, or leave it
+> alone entirely; the bed is measured again at the start of the next print either way.
 
 <a id="machine-gcode"></a>
 
