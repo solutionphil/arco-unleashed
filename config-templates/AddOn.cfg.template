@@ -587,13 +587,22 @@ gcode:
 # NO SAVE_CONFIG HERE, on purpose: it restarts Klipper, and this runs inside a print. Calibrating with
 # PROFILE=phrozen does leave Klipper's "configuration has been updated" flag set -- persisting the
 # fresh mesh is then one click, AFTER the print. See the manual: do not press it while printing.
+# THE k GATE SITS BEHIND THE PRINTING BRANCH, NOT IN FRONT OF IT. k is Phrozen's: TP_OUT clears it,
+# TP_PUT sets it, and PRINT_END re-arms it through TP_PUT at the end of every print -- three writers,
+# and the third is why it was seen returning to 1 with no restart in between. Its job is to stop the
+# file's G30 from repeating the quick-level the display has just performed. This macro now does that
+# job itself, by asking print_stats who is calling, so gating the printing branch as well only
+# reproduced the hole the gate exists to prevent: open a file on the display (TP_OUT clears k), then
+# start a print from Mainsail, and the file's G30 would silently do nothing at all -- no measurement,
+# no load, no message. So during a print the measurement happens whatever k says; outside one, k still
+# decides whether the display's quick-level runs at all.
 [gcode_macro G30]
 variable_k: 1
 gcode:
-    {% if k|int == 1 %}
-        {% if printer.print_stats.state == 'printing' %}
-            BED_MESH_CALIBRATE PROFILE=phrozen
-        {% elif 'phrozen' in printer.bed_mesh.profiles %}
+    {% if printer.print_stats.state == 'printing' %}
+        BED_MESH_CALIBRATE PROFILE=phrozen
+    {% elif k|int == 1 %}
+        {% if 'phrozen' in printer.bed_mesh.profiles %}
             BED_MESH_PROFILE LOAD=phrozen
             RESPOND TYPE=command MSG="Mesh Bed Leveling Complete"
         {% else %}
