@@ -536,7 +536,18 @@ gcode:
     Z_TILT_ADJUST
 #@ENDFEAT
 
-#@FEAT g30 | G30 = load saved mesh (THE MESH FIX!)
+# WHY THE FIRST g30 BLOCK WAS WITHDRAWN. Loading a profile is instant and SILENT. Klipper prints
+# "Mesh Bed Leveling Complete" only when a CALIBRATION finishes -- never when a stored mesh is loaded.
+# The printer's own touch display waits for exactly that line before it will start the print, so on
+# every machine that had run the Auto-Cal once, and therefore had a saved profile, the display sat on
+# the levelling page for ever: heaters at temperature, nothing following, no error. Starting the same
+# file from Mainsail, Fluidd or the slicer was unaffected, which is what made it look like a display
+# fault instead of ours. Seen end to end on 2026-08-28: G30 went out and TP_OUT followed six seconds
+# later -- far too fast to have probed anything -- and the display never sent its print command.
+
+#@RETIRE g30 | the silent profile load left the display waiting for ever — replaced by g30_meshdone
+
+#@FEAT g30_meshdone | G30 = load the saved mesh, and say so (THE MESH FIX)
 # ───── Bed mesh: unify everything on the 'phrozen' profile ─────
 # Phrozen's G30 (slicer start-gcode AND display quick-level) calibrated a throwaway 'default' profile
 # and never saved it -> it overwrote the 'phrozen' mesh that voronFDM + the Auto-Cal use, so
@@ -548,12 +559,21 @@ gcode:
 # (AddOn.cfg is included AFTER printer_gcode_macro.cfg), so our gcode wins. NOT rename_existing: that
 # needs a separate original to rename ("Existing command 'G30' not found"), and a traditional G-code
 # can't be renamed to an extended name anyway.
+#
+# THE LOAD BRANCH REPORTS COMPLETION, and that is not a white lie: the mesh IS complete and active
+# after a load. The measuring still happens too -- the slicer's own start G-code runs
+# BED_MESH_CALIBRATE ADAPTIVE=1 for every print, ungated. Nothing else on this printer reads the line
+# (checked across the kit, the config and KlipperScreen). The CALIBRATE branch already prints it
+# itself, so it must NOT be repeated there. RESPOND TYPE=command yields "// <msg>" -- the space
+# matters, the display compares the first 24 characters -- and [respond] is declared at the top of
+# this file, outside every switchable block, so it cannot be turned off underneath this macro.
 [gcode_macro G30]
 variable_k: 1
 gcode:
     {% if k|int == 1 %}
         {% if 'phrozen' in printer.bed_mesh.profiles %}
             BED_MESH_PROFILE LOAD=phrozen
+            RESPOND TYPE=command MSG="Mesh Bed Leveling Complete"
         {% else %}
             BED_MESH_CALIBRATE PROFILE=phrozen
         {% endif %}

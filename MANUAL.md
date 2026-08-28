@@ -1918,6 +1918,15 @@ The comparison is against the image's *uncompressed* size, which is why a 2 GB f
 
 ### Printing
 
+**The display heats up, then stops before printing — the same file prints from Mainsail or Fluidd**
+Nothing is wrong with the printer, and nothing is stuck mechanically. Before it starts a print, the
+display waits for the message Klipper prints when a bed mesh calibration has finished. Once your
+printer has a saved mesh profile — which it has after the automatic calibration has run once — the kit
+loads that profile instead of measuring the bed again. Loading is instant and silent, so the message
+never comes and the display waits for it for ever, with the heaters holding temperature. This update
+sends the message after a profile load as well, so the display carries on. On a printer that has not
+had the update yet, start the print from Mainsail, Fluidd or your slicer instead.
+
 **A print ends with `bed_mesh: Unknown profile [phrozen]` and the display shows an error**
 The printer has never saved a mesh under that name — the image ships no calibration on purpose,
 because another machine's numbers are worthless. Current versions make this harmless. To fix it

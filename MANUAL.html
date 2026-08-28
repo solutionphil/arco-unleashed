@@ -2737,6 +2737,18 @@ The backup came from a machine with a larger eMMC — a 32 GB image cannot
 be written to an 8 GB one. The comparison is against the image’s
 <em>uncompressed</em> size, which is why a 2 GB file can be refused.</p>
 <h3 id="printing">Printing</h3>
+<p><strong>The display heats up, then stops before printing — the same
+file prints from Mainsail or Fluidd</strong> Nothing is wrong with the
+printer, and nothing is stuck mechanically. Before it starts a print,
+the display waits for the message Klipper prints when a bed mesh
+calibration has finished. Once your printer has a saved mesh profile —
+which it has after the automatic calibration has run once — the kit
+loads that profile instead of measuring the bed again. Loading is
+instant and silent, so the message never comes and the display waits for
+it for ever, with the heaters holding temperature. This update sends the
+message after a profile load as well, so the display carries on. On a
+printer that has not had the update yet, start the print from Mainsail,
+Fluidd or your slicer instead.</p>
 <p><strong>A print ends with
 <code>bed_mesh: Unknown profile [phrozen]</code> and the display shows
 an error</strong> The printer has never saved a mesh under that name —
