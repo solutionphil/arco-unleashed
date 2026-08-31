@@ -2790,14 +2790,17 @@ its own value.</p>
 <div class="sourceCode" id="cb41"><pre
 class="sourceCode ini"><code class="sourceCode ini"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[probe]</span></span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="dt">z_offset: -0.03</span></span></code></pre></div>
-<p>Or let Klipper measure it: home, move over the middle of a
-<strong>warm</strong> bed with a <strong>clean</strong> nozzle, then
-<code>PROBE_CALIBRATE</code>, lower with <code>TESTZ Z=-0.01</code>
-until a sheet of paper just drags, <code>ACCEPT</code>,
-<code>SAVE_CONFIG</code>. Klipper comments the line out in
-<code>[probe]</code> itself and writes the value into the SAVE_CONFIG
-section at the end of <code>printer.cfg</code>, under
-<code>#*# [probe]</code>, where no G-code can reach it.</p>
+<p>Or let the printer measure it for you: run
+<strong><code>CAL_Z_OFFSET</code></strong> — it is a button in Mainsail
+and Fluidd. It homes, parks over the middle of the bed and starts
+Klipper’s paper test; lower the nozzle with the buttons in the dialog
+until a sheet of paper just drags under it, press
+<strong>Accept</strong>, and a second dialog offers to save. Do it with
+a <strong>warm</strong> bed and a <strong>clean</strong> nozzle — both
+change the number. Klipper comments the line out in <code>[probe]</code>
+itself and writes the value into the SAVE_CONFIG section at the end of
+<code>printer.cfg</code>, under <code>#*# [probe]</code>, where no
+G-code can reach it.</p>
 <p><strong>Expect to correct that measurement afterwards.</strong> The
 paper test stops at the top of the paper, so it overshoots by roughly
 the paper’s own thickness — easily a tenth of a millimetre, which is

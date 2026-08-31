@@ -1279,6 +1279,84 @@ status_field: ams_present
 mount_point: /home/mks/printer_data/gcodes/USB
 #@ENDFEAT
 
+#@FEAT cal_z_offset | One button for the Z offset: home, paper test, and an offer to save (CAL_Z_OFFSET)
+# ───── Calibrating the Z offset without having to know any commands ─────
+# WHY THIS EXISTS. The nozzle is this printer's probe, and the load cells report contact only once
+# there is force behind it. That force is a constant amount of nozzle pressed into the bed and it lands
+# in the first layer, where nothing compensates for it -- so the first layer prints too low, most
+# visibly on a thin one. [probe] z_offset is the correction, and it ships at 0.
+#
+# The measurement is Klipper's own PROBE_CALIBRATE, and Mainsail and Fluidd already draw the paper-test
+# dialog themselves once it starts. What was missing is everything around it: homing first, standing
+# over the middle of the bed, and -- the part people miss -- being told that ACCEPT alone changes
+# nothing until SAVE_CONFIG has run.
+#
+# WHY A WATCHER RATHER THAN A WRAPPER. The obvious build is to wrap ACCEPT and offer the save there.
+# It cannot be done: ACCEPT, TESTZ and ABORT are registered only while a manual probe is running, so a
+# [gcode_macro ACCEPT] would find nothing to rename at config load. So this arms a delayed_gcode
+# instead, which watches manual_probe.is_active and reacts once the operator is finished.
+#
+# THE TEST FOR "FINISHED AND WORTH SAVING" IS DELIBERATELY THREE-PART. is_active going false only says
+# the dialog closed -- ACCEPT and ABORT both do that. probe_calibrate_finalize returns early on ABORT
+# without touching the config, so save_config_pending separates the two. And that flag can already be
+# set by something earlier (an auto-calibration saving a mesh), which would make an ABORT look like a
+# success -- hence remembering its state when the button is pressed and firing only on the change.
+[gcode_macro CAL_Z_OFFSET]
+description: Measure the Z offset with a sheet of paper, then offer to save it
+variable_seen: 0
+variable_ticks: 0
+variable_was_pending: 0
+gcode:
+    {% if printer.print_stats.state == 'printing' %}
+        {action_raise_error("CAL_Z_OFFSET: not while a print is running")}
+    {% endif %}
+    {% if printer.heater_bed.temperature|float < 40 %}
+        RESPOND PREFIX="Z-OFFSET:" MSG="the bed is cold. Heat it to the temperature you normally print at first - the number is different warm."
+    {% endif %}
+    SET_GCODE_VARIABLE MACRO=CAL_Z_OFFSET VARIABLE=seen VALUE=0
+    SET_GCODE_VARIABLE MACRO=CAL_Z_OFFSET VARIABLE=ticks VALUE=0
+    SET_GCODE_VARIABLE MACRO=CAL_Z_OFFSET VARIABLE=was_pending VALUE={1 if printer.configfile.save_config_pending else 0}
+    RESPOND PREFIX="Z-OFFSET:" MSG="homing, then the paper test. Lower until a sheet just drags, then Accept."
+    G28
+    G90
+    G1 X150 Y150 Z10 F6000
+    M400
+    UPDATE_DELAYED_GCODE ID=_cal_z_offset_watch DURATION=2
+    PROBE_CALIBRATE
+
+[delayed_gcode _cal_z_offset_watch]
+# Armed by the button and by nothing else, so no other manual probe on this machine can reach it. It
+# keeps re-arming while the operator works -- the paper test may take as long as it takes -- and gives
+# up after two minutes if the probe never starts at all.
+gcode:
+    {% set m = printer['gcode_macro CAL_Z_OFFSET'] %}
+    {% if printer.manual_probe.is_active %}
+        SET_GCODE_VARIABLE MACRO=CAL_Z_OFFSET VARIABLE=seen VALUE=1
+        UPDATE_DELAYED_GCODE ID=_cal_z_offset_watch DURATION=2
+    {% elif m.seen|int == 1 %}
+        {% if printer.configfile.save_config_pending and m.was_pending|int == 0 %}
+            _CAL_Z_OFFSET_DIALOG
+        {% else %}
+            RESPOND PREFIX="Z-OFFSET:" MSG="cancelled - nothing was measured, so there is nothing to save."
+        {% endif %}
+    {% elif m.ticks|int < 60 %}
+        SET_GCODE_VARIABLE MACRO=CAL_Z_OFFSET VARIABLE=ticks VALUE={m.ticks|int + 1}
+        UPDATE_DELAYED_GCODE ID=_cal_z_offset_watch DURATION=2
+    {% endif %}
+
+[gcode_macro _CAL_Z_OFFSET_DIALOG]
+description: internal - offers to make the measured Z offset permanent
+gcode:
+    RESPOND TYPE=command MSG="action:prompt_end"
+    RESPOND TYPE=command MSG="action:prompt_begin Z offset measured"
+    RESPOND TYPE=command MSG="action:prompt_text Saving writes the value into printer.cfg and restarts Klipper. Nothing is lost by waiting - but until it is saved, the printer still uses the old one."
+    RESPOND TYPE=command MSG="action:prompt_button_group_start"
+    RESPOND TYPE=command MSG="action:prompt_button Save and restart|SAVE_CONFIG|primary"
+    RESPOND TYPE=command MSG="action:prompt_button_group_end"
+    RESPOND TYPE=command MSG="action:prompt_footer_button Later|RESPOND TYPE=command MSG=action:prompt_end|secondary"
+    RESPOND TYPE=command MSG="action:prompt_show"
+#@ENDFEAT
+
 # >>> arco-update-console >>>
 # -----------------------------------------------------------------------------
 # UPDATE THE KIT FROM THE CONSOLE
