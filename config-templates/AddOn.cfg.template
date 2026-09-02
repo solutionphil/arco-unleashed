@@ -1279,17 +1279,31 @@ status_field: ams_present
 mount_point: /home/mks/printer_data/gcodes/USB
 #@ENDFEAT
 
-#@FEAT cal_z_offset | One button for the Z offset: home, paper test, and an offer to save (CAL_Z_OFFSET)
+#@RETIRE cal_z_offset | the save button never closed its own dialog, and the text named no number — replaced by cal_z_offset2
+#@FEAT cal_z_offset2 | One button for the Z offset: home, paper test, and an offer to save (CAL_Z_OFFSET)
 # ───── Calibrating the Z offset without having to know any commands ─────
 # WHY THIS EXISTS. The nozzle is this printer's probe, and the load cells report contact only once
 # there is force behind it. That force is a constant amount of nozzle pressed into the bed and it lands
 # in the first layer, where nothing compensates for it -- so the first layer prints too low, most
 # visibly on a thin one. [probe] z_offset is the correction, and it ships at 0.
 #
+# WHY z_offset AND NOTHING ELSE. [stepper_z] homes on the raw pin with position_endstop: 0.00, not on
+# probe:z_virtual_endstop, so z_offset does not move the homed origin by even a hundredth -- it reaches
+# the print solely through the bed mesh, which subtracts it from every probed point. Two consequences
+# worth knowing: the correction only exists while a mesh is active, and a mesh measured before the
+# change keeps the old value baked into its numbers until it is measured again.
+#
 # The measurement is Klipper's own PROBE_CALIBRATE, and Mainsail and Fluidd already draw the paper-test
 # dialog themselves once it starts. What was missing is everything around it: homing first, standing
 # over the middle of the bed, and -- the part people miss -- being told that ACCEPT alone changes
 # nothing until SAVE_CONFIG has run.
+#
+# WHY THE PAPER'S THICKNESS IS NAMED RATHER THAN SUBTRACTED. On a probe that triggers above the bed the
+# measured offset is a real standoff of millimetres and the paper is a rounding error inside it. Here
+# the standoff is zero by construction, so the whole number is error budget: the force the load cells
+# need, plus whatever was slid under the nozzle. Subtracting a fixed thickness would therefore be a
+# guess about the operator's paper, and guessing high drives the nozzle into the bed -- the one
+# direction that does damage. So the dialog states the effect and leaves the last word to Live Z.
 #
 # WHY A WATCHER RATHER THAN A WRAPPER. The obvious build is to wrap ACCEPT and offer the save there.
 # It cannot be done: ACCEPT, TESTZ and ABORT are registered only while a manual probe is running, so a
@@ -1346,15 +1360,32 @@ gcode:
 
 [gcode_macro _CAL_Z_OFFSET_DIALOG]
 description: internal - offers to make the measured Z offset permanent
+# The measured value is still only pending, so it is read from save_config_pending_items rather than
+# from settings -- settings still holds the one the printer is running on, which is the other half of
+# the comparison the operator needs.
 gcode:
+    {% set old = printer.configfile.settings.probe.z_offset|float %}
+    {% set p = printer.configfile.save_config_pending_items %}
+    {% set new = (p.probe.z_offset if p.probe is defined and p.probe.z_offset is defined else old)|float %}
     RESPOND TYPE=command MSG="action:prompt_end"
     RESPOND TYPE=command MSG="action:prompt_begin Z offset measured"
-    RESPOND TYPE=command MSG="action:prompt_text Saving writes the value into printer.cfg and restarts Klipper. Nothing is lost by waiting - but until it is saved, the printer still uses the old one."
+    RESPOND TYPE=command MSG="action:prompt_text Measured {'%.3f' % new} mm. Running on {'%.3f' % old} mm right now."
+    RESPOND TYPE=command MSG="action:prompt_text The measurement includes whatever you slid under the nozzle - roughly 0.10 mm for office paper, 0.05 mm for a receipt. That much of it will show as a first layer sitting slightly high. Correct it with Live Z during a print, then run Z_OFFSET_APPLY_PROBE."
+    RESPOND TYPE=command MSG="action:prompt_text Saving writes the value into printer.cfg and restarts Klipper. Measure a fresh bed mesh afterwards: the stored one was measured with the old value and still carries it."
     RESPOND TYPE=command MSG="action:prompt_button_group_start"
-    RESPOND TYPE=command MSG="action:prompt_button Save and restart|SAVE_CONFIG|primary"
+    RESPOND TYPE=command MSG="action:prompt_button Save and restart|_CAL_Z_OFFSET_SAVE|primary"
     RESPOND TYPE=command MSG="action:prompt_button_group_end"
     RESPOND TYPE=command MSG="action:prompt_footer_button Later|RESPOND TYPE=command MSG=action:prompt_end|secondary"
     RESPOND TYPE=command MSG="action:prompt_show"
+
+[gcode_macro _CAL_Z_OFFSET_SAVE]
+description: internal - closes the dialog, then saves and restarts
+# SAVE_CONFIG restarts Klipper, and a restart is not what closes a Mainsail dialog -- only prompt_end
+# is. Wiring the button straight to SAVE_CONFIG therefore left the window standing there afterwards,
+# still offering to save something that had already been saved.
+gcode:
+    RESPOND TYPE=command MSG="action:prompt_end"
+    SAVE_CONFIG
 #@ENDFEAT
 
 # >>> arco-update-console >>>
