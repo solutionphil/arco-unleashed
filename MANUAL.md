@@ -1956,17 +1956,22 @@ Write it in directly and restart Klipper:
 [probe]
 z_offset: -0.03
 ```
-Or let the printer measure it for you: run **`CAL_Z_OFFSET`** — it is a button in Mainsail and Fluidd.
-It homes, parks over the middle of the bed and starts Klipper's paper test; lower the nozzle with the
-buttons in the dialog until a sheet of paper just drags under it, press **Accept**, and a second dialog
-offers to save. Do it with a **warm** bed and a **clean** nozzle — both change the number. Klipper
-comments the line out in `[probe]` itself and writes the value into the SAVE_CONFIG section at the end
-of `printer.cfg`, under `#*# [probe]`, where no G-code can reach it.
+The printer can also measure it for you: run **`CAL_Z_OFFSET`** — a button in Mainsail and Fluidd under
+*Calibration*. It homes, parks over the middle of the bed and starts Klipper's paper test; lower the
+nozzle with the buttons in the dialog until a sheet of paper just drags under it, press **Accept**, and
+a second dialog shows the measured number beside the one in use and offers to save it. Do it with a
+**warm** bed and a **clean** nozzle — both change the number. Klipper comments the line out in
+`[probe]` itself and writes the value into the SAVE_CONFIG section at the end of `printer.cfg`, under
+`#*# [probe]`, where no G-code can reach it.
 
-**Expect to correct that measurement afterwards.** The paper test stops at the top of the paper, so it
-overshoots by roughly the paper's own thickness — easily a tenth of a millimetre, which is most of a
-thin first layer. Edit `#*# z_offset` under `#*# [probe]` at the end of `printer.cfg`, then restart
-Klipper.
+**Take the paper test to the end.** Step down until the sheet is truly gripped — you should not be able
+to pull it free without tearing it — then back off until it just drags, and press **Accept** there.
+Stopping early is the one thing that spoils this measurement, and it spoils it badly.
+
+Check the result on a first layer anyway. If it needs a nudge, move the **Z offset** in Mainsail during
+a print — negative brings the nozzle down — then run `Z_OFFSET_APPLY_PROBE` **before the print ends**
+(`PRINT_END` clears the live value), and `SAVE_CONFIG` **once it has finished** (it restarts Klipper
+and would end the print).
 **A print ends with `bed_mesh: Unknown profile [phrozen]` and the display shows an error**
 The printer has never saved a mesh under that name — the image ships no calibration on purpose,
 because another machine's numbers are worthless. Current versions make this harmless. To fix it
