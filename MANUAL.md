@@ -1956,10 +1956,12 @@ Write it in directly and restart Klipper:
 [probe]
 z_offset: -0.03
 ```
-Or let Klipper measure it: home, move over the middle of a **warm** bed with a **clean** nozzle, then
-`PROBE_CALIBRATE`, lower with `TESTZ Z=-0.01` until a sheet of paper just drags, `ACCEPT`, `SAVE_CONFIG`.
-Klipper comments the line out in `[probe]` itself and writes the value into the SAVE_CONFIG section at
-the end of `printer.cfg`, under `#*# [probe]`, where no G-code can reach it.
+Or let the printer measure it for you: run **`CAL_Z_OFFSET`** — it is a button in Mainsail and Fluidd.
+It homes, parks over the middle of the bed and starts Klipper's paper test; lower the nozzle with the
+buttons in the dialog until a sheet of paper just drags under it, press **Accept**, and a second dialog
+offers to save. Do it with a **warm** bed and a **clean** nozzle — both change the number. Klipper
+comments the line out in `[probe]` itself and writes the value into the SAVE_CONFIG section at the end
+of `printer.cfg`, under `#*# [probe]`, where no G-code can reach it.
 
 **Expect to correct that measurement afterwards.** The paper test stops at the top of the paper, so it
 overshoots by roughly the paper's own thickness — easily a tenth of a millimetre, which is most of a
