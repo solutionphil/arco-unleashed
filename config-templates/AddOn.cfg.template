@@ -1279,8 +1279,7 @@ status_field: ams_present
 mount_point: /home/mks/printer_data/gcodes/USB
 #@ENDFEAT
 
-#@RETIRE cal_z_offset | the save button never closed its own dialog, and the text named no number — replaced by cal_z_offset2
-#@FEAT cal_z_offset2 | One button for the Z offset: home, paper test, and an offer to save (CAL_Z_OFFSET)
+#@FEAT cal_z_offset | One button for the Z offset: home, paper test, and an offer to save (CAL_Z_OFFSET)
 # ───── Calibrating the Z offset without having to know any commands ─────
 # WHY THIS EXISTS. The nozzle is this printer's probe, and the load cells report contact only once
 # there is force behind it. That force is a constant amount of nozzle pressed into the bed and it lands
@@ -1298,12 +1297,14 @@ mount_point: /home/mks/printer_data/gcodes/USB
 # over the middle of the bed, and -- the part people miss -- being told that ACCEPT alone changes
 # nothing until SAVE_CONFIG has run.
 #
-# WHY THE PAPER'S THICKNESS IS NAMED RATHER THAN SUBTRACTED. On a probe that triggers above the bed the
-# measured offset is a real standoff of millimetres and the paper is a rounding error inside it. Here
-# the standoff is zero by construction, so the whole number is error budget: the force the load cells
-# need, plus whatever was slid under the nozzle. Subtracting a fixed thickness would therefore be a
-# guess about the operator's paper, and guessing high drives the nozzle into the bed -- the one
-# direction that does damage. So the dialog states the effect and leaves the last word to Live Z.
+# WHY THE PAPER'S THICKNESS IS NAMED RATHER THAN SUBTRACTED. The measured number is two things added
+# together, and only one of them belongs there. Homing lands Z=0 on the switch's trigger point, which
+# sits below the bed by however far the load cells must be deflected before they report contact --
+# correcting that is precisely what z_offset is for, and it is the larger share of the number. The
+# paper is the part that does not belong: it leaves the first layer sitting high by its own thickness.
+# Subtracting a fixed value for it would be a guess about the operator's paper, and guessing high
+# drives the nozzle into the bed, the one direction that does damage. So the dialog names the effect
+# and leaves the last word to Live Z.
 #
 # WHY A WATCHER RATHER THAN A WRAPPER. The obvious build is to wrap ACCEPT and offer the save there.
 # It cannot be done: ACCEPT, TESTZ and ABORT are registered only while a manual probe is running, so a
