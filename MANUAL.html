@@ -2790,23 +2790,30 @@ its own value.</p>
 <div class="sourceCode" id="cb41"><pre
 class="sourceCode ini"><code class="sourceCode ini"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[probe]</span></span>
 <span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="dt">z_offset: -0.03</span></span></code></pre></div>
-<p>Or let the printer measure it for you: run
-<strong><code>CAL_Z_OFFSET</code></strong> — it is a button in Mainsail
-and Fluidd. It homes, parks over the middle of the bed and starts
-Klipper’s paper test; lower the nozzle with the buttons in the dialog
-until a sheet of paper just drags under it, press
-<strong>Accept</strong>, and a second dialog offers to save. Do it with
-a <strong>warm</strong> bed and a <strong>clean</strong> nozzle — both
+<p>The printer can also measure it for you: run
+<strong><code>CAL_Z_OFFSET</code></strong> — a button in Mainsail and
+Fluidd under <em>Calibration</em>. It homes, parks over the middle of
+the bed and starts Klipper’s paper test; lower the nozzle with the
+buttons in the dialog until a sheet of paper just drags under it, press
+<strong>Accept</strong>, and a second dialog shows the measured number
+beside the one in use and offers to save it. Do it with a
+<strong>warm</strong> bed and a <strong>clean</strong> nozzle — both
 change the number. Klipper comments the line out in <code>[probe]</code>
 itself and writes the value into the SAVE_CONFIG section at the end of
 <code>printer.cfg</code>, under <code>#*# [probe]</code>, where no
 G-code can reach it.</p>
-<p><strong>Expect to correct that measurement afterwards.</strong> The
-paper test stops at the top of the paper, so it overshoots by roughly
-the paper’s own thickness — easily a tenth of a millimetre, which is
-most of a thin first layer. Edit <code>#*# z_offset</code> under
-<code>#*# [probe]</code> at the end of <code>printer.cfg</code>, then
-restart Klipper. <strong>A print ends with
+<p><strong>Take the paper test to the end.</strong> Step down until the
+sheet is truly gripped — you should not be able to pull it free without
+tearing it — then back off until it just drags, and press
+<strong>Accept</strong> there. Stopping early is the one thing that
+spoils this measurement, and it spoils it badly.</p>
+<p>Check the result on a first layer anyway. If it needs a nudge, move
+the <strong>Z offset</strong> in Mainsail during a print — negative
+brings the nozzle down — then run <code>Z_OFFSET_APPLY_PROBE</code>
+<strong>before the print ends</strong> (<code>PRINT_END</code> clears
+the live value), and <code>SAVE_CONFIG</code> <strong>once it has
+finished</strong> (it restarts Klipper and would end the print).
+<strong>A print ends with
 <code>bed_mesh: Unknown profile [phrozen]</code> and the display shows
 an error</strong> The printer has never saved a mesh under that name —
 the image ships no calibration on purpose, because another machine’s

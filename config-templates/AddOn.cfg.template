@@ -1297,14 +1297,13 @@ mount_point: /home/mks/printer_data/gcodes/USB
 # over the middle of the bed, and -- the part people miss -- being told that ACCEPT alone changes
 # nothing until SAVE_CONFIG has run.
 #
-# WHY THE PAPER'S THICKNESS IS NAMED RATHER THAN SUBTRACTED. The measured number is two things added
-# together, and only one of them belongs there. Homing lands Z=0 on the switch's trigger point, which
-# sits below the bed by however far the load cells must be deflected before they report contact --
-# correcting that is precisely what z_offset is for, and it is the larger share of the number. The
-# paper is the part that does not belong: it leaves the first layer sitting high by its own thickness.
-# Subtracting a fixed value for it would be a guess about the operator's paper, and guessing high
-# drives the nozzle into the bed, the one direction that does damage. So the dialog names the effect
-# and leaves the last word to Live Z.
+# WHY NOTHING IS SUBTRACTED FROM THE MEASUREMENT. The obvious idea is to take the paper's thickness off
+# the result before saving it. Two runs on one machine settled it: paper of double the thickness moved
+# the number by two microns, which is nothing. What the operator judges is not a thickness but the point
+# where the sheet begins to grip, and that lands at about the same real gap either way. So there is
+# nothing to subtract, and a fixed subtraction would be a guess that drives the nozzle toward the bed --
+# the one direction that does damage. The failure worth warning about is the other one: stopping before
+# the sheet is truly gripped, which produces a number several times too large. The dialog says so.
 #
 # WHY A WATCHER RATHER THAN A WRAPPER. The obvious build is to wrap ACCEPT and offer the save there.
 # It cannot be done: ACCEPT, TESTZ and ABORT are registered only while a manual probe is running, so a
@@ -1371,7 +1370,7 @@ gcode:
     RESPOND TYPE=command MSG="action:prompt_end"
     RESPOND TYPE=command MSG="action:prompt_begin Z offset measured"
     RESPOND TYPE=command MSG="action:prompt_text Measured {'%.3f' % new} mm. Running on {'%.3f' % old} mm right now."
-    RESPOND TYPE=command MSG="action:prompt_text The measurement includes whatever you slid under the nozzle - roughly 0.10 mm for office paper, 0.05 mm for a receipt. That much of it will show as a first layer sitting slightly high. Correct it with Live Z during a print, then run Z_OFFSET_APPLY_PROBE."
+    RESPOND TYPE=command MSG="action:prompt_text If it differs a lot from what you are running on, suspect the measurement rather than the printer. The sheet's thickness barely matters; stopping before it is truly gripped does, and that is what produces a number several times too large."
     RESPOND TYPE=command MSG="action:prompt_text Saving writes the value into printer.cfg and restarts Klipper. Measure a fresh bed mesh afterwards: the stored one was measured with the old value and still carries it."
     RESPOND TYPE=command MSG="action:prompt_button_group_start"
     RESPOND TYPE=command MSG="action:prompt_button Save and restart|_CAL_Z_OFFSET_SAVE|primary"
