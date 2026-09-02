@@ -110,8 +110,12 @@ GROUPS = [
                         ("FILA_STATUS", A), ("ARCO_FILA_EMPTY", I),
                         ("AMS_SETUP", I),
                         ("MAGIC_AMS_STATUS", A)]),
+    # CAL_Z_OFFSET first: it is the one an owner actually reaches for, and the bare G-codes below
+    # are Phrozen's. Position only matters on a fresh setup -- a top-up appends to whatever order the
+    # groups already have, so nobody's buttons move underneath them.
     ("Calibration", [(m, I) for m in
-                     ["G29", "G30", "G31", "G40", "bed_screw_adjust", "Z_TILT_LEVEL",
+                     ["CAL_Z_OFFSET",
+                      "G29", "G30", "G31", "G40", "bed_screw_adjust", "Z_TILT_LEVEL",
                       "SCREWS_TILT_CALCULATE",
                       "Z_TILT_ADJUST", "SHAPER_CALIBRATE", "CALIBRATE_SHAPER_NEW", "PID_BED",
                       "PID_NOZZLE", "M303", "M304", "BELT_TENSION", "probe_off", "probe_up"]]),
