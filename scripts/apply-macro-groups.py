@@ -121,7 +121,7 @@ GROUPS = [
                       "PID_NOZZLE", "M303", "M304", "BELT_TENSION", "probe_off", "probe_up"]]),
     ("Maintenance", [("CLEAN_IDLERS", I), ("CLEAN_IDLERS_STOP", A),
                      ("BELT_WARMUP", I), ("SWITCH_THEME", A)]),
-    ("Kit & Updates", [("ARCO_UPDATE", I), ("ARCO_UPDATE_CHECK", A)]),
+    ("Kit & Updates", [("ARCO_UPDATE", I), ("ARCO_UPDATE_CHECK", A), ("ARCO_SUPPORT", I)]),
     # KAOS is one group rather than scattered through the others. It is a separate project the owner
     # switched on deliberately, and when it is off none of these macros exist -- the group then simply
     # does not appear, instead of leaving five half-empty groups behind.
