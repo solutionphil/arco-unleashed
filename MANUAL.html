@@ -2771,7 +2771,39 @@ it for ever, with the heaters holding temperature. This update sends the
 message after a profile load as well, so the display carries on. On a
 printer that has not had the update yet, start the print from Mainsail,
 Fluidd or your slicer instead.</p>
-<p><strong>A print ends with
+<p><strong>The first layer sits too low, and the nozzle scratches the
+bed</strong> This printer has no separate probe: the nozzle itself is
+the sensor, and the load cells behind it report contact only once there
+is force. That force is a small, constant amount of nozzle pressed into
+the bed, and it lands in your first layer — Klipper never sees it. With
+a thick first layer you may never notice; with a thin one it is
+unmistakable.</p>
+<p>Two values look the same in the interface and only one of them lasts.
+The slider in Mainsail writes a <strong>live</strong> correction, and
+<code>PRINT_END</code> clears it after every print on purpose, so your
+adjustment is gone by the next one. The permanent value is
+<code>[probe] z_offset</code>, and a <strong>negative</strong> number
+raises the nozzle. Somewhere around <code>-0.02</code> to
+<code>-0.03</code> is a good place to start; your own machine will want
+its own value.</p>
+<p>Write it in directly and restart Klipper:</p>
+<div class="sourceCode" id="cb41"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[probe]</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="dt">z_offset: -0.03</span></span></code></pre></div>
+<p>Or let Klipper measure it: home, move over the middle of a
+<strong>warm</strong> bed with a <strong>clean</strong> nozzle, then
+<code>PROBE_CALIBRATE</code>, lower with <code>TESTZ Z=-0.01</code>
+until a sheet of paper just drags, <code>ACCEPT</code>,
+<code>SAVE_CONFIG</code>. Klipper comments the line out in
+<code>[probe]</code> itself and writes the value into the SAVE_CONFIG
+section at the end of <code>printer.cfg</code>, under
+<code>#*# [probe]</code>, where no G-code can reach it.</p>
+<p><strong>Expect to correct that measurement afterwards.</strong> The
+paper test stops at the top of the paper, so it overshoots by roughly
+the paper’s own thickness — easily a tenth of a millimetre, which is
+most of a thin first layer. Edit <code>#*# z_offset</code> under
+<code>#*# [probe]</code> at the end of <code>printer.cfg</code>, then
+restart Klipper. <strong>A print ends with
 <code>bed_mesh: Unknown profile [phrozen]</code> and the display shows
 an error</strong> The printer has never saved a mesh under that name —
 the image ships no calibration on purpose, because another machine’s
@@ -2848,10 +2880,10 @@ neither is there, it names the repair. That state arises on printers set
 up before the bridge could install it, or after a Phrozen firmware
 update replaces <code>printer.cfg</code>. Bringing the bridge up to date
 and restarting the klipper <strong>service</strong> repairs it:</p>
-<div class="sourceCode" id="cb42"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
 <div class="sourceCode" id="cb43"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="ex">unleashed</span></span></code></pre></div>
+<div class="sourceCode" id="cb44"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart klipper</span></code></pre></div>
 <p>then <code>G28</code> once. Klipper’s own <code>RESTART</code> does
 not run the guard that performs the repair.</p>
 <p><strong>Every command is rejected and <code>RESTART</code> does not
@@ -2916,17 +2948,17 @@ jobs: it stops a later Unleashed backup from rotating the file away, and
 the menu reads it to label the file for you.</p>
 <p>On Windows this needs <strong>no extra software</strong> — PowerShell
 can do all three. Open PowerShell and paste:</p>
-<div class="sourceCode" id="cb45"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
-<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
-<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
-<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
-<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
-<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
-<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb46"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="va">$img</span> <span class="op">=</span> <span class="st">&quot;D:\YOUR_IMAGE_NAME.img&quot;</span>               <span class="co"># what you read off the eMMC</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="va">$dst</span> <span class="op">=</span> <span class="st">&quot;F:\arco-emmc-backup-stock.img.gz&quot;</span>     <span class="co"># only F: changes — keep the file name</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$img</span><span class="op">);</span> <span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="va">$dst</span><span class="op">)</span></span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a><span class="va">$gz</span> <span class="op">=</span> <span class="fu">New-Object</span> IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">GZipStream</span><span class="op">(</span><span class="va">$out</span><span class="op">,</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">Compression</span><span class="op">.</span><span class="fu">CompressionMode</span><span class="op">]::</span>Compress<span class="op">)</span></span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a><span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$gz</span><span class="op">);</span> <span class="va">$gz</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">();</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="fu">Get-Item</span> <span class="va">$img</span><span class="op">).</span><span class="fu">Length</span> <span class="op">|</span> <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.rawsize&quot;</span></span>
+<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span><span class="op">$((</span>Get-FileHash <span class="va">$dst</span> <span class="op">-</span>Algorithm SHA256<span class="op">)</span><span class="st">.Hash.ToLower())  </span><span class="op">$(</span><span class="fu">Split-Path</span> <span class="va">$dst</span> <span class="op">-</span>Leaf<span class="op">)</span><span class="st">&quot;</span> <span class="op">|</span></span>
+<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Set-Content</span> <span class="op">-</span>Encoding ascii <span class="op">-</span>NoNewline <span class="st">&quot;</span><span class="va">$dst</span><span class="st">.sha256&quot;</span></span></code></pre></div>
 <blockquote>
 <p><strong>The two drive letters are examples — but only the
 letters.</strong> <code>$img</code> is entirely yours: point it at the
@@ -2955,14 +2987,14 @@ only mount FAT32.</p>
 has to, so this only concerns an image you made by hand here. If yours
 is over the limit, cut it into parts the restore will accept — on Linux
 or macOS:</p>
-<div class="sourceCode" id="cb46"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span> <span class="at">-b</span> 3788M <span class="at">--numeric-suffixes</span><span class="op">=</span>1 <span class="at">-a</span> 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.</span></code></pre></div>
+<div class="sourceCode" id="cb47"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">split</span> <span class="at">-b</span> 3788M <span class="at">--numeric-suffixes</span><span class="op">=</span>1 <span class="at">-a</span> 3 arco-emmc-backup-stock.img.gz arco-emmc-backup-stock.img.gz.</span></code></pre></div>
 <p>The sidecar then needs the hash of the whole file first, marked as
 such, followed by one line per part:</p>
-<div class="sourceCode" id="cb47"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="bu">printf</span> <span class="st">&#39;# arco-stream-sha256: %s\n&#39;</span> <span class="st">&quot;</span><span class="va">$(</span><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span><span class="st">&#39; &#39;</span> <span class="at">-f1</span><span class="va">)</span><span class="st">&quot;</span> <span class="dt">\</span></span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz.<span class="pp">???</span> <span class="op">&gt;&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb48"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="bu">printf</span> <span class="st">&#39;# arco-stream-sha256: %s\n&#39;</span> <span class="st">&quot;</span><span class="va">$(</span><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-d</span><span class="st">&#39; &#39;</span> <span class="at">-f1</span><span class="va">)</span><span class="st">&quot;</span> <span class="dt">\</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> arco-emmc-backup-stock.img.gz.<span class="pp">???</span> <span class="op">&gt;&gt;</span> arco-emmc-backup-stock.img.gz.sha256</span></code></pre></div>
 <p>Put the parts and that one sidecar on the stick — not the original —
 and the restore menu lists it under its plain name, marked with how many
 parts it found. On Windows, where there is no comfortable way to split a
@@ -2980,40 +3012,40 @@ itself, and reads the result back off the stick to prove it is good.</p>
 <p><strong>Checking it</strong> works anywhere — on the printer or on
 any PC, with the ordinary tool. It names the part that is wrong, which
 is usually a bad stick rather than a bad backup:</p>
-<div class="sourceCode" id="cb48"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-unleashed.img.gz.sha256</span></code></pre></div>
+<div class="sourceCode" id="cb49"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sha256sum</span> <span class="at">-c</span> arco-emmc-backup-unleashed.img.gz.sha256</span></code></pre></div>
 <p><strong>From the printer</strong> there is nothing to join. The setup
 menu’s restore list shows a split set under its plain name, with the
 part count beside it, and hands the whole thing to the flasher:
 <strong>i) Save the WHOLE SYSTEM</strong> → restore. The command line
 does the same if you prefer it — point <code>--image</code> at the plain
 base name and the flasher finds the parts:</p>
-<div class="sourceCode" id="cb49"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="dt">\</span></span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--image</span> ~/printer_data/gcodes/USB/arco-emmc-backup-unleashed.img.gz</span></code></pre></div>
 <div class="sourceCode" id="cb50"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="dt">\</span></span>
 <span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--image</span> ~/printer_data/gcodes/USB/arco-emmc-backup-unleashed.img.gz</span></code></pre></div>
+<div class="sourceCode" id="cb51"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--arm</span> <span class="dt">\</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--image</span> ~/printer_data/gcodes/USB/arco-emmc-backup-unleashed.img.gz</span></code></pre></div>
 <p><strong>From a PC, on Linux or macOS</strong>, it goes straight onto
 an eMMC in an adapter, with no software of ours involved.
 <code>dd</code> writes wherever you point it and asks nothing. Identify
 the target first, and check the size it reports: an eMMC in an adapter
 is a few gigabytes, your system disk is not:</p>
-<div class="sourceCode" id="cb51"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="ex">lsblk</span> <span class="at">-o</span> NAME,SIZE,TRAN,MODEL      <span class="co"># find the adapter and confirm the size before the next line</span></span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> arco-emmc-backup-unleashed.img.gz.<span class="pp">???</span> <span class="kw">|</span> <span class="fu">gunzip</span> <span class="kw">|</span> <span class="fu">sudo</span> dd of=/dev/<span class="op">&lt;</span>your-emmc<span class="op">&gt;</span> bs=4M status=progress</span></code></pre></div>
+<div class="sourceCode" id="cb52"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="ex">lsblk</span> <span class="at">-o</span> NAME,SIZE,TRAN,MODEL      <span class="co"># find the adapter and confirm the size before the next line</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> arco-emmc-backup-unleashed.img.gz.<span class="pp">???</span> <span class="kw">|</span> <span class="fu">gunzip</span> <span class="kw">|</span> <span class="fu">sudo</span> dd of=/dev/<span class="op">&lt;</span>your-emmc<span class="op">&gt;</span> bs=4M status=progress</span></code></pre></div>
 <p><strong>With balenaEtcher</strong>, join the parts into one file
 first — Etcher writes a single image and cannot take a set. It reads
 <code>.img.gz</code> as it is, so there is nothing to decompress:</p>
-<div class="sourceCode" id="cb52"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> arco-emmc-backup-unleashed.img.gz.<span class="pp">???</span> <span class="op">&gt;</span> arco-emmc-backup-unleashed.img.gz</span></code></pre></div>
-<p>On Windows, in PowerShell, in the folder that holds the parts:</p>
 <div class="sourceCode" id="cb53"><pre
-class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="st">&quot;</span><span class="va">$PWD</span><span class="st">\arco-emmc-backup-unleashed.img.gz&quot;</span><span class="op">)</span></span>
-<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="fu">Get-ChildItem</span> <span class="st">&quot;arco-emmc-backup-unleashed.img.gz.???&quot;</span> <span class="op">|</span> <span class="fu">Sort-Object</span> Name <span class="op">|</span> <span class="fu">ForEach-Object</span> <span class="op">{</span></span>
-<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>  <span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$_</span><span class="op">.</span><span class="fu">FullName</span><span class="op">);</span> <span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$out</span><span class="op">);</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
-<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
-<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a><span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> arco-emmc-backup-unleashed.img.gz.<span class="pp">???</span> <span class="op">&gt;</span> arco-emmc-backup-unleashed.img.gz</span></code></pre></div>
+<p>On Windows, in PowerShell, in the folder that holds the parts:</p>
+<div class="sourceCode" id="cb54"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="va">$out</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>Create<span class="op">(</span><span class="st">&quot;</span><span class="va">$PWD</span><span class="st">\arco-emmc-backup-unleashed.img.gz&quot;</span><span class="op">)</span></span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">Get-ChildItem</span> <span class="st">&quot;arco-emmc-backup-unleashed.img.gz.???&quot;</span> <span class="op">|</span> <span class="fu">Sort-Object</span> Name <span class="op">|</span> <span class="fu">ForEach-Object</span> <span class="op">{</span></span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="va">$in</span> <span class="op">=</span> <span class="op">[</span>IO<span class="op">.</span><span class="fu">File</span><span class="op">]::</span>OpenRead<span class="op">(</span><span class="va">$_</span><span class="op">.</span><span class="fu">FullName</span><span class="op">);</span> <span class="va">$in</span><span class="op">.</span><span class="fu">CopyTo</span><span class="op">(</span><span class="va">$out</span><span class="op">);</span> <span class="va">$in</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a><span class="va">$out</span><span class="op">.</span><span class="fu">Close</span><span class="op">()</span></span></code></pre></div>
 <p><strong>The order is the whole point.</strong> Both the
 <code>???</code> glob and <code>Sort-Object Name</code> give
 <code>.001</code>, <code>.002</code>, <code>.003</code>. Joined in any
@@ -3066,17 +3098,17 @@ href="#step-2">Step 2</a>) the installer does them for you. When you
 write the eMMC in a PC the installer never runs, so both are yours to
 do. Once the module is written, neither can be done at all.</p>
 <p>SSH in as <code>mks</code> and run them in this order:</p>
-<div class="sourceCode" id="cb54"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Rescue Phrozen&#39;s gateway — phrozen_master, phrozen_slave_ota, device_table, ~/hdlDat.</span></span>
-<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="co">#    They are in no</span></span>
-<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a><span class="co">#    download and in none of Phrozen&#39;s packages. Without them the display spams and the</span></span>
-<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a><span class="co">#    AMS does not work.</span></span>
-<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span>
-<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Keep a way back to Phrozen&#39;s system: the whole eMMC as one file on the stick.</span></span>
-<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a><span class="co">#    Optional, but only possible now — from Unleashed you can only ever image Unleashed.</span></span>
-<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
-<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
+<div class="sourceCode" id="cb55"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Rescue Phrozen&#39;s gateway — phrozen_master, phrozen_slave_ota, device_table, ~/hdlDat.</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a><span class="co">#    They are in no</span></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a><span class="co">#    download and in none of Phrozen&#39;s packages. Without them the display spams and the</span></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a><span class="co">#    AMS does not work.</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/printer_data/gcodes/USB/collect_data_arco.sh ~/printer_data/gcodes/USB</span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Keep a way back to Phrozen&#39;s system: the whole eMMC as one file on the stick.</span></span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a><span class="co">#    Optional, but only possible now — from Unleashed you can only ever image Unleashed.</span></span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a><span class="fu">sh</span> ~/printer_data/gcodes/USB/prepare_unleashed_self_flash.sh</span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> bash ~/selfflash/install-unleashed.sh <span class="at">--backup</span></span></code></pre></div>
 <p>The first is <a href="#appendix-a0">A0</a> in full, the second <a
 href="#step-1">Step 1</a> — including what to do when the backup comes
 out larger than FAT32 allows. Keep <code>arco-phrozen-ams.tar.gz</code>

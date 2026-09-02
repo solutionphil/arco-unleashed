@@ -1940,6 +1940,31 @@ never comes and the display waits for it for ever, with the heaters holding temp
 sends the message after a profile load as well, so the display carries on. On a printer that has not
 had the update yet, start the print from Mainsail, Fluidd or your slicer instead.
 
+**The first layer sits too low, and the nozzle scratches the bed**
+This printer has no separate probe: the nozzle itself is the sensor, and the load cells behind it
+report contact only once there is force. That force is a small, constant amount of nozzle pressed into
+the bed, and it lands in your first layer — Klipper never sees it. With a thick first layer you may
+never notice; with a thin one it is unmistakable.
+
+Two values look the same in the interface and only one of them lasts. The slider in Mainsail writes a
+**live** correction, and `PRINT_END` clears it after every print on purpose, so your adjustment is gone
+by the next one. The permanent value is `[probe] z_offset`, and a **negative** number raises the nozzle.
+Somewhere around `-0.02` to `-0.03` is a good place to start; your own machine will want its own value.
+
+Write it in directly and restart Klipper:
+```ini
+[probe]
+z_offset: -0.03
+```
+Or let Klipper measure it: home, move over the middle of a **warm** bed with a **clean** nozzle, then
+`PROBE_CALIBRATE`, lower with `TESTZ Z=-0.01` until a sheet of paper just drags, `ACCEPT`, `SAVE_CONFIG`.
+Klipper comments the line out in `[probe]` itself and writes the value into the SAVE_CONFIG section at
+the end of `printer.cfg`, under `#*# [probe]`, where no G-code can reach it.
+
+**Expect to correct that measurement afterwards.** The paper test stops at the top of the paper, so it
+overshoots by roughly the paper's own thickness — easily a tenth of a millimetre, which is most of a
+thin first layer. Edit `#*# z_offset` under `#*# [probe]` at the end of `printer.cfg`, then restart
+Klipper.
 **A print ends with `bed_mesh: Unknown profile [phrozen]` and the display shows an error**
 The printer has never saved a mesh under that name — the image ships no calibration on purpose,
 because another machine's numbers are worthless. Current versions make this harmless. To fix it
