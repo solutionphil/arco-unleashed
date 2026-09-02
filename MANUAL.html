@@ -2905,6 +2905,24 @@ log, trust the <strong>first</strong> error and ignore what follows —
 everything after a shutdown is a consequence of it, not a second
 fault.</p>
 <pre class="gcode"><code>FIRMWARE_RESTART</code></pre>
+<h3 id="when-none-of-this-helps">When none of this helps</h3>
+<p><strong>Collect a support bundle before you ask</strong>
+<code>ARCO_SUPPORT</code> gathers what anyone helping you will ask for.
+It is a button in Mainsail and Fluidd under <em>Maintenance</em>, and it
+writes <strong><code>arco-support.tar.gz</code></strong> next to
+<code>printer.cfg</code> — in the same file list you use to edit the
+config, with a download button beside it. Inside are the tail of both
+logs, your config, the kit version and channel, which features and
+guards are switched on, and the state of the host: memory, disk, failed
+services, boot times.</p>
+<p>It is a couple of megabytes rather than the fifty a working
+<code>klippy.log</code> reaches, which is more than most places accept
+as an attachment. Anything that reads like a key or a password is
+blanked out before packing, and the bundle’s own <code>README.txt</code>
+says how many lines that was — it is plain text, so you can read it
+before you post it. It refuses while a print is running: packing that
+much on this board would disturb the print, and the logs are not going
+anywhere.</p>
 <hr />
 <p><a id="appendix-c"></a></p>
 <h2 id="appendix-c-faq">Appendix C — FAQ</h2>

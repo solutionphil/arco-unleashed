@@ -2053,6 +2053,21 @@ shutdown is a consequence of it, not a second fault.
 FIRMWARE_RESTART
 ```
 
+### When none of this helps
+
+**Collect a support bundle before you ask**
+`ARCO_SUPPORT` gathers what anyone helping you will ask for. It is a button in Mainsail and Fluidd
+under *Maintenance*, and it writes **`arco-support.tar.gz`** next to `printer.cfg` — in the same file
+list you use to edit the config, with a download button beside it. Inside are the tail of both logs,
+your config, the kit version and channel, which features and guards are switched on, and the state of
+the host: memory, disk, failed services, boot times.
+
+It is a couple of megabytes rather than the fifty a working `klippy.log` reaches, which is more than
+most places accept as an attachment. Anything that reads like a key or a password is blanked out
+before packing, and the bundle's own `README.txt` says how many lines that was — it is plain text, so
+you can read it before you post it. It refuses while a print is running: packing that much on this
+board would disturb the print, and the logs are not going anywhere.
+
 ---
 
 <a id="appendix-c"></a>
