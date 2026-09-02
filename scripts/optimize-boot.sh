@@ -858,6 +858,38 @@ EOF
   echo "  klipper: Mainsail theme refresh (ExecStartPre) installed"
 fi
 
+# ── git over HTTPS: force HTTP/1.1 ─────────────────────────────────────────────────────────────────
+# WHAT BREAKS WITHOUT IT. git's protocol v2 over HTTP/2 gets a 401 from GitHub on the second request.
+# The ref listing succeeds anonymously, and then the POST that actually fetches is answered with
+# "www-authenticate: Basic realm=GitHub" -- so git asks for a username and password for a PUBLIC
+# repository. Every git operation on the printer is affected, not just ours: Klipper, Moonraker and
+# KlipperScreen all fail the same way, which takes Moonraker's update manager down with them. What the
+# owner sees is a credential prompt every time they open the setup menu, and updates that never arrive.
+#
+# ISOLATED RATHER THAN GUESSED, on 2026-09-02:
+#   curl, same POST, anonymous            -> HTTP 200
+#   git -c protocol.version=0             -> works
+#   git -c protocol.version=2             -> 401, asks for credentials
+#   git -c protocol.version=2 http/1.1    -> works
+# So it is neither the repository, nor credentials, nor the network -- it is that one combination.
+# Forcing HTTP/1.1 keeps protocol v2 and everything it gives; the only cost is a slightly less
+# efficient transport, which for a handful of fetches is nothing.
+#
+# WRITTEN INTO THE OWNER'S FILE, NOT ROOT'S. This script runs as root, so `git config --global` would
+# land in /root/.gitconfig and help nobody: every git command that matters here runs as the printer
+# user, from the menu, from Moonraker, or from a guard.
+if [ -n "${AHOME:-}" ] && command -v git >/dev/null 2>&1; then
+  _gcfg="$AHOME/.gitconfig"
+  if [ "$(git config --file "$_gcfg" --get http.version 2>/dev/null)" != "HTTP/1.1" ]; then
+    if git config --file "$_gcfg" http.version HTTP/1.1 2>/dev/null; then
+      chown "$AUSER:$AUSER" "$_gcfg" 2>/dev/null || true
+      echo "  git: http.version=HTTP/1.1 for $AUSER (GitHub refuses git's protocol-v2 POST over HTTP/2)"
+    else
+      echo "  git: WARN could not write $_gcfg — fetches may still ask for GitHub credentials"
+    fi
+  fi
+fi
+
 # ── Retire the TFT reprint bridge ──────────────────────────────────────────────────────────────────
 # WHAT IT WAS. A helper that read voronFDM's stdout, recovered the filename the display printed there,
 # and sent the printer.print.start the display itself was not sending. It treated a symptom: the
