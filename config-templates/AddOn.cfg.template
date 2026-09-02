@@ -1441,3 +1441,50 @@ gcode:
     # that already has one, so the sentence belongs in the script, which every update replaces.
     RUN_SHELL_COMMAND CMD=arco_selfupdate PARAMS="console"
 # <<< arco-update-console <<<
+
+#@FEAT support_bundle | One file with everything a bug report needs: log tail, config, versions (ARCO_SUPPORT)
+# ───── Everything a bug report needs, in one file ─────
+# WHY THIS EXISTS. A report starts the same way every time: which channel, which commit, which guards,
+# which features are on, and a log. The log is the part that does not work. klippy.log passes 50 MB on
+# a machine that has been printing for a few weeks -- over the attachment limit anywhere it would be
+# posted, and most of it is weeks nobody will read. Mainsail's own download hands over the whole file
+# or nothing, so the first exchange in every report is spent asking for smaller pieces of it.
+#
+# This collects the tail of the logs together with the answers to the questions that get asked anyway,
+# and writes ONE file into the CONFIG folder rather than the log folder. That is the list owners
+# already know how to use, and Moonraker serves any file from it, not only .cfg -- tested.
+#
+# WHAT IT LEAVES BEHIND. Only printer.cfg, AddOn.cfg and moonraker.conf travel with their contents.
+# Phrozen's printer_gcode_macro.cfg and any KAOS file are somebody else's work, and a bundle made to
+# be posted in public is the wrong place to carry it; they appear in the inventory by name, size and
+# checksum instead, which is what a helper actually needs to know. Anything that reads like a key or a
+# password is blanked out of the staged copies before packing, and the count goes in the README.
+#
+# WHY IT REFUSES DURING A PRINT. Packing 20 MB is real work on two cores, and heavy load on this host
+# is what produced "Timer too close" during auto-calibration. The log does not go anywhere; it can be
+# collected once the print is done.
+[gcode_shell_command arco_support]
+command: /home/mks/arco-unleashed/scripts/support-bundle.sh
+timeout: 300.0
+verbose: True
+
+[gcode_macro ARCO_SUPPORT]
+description: Collect logs, config and versions into one file for a bug report
+gcode:
+    {% if printer.print_stats.state == 'printing' %}
+        {action_raise_error("ARCO_SUPPORT: not while a print is running - packing the log would disturb it. Collect it afterwards.")}
+    {% endif %}
+    RESPOND PREFIX=ARCO MSG="collecting - a few seconds, the log is the slow part"
+    RUN_SHELL_COMMAND CMD=arco_support
+    _ARCO_SUPPORT_DIALOG
+
+[gcode_macro _ARCO_SUPPORT_DIALOG]
+description: internal - says where the bundle went
+gcode:
+    RESPOND TYPE=command MSG="action:prompt_end"
+    RESPOND TYPE=command MSG="action:prompt_begin Support bundle ready"
+    RESPOND TYPE=command MSG="action:prompt_text arco-support.tar.gz now sits next to printer.cfg. Open Machine in the sidebar, find it in the file list, and use the download button."
+    RESPOND TYPE=command MSG="action:prompt_text Inside: the tail of the logs, printer.cfg, AddOn.cfg, moonraker.conf, the kit version and the guard status. Anything that read like a key or a password was blanked out, and README.txt says how many lines that was. It is plain text - read it first if you would rather check for yourself."
+    RESPOND TYPE=command MSG="action:prompt_footer_button Close|RESPOND TYPE=command MSG=action:prompt_end|secondary"
+    RESPOND TYPE=command MSG="action:prompt_show"
+#@ENDFEAT
