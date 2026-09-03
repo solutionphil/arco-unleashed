@@ -41,6 +41,33 @@ AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
 # users all sat inside those same branches, and a trap for anything added later at top level. That is
 # the identical shape as the $HOME failure above, so: set it once, here, where it cannot be skipped.
 SELFDIR="$(cd "$(dirname "$0")" && pwd)"
+
+# ── ONE RUN AT A TIME ────────────────────────────────────────────────────────────────────────────
+# Three callers can fire within a minute of each other: ensure-imageid's detached `systemd-run` for an
+# armed reconcile, the boot-time guard repair, and an owner at an SSH prompt. A full run takes 55-70 s
+# (measured from the mtimes this script leaves behind: 17.5 s for the klipper drop-ins alone), so
+# "they will not overlap" is not true and was never checked.
+#
+# Two at once is not merely wasteful. Most of what this writes is a small install(1) and survives any
+# interleaving, but the parts that are not atomic do not: `git checkout HEAD -- klippy/mcu.py` below
+# contends on index.lock, and the loser takes the "could not restore mcu.py, Klipper updates stay
+# blocked" branch — turning a redundant run into a printer that cannot update. Same for the sed -i
+# edits further down.
+#
+# REFUSE rather than wait. Waiting would only move the second full run later and pay its cost anyway;
+# the work is already being done by whoever holds the lock. And the lock is taken HERE, in the one
+# place all three callers pass through, rather than in each of them: a caller that holds it while
+# starting this script would deadlock against its own child.
+# [ -w /run ] first: `exec 9>` on a path we cannot open kills a non-interactive shell outright, and
+# `|| true` does not catch it. Root can always write /run; a non-root caller skips the lock and fails
+# on the first install(1) anyway, which is the honest error rather than a bogus "already running".
+if command -v flock >/dev/null 2>&1 && [ -w /run ]; then
+  exec 9>/run/arco-optimize-boot.lock
+  if ! flock -n 9; then
+    echo "  another optimize-boot run is in progress — leaving the work to it."
+    exit 0
+  fi
+fi
 changed=0
 for unit in klipper.service moonraker.service; do
   f="$SD/$unit"
@@ -780,15 +807,19 @@ fi
 # healthy printer it is a stat over a dozen files and klipper waits microseconds for it. TimeoutStartSec
 # is not decoration: a repair that hung would otherwise hold up the boot with no way to see why.
 #
-# repair-guards.sh is ALSO called from apply-console-filters.sh, and that is not redundancy -- it is the
-# only way onto a printer that is already broken, because installing this unit needs the root path that
-# is missing there. Both callers are idempotent and the second finds nothing to do.
+# repair-guards.sh is ALSO called from apply-console-filters.sh, and that is not redundancy -- it is
+# the only way onto a printer that is already broken, because installing this unit needs the root path
+# that is missing there. The two are kept apart by ORDER and by a LOCK, not by hope: a full run takes
+# 55-70 s and console-filters starts ~45 s into the boot, so the second caller genuinely would still
+# see zero-length files and start a competing run. Before= settles the ordering; the flock at the top
+# of this script settles the rest, including ensure-imageid's detached reconcile run.
 if [ -f "$SELFDIR/repair-guards.sh" ]; then
   install -Dm644 /dev/stdin "$SD/arco-guard-repair.service" <<EOF
 [Unit]
 Description=Arco Unleashed - put the self-heal guards back if a power-cycle truncated them
 After=local-fs.target
 Before=klipper.service
+Before=arco-console-filters.service
 
 [Service]
 Type=oneshot
