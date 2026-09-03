@@ -56,11 +56,20 @@ SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 dropin(){
   if [ -e "$1.disabled" ]; then
     cat >/dev/null
+    _dropin_wrote=0
     echo "  $(basename "$1"): switched off by the owner — left alone"
     return 0
   fi
   install -Dm644 /dev/stdin "$1"
+  _dropin_wrote=1
 }
+# Every caller reports "installed" on the line after its heredoc, and that line has to answer to the
+# helper -- otherwise the log claims both "left alone" and "installed" for the same file. That is the
+# same shape this project has already had to fix twice: check-guards reporting "all present" over a
+# missing setting, and guards-toggle showing [x] for six drop-ins that were 0 bytes long. Nothing
+# machine-parses this output, but a bug report is read by a person, and a log that contradicts itself
+# is what sends the reader down the wrong path.
+wrote(){ [ "${_dropin_wrote:-1}" = 1 ]; }
 
 # ── ONE RUN AT A TIME ────────────────────────────────────────────────────────────────────────────
 # Three callers can fire within a minute of each other: ensure-imageid's detached `systemd-run` for an
@@ -113,7 +122,7 @@ if [ -f "$SD/klipper.service" ]; then
 Nice=-19
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: Nice=-19 drop-in installed"
+  wrote && echo "  klipper: Nice=-19 drop-in installed"
 fi
 
 # phrozen_dev survival guard: keeps a copy of the module outside the Klipper tree and restores it if a
@@ -128,7 +137,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=-/usr/bin/timeout 60 $SELFDIR/apply-phrozen-restore.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: phrozen_dev survival guard (ExecStartPre) installed"
+  wrote && echo "  klipper: phrozen_dev survival guard (ExecStartPre) installed"
 fi
 
 # Klipper-core clobber guard: voronFDM copies v0.11 mcu.py/serialhdl.py/virtual_sdcard.py over this v0.13
@@ -144,7 +153,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-core-restore.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: v0.13 core-restore guard (ExecStartPre) installed"
+  wrote && echo "  klipper: v0.13 core-restore guard (ExecStartPre) installed"
 fi
 
 # MCU host timing: RETIRED as a file patch. It used to sed three values into klippy/mcu.py before every
@@ -189,7 +198,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-arco-extras.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: arco extras install-if-missing (ExecStartPre) installed"
+  wrote && echo "  klipper: arco extras install-if-missing (ExecStartPre) installed"
 fi
 
 # printer_gcode_macro.cfg config-patch self-heal: re-assert the SHAPER_END/BED_PROBE_END cal handshakes
@@ -204,7 +213,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-config-patches.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: printer_gcode_macro.cfg config-patch guard (ExecStartPre) installed"
+  wrote && echo "  klipper: printer_gcode_macro.cfg config-patch guard (ExecStartPre) installed"
 fi
 
 # phrozen_dev v0.13 API-patch self-heal: re-assert the 3 base.py/cmds.py fixes before EVERY klipper start.
@@ -219,7 +228,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-phrozen-patches.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: phrozen_dev v0.13 API-patch guard (ExecStartPre) installed"
+  wrote && echo "  klipper: phrozen_dev v0.13 API-patch guard (ExecStartPre) installed"
 fi
 
 # Test-print guard. Phrozen's FDM_TEST.gcode is a 3DBenchy sliced for THEIR demo profile; on a printer
@@ -234,7 +243,7 @@ if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-test-print.sh" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-test-print.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: test-print guard (ExecStartPre) installed"
+  wrote && echo "  klipper: test-print guard (ExecStartPre) installed"
 fi
 
 # AddOn.cfg feature delivery. New features ship as new #@FEAT blocks, and AddOn.cfg is never regenerated
@@ -250,7 +259,7 @@ if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-addon-merge.sh" ]; then
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-addon-merge.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: AddOn.cfg feature-merge guard (ExecStartPre) installed"
+  wrote && echo "  klipper: AddOn.cfg feature-merge guard (ExecStartPre) installed"
 fi
 
 # ImageId self-heal: ensure /etc/ImageId.json = {"ImageId":16} before EVERY klipper start (missing/wrong
@@ -263,7 +272,7 @@ if [ -f "$SD/klipper.service" ]; then
 ExecStartPre=+/usr/bin/timeout 10 $SELFDIR/ensure-imageid.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: /etc/ImageId.json guard (ExecStartPre, root) installed"
+  wrote && echo "  klipper: /etc/ImageId.json guard (ExecStartPre, root) installed"
 fi
 
 # ── Move an old side-by-side KAOS bridge into the kit ───────────────────────────────────────────
@@ -322,7 +331,7 @@ if [ -f "$SD/moonraker.service" ]; then
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-update-manager.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  moonraker: update-manager entry guard (ExecStartPre) installed"
+  wrote && echo "  moonraker: update-manager entry guard (ExecStartPre) installed"
 fi
 
 # ── Real-time isolation for the Klipper step generator (40k-accel headroom) ──
@@ -512,7 +521,7 @@ Environment=NUMEXPR_NUM_THREADS=1
 Environment=VECLIB_MAXIMUM_THREADS=1
 Environment=BLIS_NUM_THREADS=1
 EOF
-  echo "  numpy single-thread drop-in installed"
+  wrote && echo "  numpy single-thread drop-in installed"
 fi
 
 # IRQ affinity: keep the F407 USB-comms IRQ (dwc2) on CPU2 (clean, with klipper-mcu) and shove the
@@ -923,7 +932,7 @@ if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-reconcile-check.sh" ]; t
 [Service]
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-reconcile-check.sh
 EOF
-  echo "  klipper: reconcile check (ExecStartPre) installed"
+  wrote && echo "  klipper: reconcile check (ExecStartPre) installed"
 fi
 
 # Mainsail theme refresh. Deliberately LAST of the drop-ins and outside the config chain: it writes
@@ -940,7 +949,7 @@ if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-theme-variants.sh" ]; th
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-theme-variants.sh
 EOF
   systemctl daemon-reload 2>/dev/null || true
-  echo "  klipper: Mainsail theme refresh (ExecStartPre) installed"
+  wrote && echo "  klipper: Mainsail theme refresh (ExecStartPre) installed"
 fi
 
 # ── git over HTTPS: force HTTP/1.1 ─────────────────────────────────────────────────────────────────
