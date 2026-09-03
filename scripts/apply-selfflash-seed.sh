@@ -17,6 +17,9 @@ STAMP="${ARCO_SKIP_STAMP:-/run/arco-skip-portal}"
 SEED_WIFI_APPLIED=0                # set to 1 as soon as a Wi-Fi config has really been written
 # Which seeds have already been consumed — on the printer, deliberately not on the removable stick.
 SEED_STAMP="${ARCO_SEED_STAMP:-/var/lib/arco-unleashed/seed-applied}"
+# Where the flasher's WiFi decision is kept once the printer is up. printer_data/logs so ARCO_SUPPORT
+# picks it up with everything else a bug report needs.
+WIFI_DECISION_DST="${ARCO_WIFI_DECISION_DST:-/home/mks/printer_data/logs/arco-wifi-seed.log}"
 # Written by the setup portal when the user enters a network there.
 PORTAL_MARK="${ARCO_PORTAL_MARK:-/var/lib/arco-unleashed/portal-configured}"
 
@@ -169,8 +172,29 @@ apply_wifi_seed(){
 # and short-circuits the seed file — while leaving the printer with no Wi-Fi at all. That is exactly
 # the combination a user following recovery instructions produces, since the older marker route needs
 # .arco-skip-portal and it is natural to create it alongside a wifi-seed.txt.
+# ---- carry the flasher's WiFi decision into the printer -------------------------------------------
+# install-unleashed.sh appends which of the four routes it took (no_wifi / wifi-seed / live capture /
+# NM fallback) and why to .arco-wifi-decision.log on the stick. Two testers in a row reported "no WiFi
+# after flashing" and it could not be reconstructed, because everything the flasher said had scrolled
+# past and the reboot took it.
+#
+# Copied HERE and not inside apply_from(), which returns early when there is no .arco-skip-portal --
+# and that is exactly the case this log exists to explain. Also deliberately NOT consumed with the
+# other markers: the owner keeps the stick, and reading the same answer twice costs nothing.
+carry_wifi_decision_log(){
+  local src="$1/.arco-wifi-decision.log"
+  [ -s "$src" ] || return 0
+  install -d "$(dirname "$WIFI_DECISION_DST")" 2>/dev/null || true
+  cmp -s "$src" "$WIFI_DECISION_DST" 2>/dev/null && return 0
+  if install -m644 "$src" "$WIFI_DECISION_DST" 2>/dev/null; then
+    chown --reference="$(dirname "$WIFI_DECISION_DST")" "$WIFI_DECISION_DST" 2>/dev/null || true
+    echo "[selfflash-seed] flasher WiFi decision copied -> $WIFI_DECISION_DST"
+  fi
+}
+
 apply_any(){
   local mp="$1" rc=1
+  carry_wifi_decision_log "$mp"
   apply_from "$mp" && rc=0
   if [ "$SEED_WIFI_APPLIED" != 1 ]; then apply_wifi_seed "$mp" && rc=0; fi
   return "$rc"
