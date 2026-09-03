@@ -209,6 +209,18 @@ state_of(){
   else                                     echo ABSENT
   fi
 }
+# 🔴 PRESENT IS NOT THE SAME AS WORKING. A drop-in whose file exists but carries no ExecStartPre is
+# worse than a missing one: every check that asks the DIRECTORY calls it installed, and it does
+# nothing. Not hypothetical -- on 02.09.2026 the dev printer came back from a power-cycle with six
+# guard drop-ins present and 0 bytes long (commit=120 had not flushed them yet), and this very
+# command reported all twelve as [x] while check-guards.sh, which asks systemd instead of the
+# directory, correctly listed six as MISSING. Two tools, one machine, opposite answers.
+broken_of(){
+  local pre="$1" dd; dd="$(dd_of "${2:-klipper}")"
+  [ -f "$dd/$pre.conf" ] || return 1
+  grep -q "ExecStartPre" "$dd/$pre.conf" 2>/dev/null && return 1
+  return 0
+}
 
 cmd_list(){
   for g in "${GUARDS[@]}"; do
@@ -222,12 +234,18 @@ cmd_list(){
 cmd_status(){
   echo "Self-heal guards — individually switchable"
   echo "------------------------------------------"
-  local any=0
+  local any=0 broke=0
   for g in "${GUARDS[@]}"; do
     local id pre st risk svc; id=$(field "$g" 1); pre=$(field "$g" 2); risk=$(field "$g" 4); svc=$(field "$g" 5)
     st=$(state_of "$pre" "$svc")
     case "$st" in
-      ON)      printf "  [x] %-16s %s\n" "$id" "$(field "$g" 3)";;
+      ON)
+        if broken_of "$pre" "$svc"; then
+          printf "  [!] %-16s %s  (FILE IS EMPTY — this guard is NOT running)\n" "$id" "$(field "$g" 3)"
+          broke=1
+        else
+          printf "  [x] %-16s %s\n" "$id" "$(field "$g" 3)"
+        fi;;
       OFF)     printf "  [ ] %-16s %s  (OFF)\n" "$id" "$(field "$g" 3)"; any=1;;
       ABSENT)  continue;;
     esac
@@ -236,6 +254,13 @@ cmd_status(){
   done
   [ "$any" = 1 ] && echo && echo "  Something is switched off. That is allowed, but it is not the"
   [ "$any" = 1 ] && echo "  shipped state — 'detail' explains what each one covers."
+  if [ "$broke" = 1 ]; then
+    echo
+    echo "  One or more guard files are EMPTY. They look installed and do nothing."
+    echo "  A power-cycle can truncate a file written seconds earlier. Repair with:"
+    echo "    sudo bash ~/arco-unleashed/scripts/optimize-boot.sh && sync"
+    echo "  and reboot. check-guards.sh reports the same set as MISSING."
+  fi
   return 0
 }
 

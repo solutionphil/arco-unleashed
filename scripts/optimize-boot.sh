@@ -948,5 +948,15 @@ if [ -n "$_kit_commit" ] && [ -d "$AHOME/printer_data" ]; then
   echo "  kit: root-side setup recorded for ${_kit_commit:0:8}"
 fi
 
+# 🔴 SYNC BEFORE SAYING DONE. Every drop-in above was written with install(1), and / is mounted with
+# commit=120 -- so ext4 may hold the contents for up to two minutes while the directory entry is
+# already visible. The kit then asks the owner for a POWER-CYCLE, which is exactly the wrong moment:
+# on 02.09.2026 the dev printer came back with SIX guard drop-ins present and 0 bytes long, written
+# 90 seconds before the boot. The file names survive, the ExecStartPre lines do not, and the guards
+# silently stop running. Worse, 19-arco-imageid is the only root-privileged one, so its loss removes
+# the consumer of the reconcile marker while 25 keeps re-arming it -- a dead end whose only exit is
+# running this script by hand. One sync costs nothing and closes it. Same reason apply-reconcile-check
+# and channel.sh already sync their markers.
+sync 2>/dev/null || true
 systemctl daemon-reload 2>/dev/null || true
 echo "  done (takes effect on next boot)."
