@@ -73,8 +73,8 @@ log(){ echo "  guard-repair: $*"; }
 # The header below used to claim this was "derived the same way check-guards.sh derives its own". It
 # was not: check-guards PAIRS the path with an ExecStartPre line, and that pairing is the whole point.
 owned(){
-  grep -oE '^[[:space:]]*(install|dropin) .*\$SD/(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' "$OB" 2>/dev/null \
-    | grep -oE '(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' | sort -u
+  grep -oE '^[[:space:]]*(install|dropin) .*\$SD/[A-Za-z0-9_.-]+.service\.d/[A-Za-z0-9._-]+\.conf' "$OB" 2>/dev/null \
+    | grep -oE '[A-Za-z0-9_.-]+.service\.d/[A-Za-z0-9._-]+\.conf' | sort -u
 }
 
 damage(){

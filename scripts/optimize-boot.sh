@@ -338,16 +338,43 @@ fi
 # klippy is single-threaded on its critical path; the goal is ONE fast, uninterrupted core, not more.
 # Pin klippy -> CPU3 (alone), klipper-mcu -> CPU2 (with the F407 USB IRQ), background -> CPU0-1.
 # Drop-ins survive a KIAUH unit-body reinstall; re-run this if KIAUH ever rewrites a unit. Idempotent.
-aff() {  # $1 = unit, $2 = CPUAffinity value
-  [ -f "$SD/$1" ] || return 0
-  install -d "$SD/$1.d"
-  printf '[Service]\nCPUAffinity=%s\n' "$2" > "$SD/$1.d/20-arco-affinity.conf"
-}
-aff klipper.service        "3"
-aff klipper-mcu.service    "2"
-aff moonraker.service      "0 1"
-aff crowsnest.service      "0 1"
-aff KlipperScreen.service  "0 1"
+# WRITTEN OUT, NOT LOOPED — and through dropin() like every other drop-in in this file. The loop this
+# replaces built its path from a variable ("$SD/$1.d/20-arco-affinity.conf"), so the full path appeared
+# nowhere in this script's text. repair-guards.sh finds what to watch by READING this script, and could
+# therefore not see the CPU fence at all: a truncated copy of it would have cost klippy its reserved
+# core with every checker still reporting health — the silent version of the "Timer too close" report
+# this whole thread started from. Going through dropin() also means an owner who disables one of these
+# gets the same treatment as everywhere else.
+if [ -f "$SD/klipper.service" ]; then
+  dropin "$SD/klipper.service.d/20-arco-affinity.conf" <<'EOF'
+[Service]
+CPUAffinity=3
+EOF
+fi
+if [ -f "$SD/klipper-mcu.service" ]; then
+  dropin "$SD/klipper-mcu.service.d/20-arco-affinity.conf" <<'EOF'
+[Service]
+CPUAffinity=2
+EOF
+fi
+if [ -f "$SD/moonraker.service" ]; then
+  dropin "$SD/moonraker.service.d/20-arco-affinity.conf" <<'EOF'
+[Service]
+CPUAffinity=0 1
+EOF
+fi
+if [ -f "$SD/crowsnest.service" ]; then
+  dropin "$SD/crowsnest.service.d/20-arco-affinity.conf" <<'EOF'
+[Service]
+CPUAffinity=0 1
+EOF
+fi
+if [ -f "$SD/KlipperScreen.service" ]; then
+  dropin "$SD/KlipperScreen.service.d/20-arco-affinity.conf" <<'EOF'
+[Service]
+CPUAffinity=0 1
+EOF
+fi
 echo "  affinity drop-ins installed (klippy->CPU3, klipper-mcu->CPU2, background->CPU0-1)"
 
 # ...and the other half of the three lines above: pinning klippy TO CPU3 and klipper-mcu TO CPU2 never kept
