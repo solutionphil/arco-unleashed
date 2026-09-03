@@ -42,6 +42,26 @@ AUSER="$(stat -c%U "$KITDIR" 2>/dev/null || echo mks)"
 # the identical shape as the $HOME failure above, so: set it once, here, where it cannot be skipped.
 SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 
+# ── the off switch only works if the writer respects it ──────────────────────────────────────────
+# 🔴 guards-toggle.sh turns a guard off by renaming NN-x.conf to NN-x.conf.disabled, and this script
+# has rewritten every drop-in unconditionally since the day it was written: `git log -S'.conf.disabled'
+# -- scripts/optimize-boot.sh` returns nothing. So every kit update quietly put back what the owner had
+# switched off, because ensure-imageid.sh fires this script on the boot after an update, and
+# check-guards.sh --fix runs it too. Afterwards BOTH readers report the guard as on, since both test
+# .conf before .conf.disabled -- so the owner is not even told. A switch that flips itself back is
+# worse than no switch, and check-guards.sh already promises in writing that --fix will not do this.
+#
+# The heredoc must still be consumed when we stand aside, or the shell hands its body to whatever
+# runs next.
+dropin(){
+  if [ -e "$1.disabled" ]; then
+    cat >/dev/null
+    echo "  $(basename "$1"): switched off by the owner — left alone"
+    return 0
+  fi
+  install -Dm644 /dev/stdin "$1"
+}
+
 # ── ONE RUN AT A TIME ────────────────────────────────────────────────────────────────────────────
 # Three callers can fire within a minute of each other: ensure-imageid's detached `systemd-run` for an
 # armed reconcile, the boot-time guard repair, and an owner at an SSH prompt. A full run takes 55-70 s
@@ -88,7 +108,7 @@ done
 # klippy scheduling priority: Nice=-19 so the host scheduler favours Klipper under a sudden load burst
 # (helps avoid "MCU: Timer too close"). A drop-in survives a KIAUH reinstall of the unit body. Idempotent.
 if [ -f "$SD/klipper.service" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/arco-nice.conf" <<'EOF'
+  dropin "$SD/klipper.service.d/arco-nice.conf" <<'EOF'
 [Service]
 Nice=-19
 EOF
@@ -103,7 +123,7 @@ fi
 # has to be back on disk before the core-restore and the API patches can do anything with it.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/13-arco-phrozen-restore.conf" <<EOF
+  dropin "$SD/klipper.service.d/13-arco-phrozen-restore.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 60 $SELFDIR/apply-phrozen-restore.sh
 EOF
@@ -119,7 +139,7 @@ fi
 # top. Check-first (one grep for 'warn_prefix'); a no-op in ms unless actually clobbered.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/14-arco-core-restore.conf" <<EOF
+  dropin "$SD/klipper.service.d/14-arco-core-restore.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-core-restore.sh
 EOF
@@ -164,7 +184,7 @@ fi
 # would otherwise error "unable to load module"). '-' = non-fatal; runs once per start then exits.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/16-arco-extras.conf" <<EOF
+  dropin "$SD/klipper.service.d/16-arco-extras.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-arco-extras.sh
 EOF
@@ -179,7 +199,7 @@ fi
 # already current, or when phrozen_dev isn't installed yet. '-' = non-fatal; runs once per start.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/17-arco-config-patches.conf" <<EOF
+  dropin "$SD/klipper.service.d/17-arco-config-patches.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-config-patches.sh
 EOF
@@ -194,7 +214,7 @@ fi
 # phrozen_dev absent. '-' = non-fatal; runs once per start then exits.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/18-arco-phrozen-patches.conf" <<EOF
+  dropin "$SD/klipper.service.d/18-arco-phrozen-patches.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-phrozen-patches.sh
 EOF
@@ -209,7 +229,7 @@ fi
 # update replaces it there and re-seeds the gcodes folder from it. See apply-test-print.sh for why this
 # is a guard and not a one-time copy at install.
 if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-test-print.sh" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/23-arco-test-print.conf" <<EOF
+  dropin "$SD/klipper.service.d/23-arco-test-print.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-test-print.sh
 EOF
@@ -225,7 +245,7 @@ fi
 # milliseconds without starting python when there is nothing new, which is every boot but a handful.
 # '-' = non-fatal.
 if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-addon-merge.sh" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/24-arco-addon-merge.conf" <<EOF
+  dropin "$SD/klipper.service.d/24-arco-addon-merge.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 30 $SELFDIR/apply-addon-merge.sh
 EOF
@@ -238,7 +258,7 @@ fi
 # to run as root. Idempotent (grep-gated), '-' non-fatal.
 if [ -f "$SD/klipper.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/19-arco-imageid.conf" <<EOF
+  dropin "$SD/klipper.service.d/19-arco-imageid.conf" <<EOF
 [Service]
 ExecStartPre=+/usr/bin/timeout 10 $SELFDIR/ensure-imageid.sh
 EOF
@@ -297,7 +317,7 @@ fi
 # there at all -- see its header; it is a no-op while the kit is the image's flat copy.
 if [ -f "$SD/moonraker.service" ]; then
   SELFDIR="$(cd "$(dirname "$0")" && pwd)"
-  install -Dm644 /dev/stdin "$SD/moonraker.service.d/22-arco-update-manager.conf" <<EOF
+  dropin "$SD/moonraker.service.d/22-arco-update-manager.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-update-manager.sh
 EOF
@@ -483,7 +503,7 @@ fi
 # spawn one worker per core, stealing the cores klippy + comms need. Bundled scipy-OpenBLAS (cortexa53
 # kernel) honours OPENBLAS_NUM_THREADS; the rest are harmless no-ops on aarch64 (no MKL/VECLIB/BLIS).
 if [ -f "$SD/klipper.service" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/20-arco-numpy.conf" <<'EOF'
+  dropin "$SD/klipper.service.d/20-arco-numpy.conf" <<'EOF'
 [Service]
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
@@ -899,7 +919,7 @@ fi
 # from Mainsail or Fluidd (a plain `git pull`, never calling after_update()) still gets its root-side
 # work done. Written LAST, so it only ever records a run that actually reached the end.
 if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-reconcile-check.sh" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/25-arco-reconcile-check.conf" <<EOF
+  dropin "$SD/klipper.service.d/25-arco-reconcile-check.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-reconcile-check.sh
 EOF
@@ -915,7 +935,7 @@ fi
 # the clone and stopped, while the printer went on serving its old copy and the update reported
 # success. The script only refreshes a theme that is already installed, and never deletes.
 if [ -f "$SD/klipper.service" ] && [ -f "$SELFDIR/apply-theme-variants.sh" ]; then
-  install -Dm644 /dev/stdin "$SD/klipper.service.d/26-arco-theme.conf" <<EOF
+  dropin "$SD/klipper.service.d/26-arco-theme.conf" <<EOF
 [Service]
 ExecStartPre=-/usr/bin/timeout 20 $SELFDIR/apply-theme-variants.sh
 EOF

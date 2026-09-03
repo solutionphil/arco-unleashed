@@ -36,10 +36,15 @@ done
 # Block-scoped on purpose. An earlier attempt at this tracked "the last drop-in name seen" and then
 # looked for an ExecStartPre anywhere after it, which credited 20-arco-numpy -- a drop-in that sets
 # four Environment= lines and nothing else -- with the ExecStartPre belonging to the NEXT block. It
-# reported a bug that was not there. So: the name is taken from the `install ... <<EOF` line, and only
-# an ExecStartPre before that heredoc's own terminator counts.
+# reported a bug that was not there. So: the name is taken from the drop-in write line, and only an
+# ExecStartPre before that heredoc's own terminator counts.
+#
+# TWO SPELLINGS. Since 2026-09-03 the writes go through a `dropin` helper that stands aside when the
+# owner has switched a guard off; before that they were bare `install -Dm644`. This gate matched only
+# the second and went blind the moment the helper landed -- caught because it runs before a merge,
+# which is the whole point of it. Both are accepted, so an older branch still parses.
 installed=$(awk '
-  /^[[:space:]]*install .*\.service\.d\/[^"]*\.conf"[[:space:]]*<<'"'"'?EOF'"'"'?[[:space:]]*$/ {
+  /^[[:space:]]*(install|dropin) .*\.service\.d\/[^"]*\.conf"[[:space:]]*<<'"'"'?EOF'"'"'?[[:space:]]*$/ {
       if (match($0, /[^"]+\.service\.d\/[^"]+\.conf/)) {
           spec = substr($0, RSTART, RLENGTH)
           i = index(spec, ".service.d/")
