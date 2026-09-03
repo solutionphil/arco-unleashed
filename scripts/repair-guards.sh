@@ -114,7 +114,16 @@ log "damage found: $damaged"
 
 # Do not attempt the same damage twice. A repair that did not take is a fault to report, not a reason
 # to spend a minute of every boot on it for ever.
-sig="$(git -C "$SELFDIR/.." rev-parse --short HEAD 2>/dev/null || echo nogit)|$damaged"
+# 🔴 THE SAME UNGUARDED git -C THIS PROJECT ALREADY FIXED ONCE. This runs as root, with no HOME,
+# against a clone owned by the printer user, so plain `git -C` refuses it as dubious ownership and
+# the fallback fires. The stamp then depends on the damage alone, and a kit update that fixes the
+# cause can never unstick a printer that was stamped -- the opposite of what the header above
+# promised. arco-reconcile.log on the dev printer records exactly this having happened before, until
+# a79b815 added -c safe.directory to the identical call in optimize-boot.sh:1053-1061. Second
+# fallback is .kit-commit rather than a constant, so the signature can still move when the kit does.
+_kc="$(git -c safe.directory='*' -C "$SELFDIR/.." rev-parse --short HEAD 2>/dev/null || true)"
+[ -n "$_kc" ] || _kc="$(cat "$SELFDIR/../.kit-commit" 2>/dev/null || echo nokit)"
+sig="$_kc|$damaged"
 if [ "$(cat "$STAMP" 2>/dev/null)" = "$sig" ]; then
   log "this exact damage already survived a repair — not retrying. Run by hand: sudo bash $OB && sync"
   exit 0
