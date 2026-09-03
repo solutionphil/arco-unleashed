@@ -27,6 +27,17 @@
 # the line here, which is where the Python fragments actually appear.
 set -uo pipefail
 
+# ── the way in for a printer whose guards were truncated ─────────────────────────────────────────
+# This has nothing to do with console filters, and it is here on purpose. A power-cycle can leave the
+# klipper drop-ins present and 0 bytes long (commit=120), which takes out the only root-privileged
+# ExecStartPre and with it the ability to install anything -- including a unit that would repair it.
+# What still runs is this file, because arco-console-filters.service is a FULL unit file, runs as
+# root, and calls a script from the kit clone: a normal update therefore changes what it does, and
+# that is the only lever that reaches a machine already in that state. It runs BEFORE the Moonraker
+# wait below so a printer whose Moonraker never comes up is still repaired, and it can never take
+# this script down with it.
+[ -f "$(dirname "$0")/repair-guards.sh" ] && bash "$(dirname "$0")/repair-guards.sh" || true
+
 API=http://127.0.0.1:7125
 ID=arco-unleashed-phrozen-noise
 NAME='Arco Unleashed: Phrozen noise'

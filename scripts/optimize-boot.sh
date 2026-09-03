@@ -769,6 +769,40 @@ EOF
   echo "  web-interface seeder installed + enabled (console filter + macro groups, both UIs)"
 fi
 
+# ── heal a truncated guard set BEFORE klipper starts ─────────────────────────────────────────────
+# The drop-ins above are what makes this kit self-healing, and commit=120 plus the power-cycle we ask
+# for can leave them present and empty -- taking out the only root-privileged ExecStartPre and with it
+# the ability to reinstall anything. The sync at the end of this script stops that happening again;
+# this unit is what fixes it when it already has. It is a FULL unit file on purpose: that is exactly
+# the shape the failure does not touch.
+#
+# Ordered Before=klipper so a damaged printer is whole in the SAME boot rather than the next one. On a
+# healthy printer it is a stat over a dozen files and klipper waits microseconds for it. TimeoutStartSec
+# is not decoration: a repair that hung would otherwise hold up the boot with no way to see why.
+#
+# repair-guards.sh is ALSO called from apply-console-filters.sh, and that is not redundancy -- it is the
+# only way onto a printer that is already broken, because installing this unit needs the root path that
+# is missing there. Both callers are idempotent and the second finds nothing to do.
+if [ -f "$SELFDIR/repair-guards.sh" ]; then
+  install -Dm644 /dev/stdin "$SD/arco-guard-repair.service" <<EOF
+[Unit]
+Description=Arco Unleashed - put the self-heal guards back if a power-cycle truncated them
+After=local-fs.target
+Before=klipper.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=180
+ExecStart=-/bin/bash $SELFDIR/repair-guards.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload 2>/dev/null || true
+  systemctl enable arco-guard-repair.service >/dev/null 2>&1 || true
+  echo "  guard self-repair installed + enabled (runs before klipper)"
+fi
+
 if [ -f "$SELFDIR/arco-update-refresh.sh" ]; then
   install -Dm644 /dev/stdin "$SD/arco-update-refresh.service" <<EOF
 [Unit]
