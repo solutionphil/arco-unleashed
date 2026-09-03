@@ -53,6 +53,12 @@ RLOG="$AHOME/printer_data/logs/arco-guard-repair.log"
 DETACH=0
 [ "${1:-}" = "--detach" ] && DETACH=1
 
+# The owner can switch this off like any other guard (guards-toggle.sh: guard_repair). One marker,
+# honoured here, because there are two callers and a switch that only reached one of them would be a
+# lie. Checked before anything is printed: "off" means silent, not "quietly declined".
+OFFMARK="${ARCO_GUARD_REPAIR_OFF:-/etc/arco-guard-repair.disabled}"
+[ -e "$OFFMARK" ] && exit 0
+
 log(){ echo "  guard-repair: $*"; }
 
 # The drop-ins this kit writes, straight from the script that writes them -- never a hand-kept list,

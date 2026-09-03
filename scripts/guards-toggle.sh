@@ -64,6 +64,7 @@ GUARDS=(
   "addon_merge|24-arco-addon-merge|Delivers new AddOn.cfg features after any update|MED|klipper"
   "reconcile_check|25-arco-reconcile-check|Arms root-side setup a kit update still needs|MED|klipper"
   "theme|26-arco-theme|Refreshes the Mainsail theme from the kit|LOW|klipper"
+  "guard_repair|arco-guard-repair|Puts the guards back if a power-cycle emptied their files|MED|unit"
 )
 
 # The long form. Every entry answers the two questions a checkbox cannot: what goes wrong without it,
@@ -196,14 +197,38 @@ T
     version left exactly as it is.
 T
 ;;
+    guard_repair) cat <<'T'
+    Checks at boot whether any guard file this kit installs came back empty,
+    and reinstalls them if so.
+    WITHOUT IT: a power-cycle can truncate a drop-in that was written seconds
+      earlier -- the name survives, the contents do not -- and every guard in
+      it stops running silently. One of them is the only root-privileged step,
+      so the printer then asks for a power-cycle for ever and applies nothing.
+      Only an SSH session gets it back.
+    TURN IT OFF IF: you maintain the drop-ins in /etc yourself and do not want
+      a script rewriting them, or you are debugging something that depends on
+      one of them being absent. Note this leaves you with no automatic way out
+      of the state above.
+T
+      ;;
   esac
 }
 
 field(){ printf '%s' "$1" | cut -d'|' -f"$2"; }
 
 # A guard is present-and-on if its .conf exists; present-but-off if only .conf.disabled does.
+# The guard_repair entry is not a drop-in: it is a standalone unit plus a marker, because a drop-in
+# cannot survive the very failure it exists to repair. Its ON/OFF therefore reads that marker rather
+# than a filename. Every screen that renders a state goes through state_of, so one branch covers them
+# all -- adding a second kind of guard to five call sites is how the switching logic broke last time.
+OFFMARK="${ARCO_GUARD_REPAIR_OFF:-/etc/arco-guard-repair.disabled}"
 state_of(){
-  local pre="$1" dd; dd="$(dd_of "${2:-klipper}")"
+  local pre="$1" dd
+  if [ "${2:-}" = unit ]; then
+    if [ -e "$OFFMARK" ]; then echo OFF; else echo ON; fi
+    return
+  fi
+  dd="$(dd_of "${2:-klipper}")"
   if [ -f "$dd/$pre.conf" ];          then echo ON
   elif [ -f "$dd/$pre.conf.disabled" ]; then echo OFF
   else                                     echo ABSENT
@@ -295,6 +320,21 @@ cmd_apply(){
     id=$(field "$g" 1); pre=$(field "$g" 2); svc=$(field "$g" 5)
     dd="$(dd_of "$svc")"; st=$(state_of "$pre" "$svc")
     [ "$st" = ABSENT ] && continue
+    # The unit-type guard is switched by a marker, not by renaming a drop-in. Same reporting shape as
+    # the branch below, deliberately: an owner who is told "OFF" and is still being repaired every
+    # boot is worse off than one who is told the switch failed.
+    if [ "$svc" = unit ]; then
+      if printf '%s' "$want" | grep -q " $id "; then
+        [ "$st" = OFF ] || continue
+        if sudo rm -f "$OFFMARK" 2>/dev/null; then echo "  $id: OFF -> ON"; changed=1
+        else echo "  $id: FAILED to switch ON — still OFF"; failed=1; fi
+      else
+        [ "$st" = ON ] || continue
+        if sudo touch "$OFFMARK" 2>/dev/null; then echo "  $id: ON -> OFF"; changed=1
+        else echo "  $id: FAILED to switch OFF — STILL ACTIVE"; failed=1; fi
+      fi
+      continue
+    fi
     if printf '%s' "$want" | grep -q " $id "; then
       [ "$st" = OFF ] || continue
       if sudo mv -f "$dd/$pre.conf.disabled" "$dd/$pre.conf" 2>/dev/null; then
