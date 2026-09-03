@@ -96,9 +96,21 @@ damage(){
   done <<< "$(owned)"
   # The dead end, for the case where a file came back non-empty but wrong. Skipped when the owner
   # switched that guard off on purpose -- then having no root ExecStartPre is the intended state.
+  #
+  # 🔴 READ ONCE, THEN TEST THE STRING. This was `! systemctl cat ... | grep -q 'ExecStartPre=+'`, and
+  # under `set -o pipefail` that is a coin flip: grep -q exits at the first match and closes the pipe,
+  # systemctl is still writing, dies of SIGPIPE, the pipeline's status becomes 141, and `!` turns that
+  # into "no root consumer". Measured on a HEALTHY printer that HAS the guard: PIPESTATUS=141 0, and
+  # the branch fired 40 of 60 times. It reaches printers on the routine path, not an exotic one --
+  # selfupdate.sh arms this very marker after every root-needing update and asks for a power-cycle, and
+  # on that boot the unit runs INLINE, before klipper, so a false verdict holds the boot for a full
+  # 55-70 s optimize-boot run and writes "damage found" into the log of a healthy machine.
+  local _kcat _has_root
+  _kcat="$(systemctl cat klipper.service 2>/dev/null || true)"
+  case "$_kcat" in *'ExecStartPre=+'*) _has_root=1 ;; *) _has_root=0 ;; esac
   if [ -f "$AHOME/printer_data/.arco-reconcile-pending" ] \
      && [ ! -e "$DD_ROOT/klipper.service.d/19-arco-imageid.conf.disabled" ] \
-     && ! systemctl cat klipper.service 2>/dev/null | grep -q 'ExecStartPre=+'; then
+     && [ "$_has_root" = 0 ]; then
     d="$d reconcile-has-no-root-consumer"
   fi
   printf '%s' "${d# }"
@@ -140,7 +152,13 @@ fi
 
 mkdir -p "$(dirname "$RLOG")" 2>/dev/null || true
 log "re-running optimize-boot.sh (output in $RLOG)"
-bash "$OB" >>"$RLOG" 2>&1
+bash "$OB" >>"$RLOG" 2>&1; _ob_rc=$?
+if [ "$_ob_rc" = 75 ]; then
+  # The lock refused it, so nothing was attempted. Recording that as unrepairable would suppress the
+  # real repair for this kit commit -- the run that IS holding the lock is doing the work anyway.
+  log "another optimize-boot run holds the lock — not attempted, and not recorded as a failure"
+  exit 0
+fi
 # The exit code is not the evidence: ask the same question again. If it still answers yes, the repair
 # did not take, and the answer is recorded so the next boot does not repeat it.
 left="$(damage)"

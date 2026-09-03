@@ -94,7 +94,11 @@ if command -v flock >/dev/null 2>&1 && [ -w /run ]; then
   exec 9>/run/arco-optimize-boot.lock
   if ! flock -n 9; then
     echo "  another optimize-boot run is in progress — leaving the work to it."
-    exit 0
+    # 75, not 0: repair-guards.sh decides "did the repair take?" by re-testing the damage, so a run
+    # that never started looked exactly like one that failed -- and it then recorded the damage
+    # signature as unrepairable, suppressing the genuine repair for that kit commit. EX_TEMPFAIL says
+    # "not attempted", which is a different thing from "attempted and did not work".
+    exit 75
   fi
 fi
 changed=0
