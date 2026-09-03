@@ -225,7 +225,17 @@ OFFMARK="${ARCO_GUARD_REPAIR_OFF:-/etc/arco-guard-repair.disabled}"
 state_of(){
   local pre="$1" dd
   if [ "${2:-}" = unit ]; then
-    if [ -e "$OFFMARK" ]; then echo OFF; else echo ON; fi
+    # ABSENT, not ON, when the image does not carry it. Reading only the marker asserted this guard was
+    # armed on a printer that has neither the script nor the unit -- measured on the dev printer, which
+    # follows stable while the guard lives on alpha. That is the same "present is not working" claim the
+    # 🔴 note further down is about, and cmd_list's ABSENT rule exists precisely so a screen cannot offer
+    # a guard the image does not have. The script, not the unit, is the test: the unit only decides
+    # WHETHER the repair lands in this boot or the next, while apply-console-filters.sh runs the script
+    # either way -- so a printer with the script and no unit is still guarded, just a boot later.
+    if [ ! -f "$DIR/repair-guards.sh" ]; then echo ABSENT
+    elif [ -e "$OFFMARK" ];             then echo OFF
+    else                                     echo ON
+    fi
     return
   fi
   dd="$(dd_of "${2:-klipper}")"
