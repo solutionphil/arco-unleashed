@@ -498,7 +498,7 @@ colour** — otherwise a long print changes shade partway through, and nothing w
 The start G-code heats the **bed straight to print temperature** and holds the **nozzle at a probe-safe
 140 °C** through home and probe, so it cannot ooze onto the load cell. **`G30`** then loads your saved
 `phrozen` mesh instantly — calibrating and saving it the first time, if none exists yet. Homing is
-automatic. It needs the `auto_mode` and `ams` features in `AddOn.cfg`, both on by default, and the
+automatic. It needs the `auto_mode2` and `ams` features in `AddOn.cfg`, both on by default, and the
 `gcode_shell_command` extension.
 
 </details>

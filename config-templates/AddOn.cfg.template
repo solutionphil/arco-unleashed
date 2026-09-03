@@ -773,7 +773,14 @@ gcode:
 #@RETIRE ams | AMS on/off switch - the AMS is detected now, so there is nothing to declare
 #
 
-#@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
+# PHROZEN_TOOLCHANGE lives inside this block, and a change *inside* a block reaches fresh flashes
+# and nowhere else -- the merge adds and removes whole blocks, it never rewrites one a printer
+# already has. So the corrected macro ships under a new id and the old block is retired in the same
+# run, under the same backup, exactly as the g30 -> g30_meshdone replacement did. The pairing is
+# enforced by addon_merge, not trusted: if this block cannot be added, the retirement does not run,
+# so the two print macros this block carries can never go missing.
+#@RETIRE auto_mode | replaced by auto_mode2, which fixes a retract that assumed relative E
+#@FEAT auto_mode2 | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
 # ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
 # The 'ams' flag follows the AMS device node, kept in step by [arco_tool_gate] -- nobody sets
 # it, and there is nothing to remember to set. This macro reads it at print start and applies
@@ -834,7 +841,15 @@ gcode:
 [gcode_macro PHROZEN_TOOLCHANGE]
 description: Per color change - AMS spit (P10) if AMS on, else pause for a manual swap
 gcode:
+    # The retract has to be a RELATIVE one. Without this, the line means "move E to the absolute
+    # position -1" whenever the slicer is in M82 -- mid-print that is a retract of everything
+    # extruded since the last G92, and max_extrude_only_distance is 3000 on this printer, so
+    # Klipper carries it out instead of refusing it. Jinja renders before the first command runs,
+    # so this reads the mode as it was on entry; nothing above it changes the mode.
+    {% set was_abs_e = printer.gcode_move.absolute_extrude %}
+    M83
     G1 E-1 F3600                                  ; small retract, like the official profile
+    {% if was_abs_e %}M82{% endif %}              ; hand the slicer back the mode it was using
     {% set ams = printer.save_variables.variables.ams|default(0)|int %}
     {% if ams %}
         {% set f = params.FLUSH|default(0)|float %}
