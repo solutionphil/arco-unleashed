@@ -67,6 +67,14 @@ owned(){ grep -oE '\$SD/(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' "
            | sed 's#^\$SD/##' | sort -u; }
 
 damage(){
+  # 🔴 AN EMPTY LIST IS ITSELF THE WORST CASE. owned() greps optimize-boot.sh, and a truncated
+  # optimize-boot.sh -- precisely what this failure produces -- yields nothing. Without this the loop
+  # below would run zero times, find no damage, and exit silently at the one moment it matters most.
+  # The size check further down never gets reached, because it sits after the damage test.
+  if [ -z "$(owned)" ]; then
+    printf '%s' "cannot-read-guard-list-from-optimize-boot"
+    return
+  fi
   local d="" rel f
   while read -r rel; do
     [ -n "$rel" ] || continue
