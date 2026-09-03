@@ -10,10 +10,12 @@
 # template reached fresh flashes only. The startup banner and the one-time welcome dialog shipped, and
 # every existing printer silently did not get them, including the two testers' and the dev machine's.
 #
-# WHAT IT WILL NOT DO. It never edits a block that is present, never reorders, and never touches a
-# toggle. Only whole blocks that are absent get appended. That is why the banner was split out of the
-# `beeper` feature into one of its own: a change INSIDE an existing block cannot be delivered this
-# way, and pretending otherwise would mean rewriting the owner's file.
+# WHAT IT WILL NOT DO. It never reorders, and it never changes a toggle. Blocks that are absent get
+# appended; a block that is present is left exactly as it stands UNLESS the template names it in a
+# #@REVISE, which is the one deliberate exception and is described below. That exception is recent:
+# for a long time a change INSIDE an existing block could not be delivered at all, which is why the
+# banner was split out of the `beeper` feature into a block of its own -- splitting was the only
+# honest way round it.
 #
 # RETIRING A FEATURE. Adding was enough until a feature turned out to be wrong rather than merely
 # improvable -- the AMS on/off switch, which asked the owner a question the printer answers better by
@@ -38,6 +40,35 @@
 # appear inside some #@FEAT block of the template, and that block must actually be among the ones
 # being added this run. Either check failing means nothing is removed. An unpaired #@DROP is a
 # delete instruction sitting in a template, one typo from taking a working macro off every printer.
+#
+# UPDATING A BLOCK IN PLACE. Splitting works when the change can be expressed as a NEW block. It does
+# not when the thing to fix is a line in the middle of a macro that already ships. PHROZEN_TOOLCHANGE
+# opened its retract without setting the extrusion mode, and the block that carries it carries the
+# printer's two print macros as well -- so retiring it to ship a corrected copy under a new id would
+# have meant taking those two off every printer for the length of one merge, and would have renamed a
+# feature the owner can see for a reason that is none of their business. So the template can carry
+#
+#     #@REVISE <feature-id> | why
+#
+# and the printer's copy of that block is replaced, in place and at the same position in the file, by
+# the template's current version. This is the only operation that reaches INSIDE a block, so it is
+# deliberately narrow:
+#
+#   * It acts only on a block that is ALREADY THERE. A #@REVISE never adds and never resurrects; a
+#     block the owner deleted by hand stays deleted, which is still the seeded record's decision.
+#   * The owner's toggle is carried over. A body that was switched off comes back switched off, line
+#     for line the way addon_features.set_block writes it -- otherwise an update would quietly switch
+#     a feature back on, which is the one thing a toggle exists to prevent.
+#   * A block that already matches is not touched and not reported, so the marker can stay in the
+#     template for good instead of needing to be cleaned up a release later.
+#   * The #@ENDFEAT guard applies as everywhere else: an unterminated block is left alone.
+#   * Only the sections the newer version GAINS are checked for collision. The ones the block already
+#     owns are its own, and would otherwise read as a clash with itself.
+#
+# And it has a real cost, stated here rather than discovered: a revised block belongs to the kit, not
+# to the owner. Hand edits inside it are overwritten the next time the template moves -- loudly, and
+# with the previous whole file kept as .pre-merge.bak, but overwritten. Anyone wanting their own
+# version should switch the feature off and put theirs outside the block.
 #
 # A section that already sits inside a #@FEAT block is never touched by #@DROP -- the block
 # machinery owns it -- which is also what makes the operation idempotent once it has run. Removal is deliberately blunt and deliberately loud: whole block, reported by name, with
@@ -64,6 +95,7 @@ import sys, os, re, shutil, glob
 
 FEAT = re.compile(r'^#@FEAT\s+(\S+)\s*\|\s*(.*)$')
 RETIRE = re.compile(r'^#@RETIRE\s+(\S+)\s*\|\s*(.*)$')
+REVISE = re.compile(r'^#@REVISE\s+(\S+)\s*\|\s*(.*)$')
 DROP = re.compile(r'^#@DROP\s+(.+?)\s*\|\s*(.*)$')
 END = "#@ENDFEAT"
 OFF = "#:off:"
@@ -104,6 +136,58 @@ def retirements(path):
             out[m.group(1)] = m.group(2).strip()
     return out
 
+
+
+
+def revisions(path):
+    """{feature_id: reason} the template wants brought up to date IN PLACE."""
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except OSError:
+        return {}
+    out = {}
+    for l in lines:
+        m = REVISE.match(l)
+        if m:
+            out[m.group(1)] = m.group(2).strip()
+    return out
+
+
+def block_is_off(body):
+    """The owner's toggle, read the way addon_features.py writes it: the FIRST non-blank body line
+    between the markers decides. Nothing else in the block is consulted, so a block that is half
+    prefixed -- a hand edit, or an older toggle -- reads as whatever its first real line says, which
+    is exactly what the features tool would report and what SET_FEATURE would act on."""
+    for l in body[1:]:
+        if l.startswith(END):
+            break
+        if l.strip():
+            return l.startswith(OFF)
+    return False
+
+
+def with_off(body):
+    """Put a block into the switched-off shape: the sentinel on every non-blank BODY line, the #@FEAT
+    and #@ENDFEAT lines left bare. Mirrors set_block() in addon_features.py line for line -- if the
+    two ever disagree, the features tool would report a state the file does not have."""
+    out = [body[0]]
+    for l in body[1:]:
+        if l.startswith(END) or not l.strip() or l.startswith(OFF):
+            out.append(l)
+        else:
+            out.append(OFF + l)
+    return out
+
+
+def body_key(body):
+    """A block reduced to what a revision actually cares about: the toggle is not content, and
+    trailing blank lines are not either. Two blocks with the same key need no revision, which is what
+    makes a #@REVISE that has already run a silent no-op rather than a rewrite on every boot."""
+    out = [l[len(OFF):] if l.startswith(OFF) else l for l in body]
+    out = [l.rstrip() for l in out]
+    while out and not out[-1]:
+        out.pop()
+    return out
 
 def block_span(lines, fid):
     """(start, end_inclusive) of a complete #@FEAT block, or None if absent or unterminated."""
@@ -225,6 +309,7 @@ def main():
 
     want_ids = {f for f, _, _ in want}
     retire = retirements(tpl)
+    revise = revisions(tpl)
     drop = []
     for fid in sorted(retire):
         if fid in want_ids:
@@ -260,8 +345,40 @@ def main():
             continue          # absent, or already inside a block: either way not ours to touch
         loose.append((name, why, span))
 
+
+    # A block that is PRESENT but out of date. Adding and retiring move whole blocks around; this is
+    # the only operation that reaches INSIDE a printer's existing file, so it is deliberately narrow.
+    # It acts on a block that is already there and never on one that is not: resurrecting a block the
+    # owner deleted by hand is what the seeded record exists to prevent, and a #@REVISE must not walk
+    # around it. A block that already matches the template is left alone and not reported, so the
+    # marker can stay in the template for good instead of being cleaned up one release later.
+    skip_rev = []
+    rev = []
+    for fid in sorted(revise):
+        if fid not in have:
+            continue                      # absent: the add path and the seeded record decide, not this
+        if fid in {f for f, _, _ in drop}:
+            skip_rev.append((fid, "the template both retires and revises it — doing neither"))
+            continue
+        span = block_span(cfg_lines, fid)
+        if span is None:
+            skip_rev.append((fid, "its #@ENDFEAT is missing — left alone rather than rewriting past it"))
+            continue
+        old = cfg_lines[span[0]:span[1] + 1]
+        new = None
+        for f, _, body in want:
+            if f == fid:
+                new = body
+                break
+        if new is None:
+            skip_rev.append((fid, "the template revises a block it no longer ships — ignoring it"))
+            continue
+        if body_key(old) == body_key(new):
+            continue                      # already current: silent, so a run changes nothing twice
+        rev.append((fid, revise[fid], span, with_off(new) if block_is_off(old) else new))
+
     missing = [(f, d, b) for f, d, b in want if f not in have]
-    if not missing and not drop and not loose:
+    if not missing and not drop and not loose and not rev and not skip_rev:
         print("  AddOn.cfg already carries all %d features — nothing to do." % len(want))
         return 0
 
@@ -276,6 +393,23 @@ def main():
     for _, _, (a, b) in drop:
         for name in sections_in(cfg_lines[a:b + 1]):
             declared.pop(name, None)
+
+    # A revision normally hands back the same sections it takes out, so it cannot collide with itself.
+    # It CAN collide if the newer version of the block declares a section that meanwhile exists
+    # somewhere else in the config directory -- then applying it would hand klippy two of the same
+    # section and the printer would not come back. Only the genuinely NEW names are checked; the ones
+    # the block already owns are its own and are not a clash.
+    kept_rev = []
+    for fid, why, span, body in rev:
+        gained = sections_in(body) - sections_in(cfg_lines[span[0]:span[1] + 1])
+        clash = sorted(s for s in gained if s in declared)
+        if clash:
+            skip_rev.append((fid, "its newer version would add %s (already in %s) — not revising it"
+                             % (", ".join("[%s]" % c for c in clash), declared[clash[0]])))
+            continue
+        kept_rev.append((fid, why, span, body))
+    rev = kept_rev
+
     add, skip = [], []
     for fid, desc, body in missing:
         if fid in seeded:
@@ -314,6 +448,7 @@ def main():
                         "not retiring it"))
     drop = [d for d in drop if d[0] not in held]
 
+    skip.extend(skip_rev)
     for fid, why in skip:
         print("  SKIP %-18s %s" % (fid, why))
     for fid, why, _ in drop:
@@ -321,24 +456,53 @@ def main():
     for name, why, _ in loose:
         print("  %s %-18s %s" % ("would replace" if verb == "check" else "replacing   ",
                                  name.split()[-1], why))
+    for fid, why, _, _ in rev:
+        print("  %s %-18s %s" % ("would revise" if verb == "check" else "revising    ", fid, why))
     for fid, desc, _ in add:
         print("  %s %-18s %s" % ("would add   " if verb == "check" else "adding      ", fid, desc))
 
     if verb == "check":
-        print("  (check only — nothing written. Run with 'apply' to merge %d, retire %d, replace %d.)"
-              % (len(add), len(drop), len(loose)))
+        print("  (check only — nothing written. Run with 'apply' to merge %d, retire %d, replace %d, "
+              "revise %d.)" % (len(add), len(drop), len(loose), len(rev)))
         return 0
-    if not add and not drop and not loose:
+    if not add and not drop and not loose and not rev:
         print("  nothing to add.")
         return 0
 
     shutil.copy2(cfg, cfg + ".pre-merge.bak")
-    kept = cfg_lines
-    if drop or loose:
-        gone = set()
-        for _, _, (a, b) in list(drop) + [(n, w, s) for n, w, s in loose]:
-            gone.update(range(a, b + 1))
-        kept = [l for i, l in enumerate(cfg_lines) if i not in gone]
+    # ONE edit map, over the ORIGINAL line numbers. Every span in drop / loose / rev was measured
+    # against cfg_lines, so they are only valid together: applying them one after another would shift
+    # every span that comes after the first edit. Walking the file once and consulting the map keeps
+    # them all correct, and it is the same walk whether a span is being emptied (a removal) or
+    # refilled (a revision) -- which is why those two do not need separate code paths.
+    edit = {}
+    for _, _, span in drop:
+        edit[span[0]] = (span[1], [])
+    for _, _, span in loose:
+        edit[span[0]] = (span[1], [])
+    for _, _, span, body in rev:
+        edit[span[0]] = (span[1], body)
+    # Overlap would mean one edit eating another's lines, and a file nobody intended. It cannot
+    # happen as things stand -- blocks do not nest, and a #@DROP only ever names a section that sits
+    # outside every block -- so this is a check that should never fire rather than a fix for a known
+    # case. If it ever does, refusing is right: nothing has been written yet at this point, so the
+    # printer keeps the file it had.
+    covered = set()
+    for a, (b, _) in sorted(edit.items()):
+        span_lines = set(range(a, b + 1))
+        if span_lines & covered:
+            print("  two edits overlap in this file — refusing to write anything.")
+            return 1
+        covered |= span_lines
+    kept, i = [], 0
+    while i < len(cfg_lines):
+        if i in edit:
+            end, body = edit[i]
+            kept.extend(body)
+            i = end + 1
+        else:
+            kept.append(cfg_lines[i])
+            i += 1
     with open(cfg, "w", encoding="utf-8") as fh:
         fh.write("\n".join(kept).rstrip("\n") + "\n")
         for _, _, body in add:
@@ -349,8 +513,8 @@ def main():
             fh.write(fid + "\n")
     # os.fsync on the directory as well: this runs immediately before selfupdate.sh asks for a
     # power-cycle, and the rootfs is mounted commit=120. See the sync in selfupdate.sh.
-    print("  merged %d, retired %d, replaced %d; previous file kept as %s"
-          % (len(add), len(drop), len(loose), os.path.basename(cfg) + ".pre-merge.bak"))
+    print("  merged %d, retired %d, replaced %d, revised %d; previous file kept as %s"
+          % (len(add), len(drop), len(loose), len(rev), os.path.basename(cfg) + ".pre-merge.bak"))
     print("  They take effect when the klipper SERVICE restarts.")
     return 0
 

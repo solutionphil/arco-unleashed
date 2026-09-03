@@ -120,8 +120,10 @@ git checkout -B _sync2 origin/alpha && git merge --no-ff origin/beta && git push
   same change. Its config section arrives with the same update, and a section whose module is missing
   is not a missing feature — klippy refuses the whole config.
 - Changing `config-templates/AddOn.cfg.template`? Read the header of `scripts/addon_merge.py` first.
-  That file is never regenerated on a printer that already has one, so only whole `#@FEAT` blocks
-  reach existing machines. A change *inside* an existing block reaches nobody.
+  That file is never regenerated on a printer that already has one, so a new `#@FEAT` block is what
+  normally reaches existing machines. A change *inside* a block reaches nobody unless the template
+  also names that block in a `#@REVISE`, which replaces the printer's copy of it in place — read what
+  that costs before reaching for it.
 
 ## Version numbers
 
