@@ -196,6 +196,12 @@ jobs:
       - name: Anchors and step numbers
         run: python3 .github/ci/check-docs.py
 
+      # A marker that resolves to nothing is refused on the printer and silent to whoever wrote it:
+      # the message goes to a journal in somebody's workshop, not to the pull request. The P114 gate
+      # ran two versions out of date for months for that kind of reason. Same rules, checked here.
+      - name: AddOn.cfg markers
+        run: python3 .github/ci/check-addon-markers.py
+
       # The documents overlap on purpose and drift for free. This fails on text that has quietly
       # acquired a second owner, and -- when there is a base commit to compare against -- points out
       # sentences elsewhere that closely matched the wording just changed here. The second half is a
