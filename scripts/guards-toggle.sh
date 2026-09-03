@@ -362,6 +362,13 @@ cmd_apply(){
     [ "$failed" = 0 ] && echo "  (no change)"
     return 0
   fi
+  # 🔴 SYNC. This is the decision the owner just made, and / is mounted commit=120: a rename or a new
+  # marker can sit unflushed for two minutes. The power cut that erases it is the very event the
+  # guard_repair entry above exists to survive, and it would take the owner's choice with it -- worse,
+  # it would come back looking switched ON, because both readers test .conf before .conf.disabled.
+  # Every other writer in this kit already syncs here (optimize-boot.sh, repair-guards.sh,
+  # apply-reconcile-check.sh, channel.sh); this one did not.
+  sync 2>/dev/null || true
   sudo systemctl daemon-reload
   echo "  systemd reloaded. Each guard runs just before its own service starts, so this"
   echo "  takes effect on the next restart of that service (klipper for all but the"
