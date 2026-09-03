@@ -2,88 +2,120 @@
 # ─────────────────────────────────────────────────────────────────────────────────────────────────
 # repair-guards.sh — put the self-heal guards back when a power-cycle truncated them.
 #
+#   bash repair-guards.sh              check, and repair inline (the caller waits)
+#   bash repair-guards.sh --detach     check, and hand the repair to systemd (the caller returns)
+#
 # WHY THIS EXISTS. / is mounted commit=120, so a file written seconds before the plug is pulled can
 # come back with its directory entry intact and its contents gone. On 02.09.2026 the dev printer came
 # back from exactly that with SIX guard drop-ins present and 0 bytes long. The names survive, the
 # ExecStartPre lines do not, and every guard they carried silently stops running.
 #
-# WHAT MAKES IT A DEAD END RATHER THAN A NUISANCE. 19-arco-imageid.conf is the only drop-in with a
-# root-privileged ExecStartPre (the '+' prefix), and it is the only thing that ever consumes the
-# reconcile marker. Lose it and drop-in 25 keeps arming .arco-reconcile-pending while nothing can
-# apply it: the printer asks for a power-cycle for ever and installs nothing. A kit update still
-# arrives -- git runs as the owner -- but it cannot put itself into effect. Until now the only exit
-# was an SSH session and optimize-boot.sh by hand.
+# WHAT MAKES IT A DEAD END. 19-arco-imageid.conf is the only drop-in with a root-privileged
+# ExecStartPre (the '+'), and it is the only thing that consumes the reconcile marker. Lose it and
+# drop-in 25 keeps arming .arco-reconcile-pending while nothing can apply it. A kit update still
+# arrives -- git runs as the owner -- and cannot put itself into effect.
 #
-# HOW IT GETS ONTO A PRINTER THAT IS ALREADY IN THAT STATE. Not as a new unit: installing one needs
-# root, which is the thing that is gone. It rides in a script that a SURVIVING root unit already
-# runs. Full unit files do not suffer the drop-in's fate, and arco-console-filters.service is root,
-# enabled, WantedBy=multi-user.target, and its first ExecStart is a kit script -- so a normal update
-# changes what it does. That is the bootstrap, and it costs no new install step.
+# HOW IT REACHES A PRINTER ALREADY IN THAT STATE. Not as a new unit: installing one needs root, which
+# is what is gone. It rides in apply-console-filters.sh, which arco-console-filters.service -- a FULL
+# unit file, root, enabled -- runs from the kit clone, so a normal update changes what it does. Once
+# optimize-boot.sh has run again it installs arco-guard-repair.service, ordered before klipper, and
+# that one repairs in the same boot instead of the next.
 #
-# Once optimize-boot.sh has run again it installs arco-guard-repair.service, which is ordered BEFORE
-# klipper and therefore heals the same boot instead of the next one. This script is the way in; that
-# unit is the way it should work from then on.
+# ── FOUR THINGS THIS GOT WRONG THE FIRST TIME, all found by review before it shipped ──────────────
 #
-# 🔴 THE TEST IS SIZE, NOT CONTENT. "Has no ExecStartPre" looks like the better check and is wrong:
-# 20-arco-affinity.conf (CPUAffinity), arco-nice.conf (Nice) and 20-arco-numpy.conf (Environment)
-# legitimately carry none. A zero-length drop-in, on the other hand, is never anything but damage.
+# 1. "ANY zero-length .conf" made the repair unfixable. A 0-byte file this kit does not write -- one an
+#    owner or another project left behind -- would never be repaired by optimize-boot.sh, so the check
+#    stayed true and ran a 60-second script on EVERY boot for ever. The set is now derived from the
+#    install lines in optimize-boot.sh, the same way check-guards.sh derives its own: only a file this
+#    kit actually writes can count as damage.
+#
+# 2. A guard the owner deliberately switched OFF looked like the dead end. guards-toggle.sh renames a
+#    drop-in to .conf.disabled, so switching off 19-arco-imageid removes the root ExecStartPre by
+#    design -- and with a reconcile armed, check 2 fired and reinstalled it every boot, silently
+#    undoing the decision guards-toggle exists to make. It now yields to .conf.disabled.
+#
+# 3. Nothing bounded the retries. If a repair does not fix the damage, running it again every boot
+#    for ever is not self-healing, it is a loop. The signature of what was damaged is recorded, and
+#    the same signature is not attempted twice; a changed kit or changed damage clears it.
+#
+# 4. `bash` on an EMPTY optimize-boot.sh exits 0, so the repair announced success having done nothing
+#    -- and an empty optimize-boot.sh is precisely what the failure this repairs would produce. Its
+#    size is checked, and the repair is confirmed by re-testing rather than by an exit code.
 # ─────────────────────────────────────────────────────────────────────────────────────────────────
-set -u
+set -uo pipefail
 
 SELFDIR="$(cd "$(dirname "$0")" && pwd)"
 DD_ROOT="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}"
-AHOME="${ARCO_HOME:-/home/mks}"
+AHOME="${ARCO_HOME:-$(dirname "$(cd "$SELFDIR/.." && pwd)")}"
+OB="$SELFDIR/optimize-boot.sh"
+STAMP="$AHOME/printer_data/.arco-guard-repair-failed"
+RLOG="$AHOME/printer_data/logs/arco-guard-repair.log"
+DETACH=0
+[ "${1:-}" = "--detach" ] && DETACH=1
 
 log(){ echo "  guard-repair: $*"; }
 
-# Never break the host script. It runs the console filters and the macro groups after us, and a
-# printer that heals nothing is still better than one that also loses those.
-trap 'exit 0' ERR
+# The drop-ins this kit writes, straight from the script that writes them -- never a hand-kept list,
+# which is how check-guards.sh once reported a moonraker guard as missing from klipper for ever.
+owned(){ grep -oE '\$SD/(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' "$OB" 2>/dev/null \
+           | sed 's#^\$SD/##' | sort -u; }
 
-damaged=""
-
-# 1. Any zero-length drop-in of ours, on either service.
-for svc in klipper moonraker; do
-  d="$DD_ROOT/$svc.service.d"
-  [ -d "$d" ] || continue
-  for f in "$d"/*.conf; do
+damage(){
+  local d="" rel f
+  while read -r rel; do
+    [ -n "$rel" ] || continue
+    f="$DD_ROOT/$rel"
+    # Absent is not damage: it may never have been installed, and .conf.disabled is the owner's choice.
     [ -e "$f" ] || continue
-    if [ ! -s "$f" ]; then
-      damaged="$damaged $(basename "$f")"
-    fi
-  done
-done
+    [ -s "$f" ] || d="$d $(basename "$rel")"
+  done <<< "$(owned)"
+  # The dead end, for the case where a file came back non-empty but wrong. Skipped when the owner
+  # switched that guard off on purpose -- then having no root ExecStartPre is the intended state.
+  if [ -f "$AHOME/printer_data/.arco-reconcile-pending" ] \
+     && [ ! -e "$DD_ROOT/klipper.service.d/19-arco-imageid.conf.disabled" ] \
+     && ! systemctl cat klipper.service 2>/dev/null | grep -q 'ExecStartPre=+'; then
+    d="$d reconcile-has-no-root-consumer"
+  fi
+  printf '%s' "${d# }"
+}
 
-# 2. The dead end itself, in case the file came back non-empty but wrong: a reconcile is armed and
-#    no root-privileged ExecStartPre exists to consume it.
-if [ -f "$AHOME/printer_data/.arco-reconcile-pending" ] \
-   && ! systemctl cat klipper.service 2>/dev/null | grep -q 'ExecStartPre=+'; then
-  damaged="$damaged reconcile-has-no-root-consumer"
-fi
+damaged="$(damage)"
+[ -n "$damaged" ] || exit 0            # the healthy path: a stat over a dozen files
 
-if [ -z "$damaged" ]; then
-  exit 0                      # the healthy path, and it is a stat over a dozen files
-fi
+log "damage found: $damaged"
 
-log "damage found:$damaged"
+[ "$(id -u)" = 0 ] || { log "not root — run: sudo bash $OB && sync"; exit 0; }
+[ -s "$OB" ] || { log "optimize-boot.sh is missing or itself empty — cannot repair"; exit 0; }
 
-if [ "$(id -u)" != 0 ]; then
-  log "not root — cannot repair. Run: sudo bash $SELFDIR/optimize-boot.sh && sync"
+# Do not attempt the same damage twice. A repair that did not take is a fault to report, not a reason
+# to spend a minute of every boot on it for ever.
+sig="$(git -C "$SELFDIR/.." rev-parse --short HEAD 2>/dev/null || echo nogit)|$damaged"
+if [ "$(cat "$STAMP" 2>/dev/null)" = "$sig" ]; then
+  log "this exact damage already survived a repair — not retrying. Run by hand: sudo bash $OB && sync"
   exit 0
 fi
 
-if [ ! -x "$SELFDIR/optimize-boot.sh" ] && [ ! -f "$SELFDIR/optimize-boot.sh" ]; then
-  log "optimize-boot.sh is missing from $SELFDIR — cannot repair"
-  exit 0
+if [ "$DETACH" = 1 ] && command -v systemd-run >/dev/null 2>&1; then
+  # The caller here is a Type=oneshot unit that multi-user.target waits for. Running a 60-second
+  # script inside it would hold up the boot -- this kit has already lost 8m36s to exactly that shape.
+  log "handing the repair to systemd (this boot's guards are repaired for the NEXT start)"
+  systemd-run --collect --unit=arco-guard-repair-run \
+    --description="Arco Unleashed - guard repair" /bin/bash "$OB" >/dev/null 2>&1 && exit 0
+  log "systemd-run refused — running inline instead"
 fi
 
-log "re-running optimize-boot.sh to reinstall them"
-if bash "$SELFDIR/optimize-boot.sh" >/dev/null 2>&1; then
+mkdir -p "$(dirname "$RLOG")" 2>/dev/null || true
+log "re-running optimize-boot.sh (output in $RLOG)"
+bash "$OB" >>"$RLOG" 2>&1
+# The exit code is not the evidence: ask the same question again. If it still answers yes, the repair
+# did not take, and the answer is recorded so the next boot does not repeat it.
+left="$(damage)"
+if [ -z "$left" ]; then
   sync 2>/dev/null || true
+  rm -f "$STAMP" 2>/dev/null || true
   log "repaired. The guards run from the next start of the service they sit on."
 else
-  # Deliberately no back-off marker. A failure that repeats every boot is a fault worth seeing in the
-  # log every boot; suppressing it would hide exactly the case somebody needs to be told about.
-  log "optimize-boot.sh failed — repair not complete, will try again next boot"
+  printf '%s' "$sig" > "$STAMP" 2>/dev/null || true
+  log "STILL DAMAGED after the repair: $left — see $RLOG. Not retrying automatically."
 fi
 exit 0

@@ -36,7 +36,9 @@ set -uo pipefail
 # that is the only lever that reaches a machine already in that state. It runs BEFORE the Moonraker
 # wait below so a printer whose Moonraker never comes up is still repaired, and it can never take
 # this script down with it.
-[ -f "$(dirname "$0")/repair-guards.sh" ] && bash "$(dirname "$0")/repair-guards.sh" || true
+# --detach: this is a Type=oneshot that multi-user.target waits for, so the repair itself must not
+# run inside it. repair-guards.sh hands the long part to systemd and returns.
+[ -f "$(dirname "$0")/repair-guards.sh" ] && bash "$(dirname "$0")/repair-guards.sh" --detach || true
 
 API=http://127.0.0.1:7125
 ID=arco-unleashed-phrozen-noise
