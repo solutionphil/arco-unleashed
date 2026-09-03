@@ -243,7 +243,7 @@ update exists.
   exists to catch. This compares
   `klipper.service` against what the kit's own installer writes, so the expected list cannot drift, and
   offers to install anything missing.
-  **You do not have to do anything about that:** `klipper.service` runs seven `ExecStartPre` guards before
+  **You do not have to do anything about that:** `klipper.service` runs a series of `ExecStartPre` guards before
   klippy loads, so the restart that follows any update puts everything straight back. This menu option is
   the manual equivalent, idempotent and safe anytime.
   > **Moonraker's three actions are not equally harmless.** *Update* refuses outright on a modified repo

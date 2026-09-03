@@ -44,7 +44,11 @@ _mark="$(cd "$_kit/.." 2>/dev/null && pwd)/printer_data/.arco-reconcile-pending"
 # Drop-in 19 is the way back in: it has been installed far longer, it already runs with '+', and THIS
 # file arrives by a plain `git pull` like any other. So the check is called from here, where the old
 # printers actually see it, and acted on in the same pass rather than one klipper start later.
-if [ -n "$_kit" ] && [ ! -f "$_mark" ] && [ -x "$_kit/scripts/apply-reconcile-check.sh" ]; then
+# The owner can switch this check off (guards-toggle.sh: reconcile_check, drop-in 25). Calling it by
+# path here is deliberate -- it is how printers without drop-in 25 are reached at all -- but a path
+# call that ignores the switch makes the switch a lie. So: honour the .disabled the owner left behind.
+_rc_off="${ARCO_SYSTEMD_DIR:-/etc/systemd/system}/klipper.service.d/25-arco-reconcile-check.conf.disabled"
+if [ -n "$_kit" ] && [ ! -f "$_mark" ] && [ -x "$_kit/scripts/apply-reconcile-check.sh" ] && [ ! -e "$_rc_off" ]; then
   # bash, not sh: it declares bash and is not dash-clean -- the same trap as optimize-boot.sh below.
   # Its output is dropped on purpose. It ends by asking for a power-cycle, which is untrue here: the
   # block below does the work in this very pass.
