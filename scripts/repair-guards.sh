@@ -26,8 +26,9 @@
 # 1. "ANY zero-length .conf" made the repair unfixable. A 0-byte file this kit does not write -- one an
 #    owner or another project left behind -- would never be repaired by optimize-boot.sh, so the check
 #    stayed true and ran a 60-second script on EVERY boot for ever. The set is now derived from the
-#    install lines in optimize-boot.sh, the same way check-guards.sh derives its own: only a file this
-#    kit actually writes can count as damage.
+#    lines that WRITE a drop-in, not from every mention of a path -- the first attempt at this fix got
+#    that wrong too, and swept in a file the KAOS sideloader owns. Only a file this kit actually
+#    writes can count as damage.
 #
 # 2. A guard the owner deliberately switched OFF looked like the dead end. guards-toggle.sh renames a
 #    drop-in to .conf.disabled, so switching off 19-arco-imageid removes the root ExecStartPre by
@@ -63,8 +64,18 @@ log(){ echo "  guard-repair: $*"; }
 
 # The drop-ins this kit writes, straight from the script that writes them -- never a hand-kept list,
 # which is how check-guards.sh once reported a moonraker guard as missing from klipper for ever.
-owned(){ grep -oE '\$SD/(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' "$OB" 2>/dev/null \
-           | sed 's#^\$SD/##' | sort -u; }
+# Only the lines that actually WRITE a drop-in, matched the way .github/ci/check-guards-toggle.sh
+# matches them. The first version grepped for the path ANYWHERE in optimize-boot.sh and so swept in
+# three files it never writes: 21-kaos-guard.conf, which the KAOS sideloader writes, and
+# 10-arco-nice/15-arco-mcu-timing, which this script only ever removes. A truncated 21-kaos-guard
+# therefore counted as damage this repair cannot fix -- a full run before klipper, then "STILL
+# DAMAGED", then a remedy that provably does not help because the file's writer is another script.
+# The header below used to claim this was "derived the same way check-guards.sh derives its own". It
+# was not: check-guards PAIRS the path with an ExecStartPre line, and that pairing is the whole point.
+owned(){
+  grep -oE '^[[:space:]]*(install|dropin) .*\$SD/(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' "$OB" 2>/dev/null \
+    | grep -oE '(klipper|moonraker)\.service\.d/[A-Za-z0-9._-]+\.conf' | sort -u
+}
 
 damage(){
   # 🔴 AN EMPTY LIST IS ITSELF THE WORST CASE. owned() greps optimize-boot.sh, and a truncated
