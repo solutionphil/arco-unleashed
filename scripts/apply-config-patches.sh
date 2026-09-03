@@ -45,6 +45,43 @@ if grep -q 'g_accel_to_decel VALUE={printer.toolhead.max_accel_to_decel}' "$GM";
   echo "  config-patches: fixed g_accel_to_decel for Klipper v0.13 (max_accel_to_decel removed)."; changed=1
 fi
 
+# --- Patch J: the ten accel restores must not restore a zero -------------------------------------
+# Ten macros -- PG102 and PG111..PG119, the AMS spit and purge moves -- do the same three things:
+# crank the limit to ACCEL=10000, do the work, then put it back from GLOBAL_PARAM.g_accel. That
+# variable is DECLARED 0 (printer_gcode_macro.cfg line 12) and filled only by PG104.
+#
+# Klipper reads the parameter as get_float('ACCEL', None, above=0.), so a zero is not a quiet zero:
+# it is a G-code error, the macro aborts on that line, and in a print the print goes with it -- after
+# the toolhead has already been moved to the purge area and with the limit still at 10000.
+#
+# HOW OFTEN. Measured from six klippy logs, counting RUNTIME output (the macros announce themselves
+# via action_respond_info, so an executed PG104 is a line with no leading tab -- the config dump is
+# indented, and conflating the two is how this looked both worse and better than it is): the real
+# order in every print is PG103 -> PG104 -> PG11x, so a normal multi-colour print fills the variable
+# first and never hits it. `must be above 0` appears 0 times in any log. What is exposed is a purge
+# with no PG104 before it in that session -- a spit started from the display or by hand, or an abort
+# sequence. On the dev printer GLOBAL_PARAM.g_accel reads 0 right now, hours into an uptime, so the
+# machine sits in the vulnerable state whenever nobody has done a filament change.
+#
+# WHY `or` AND NOT `|default()`. default() only fires on UNDEFINED, and 0 is defined -- verified
+# against Klipper's own Jinja: `{(0|default(40000))}` renders 0, while `{(0 or 40000)}` renders 40000.
+# And why not simply declare a non-zero default: the restore would then put back a CONSTANT. On a
+# machine whose max_accel is 40000, restoring a hardcoded 2500 after the first purge would quietly
+# cripple the rest of the print -- worse than the error, because nothing would say so. The fallback
+# has to be the live limit, which makes the never-saved case a no-op.
+#
+# Patch B above touches the same macro three lines from the setter and is a DIFFERENT fix (the
+# max_accel_to_decel attribute removed in v0.13). Easy to mistake for this one.
+#
+# ACCEL_TO_DECEL is deliberately left alone: the parameter no longer exists in this Klipper
+# (0 hits in toolhead.py), so a zero there is ignored rather than rejected. Touching it would be risk
+# for no gain. All ten lines are byte-identical, so one sed reaches them all.
+if grep -q 'ACCEL={(printer\["gcode_macro GLOBAL_PARAM"\]\.g_accel)}' "$GM"; then
+  _n=$(grep -c 'ACCEL={(printer\["gcode_macro GLOBAL_PARAM"\]\.g_accel)}' "$GM")
+  sed -i 's@SET_VELOCITY_LIMIT ACCEL={(printer\["gcode_macro GLOBAL_PARAM"\]\.g_accel)}@SET_VELOCITY_LIMIT ACCEL={(printer["gcode_macro GLOBAL_PARAM"].g_accel or printer.toolhead.max_accel)}@' "$GM"
+  echo "  config-patches: guarded $_n accel restores against a never-saved zero (SET_VELOCITY_LIMIT ACCEL=0 is a G-code error)."; changed=1
+fi
+
 # --- Patch C: guard the boot-time filament-sensor disable so it works without the AMS ---
 # The call lives in [delayed_gcode KINEMATIC_POSITION] (initial_duration:0.2) -- NOT in [gcode_macro M84],
 # despite the G_printer_position_z_init_M84 echo next to it; that block re-asserts the kinematic position
