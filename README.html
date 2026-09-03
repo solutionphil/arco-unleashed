@@ -632,7 +632,7 @@ symptom until the failure that guard exists to catch. This compares
 <code>klipper.service</code> against what the kit’s own installer
 writes, so the expected list cannot drift, and offers to install
 anything missing. <strong>You do not have to do anything about
-that:</strong> <code>klipper.service</code> runs seven
+that:</strong> <code>klipper.service</code> runs a series of
 <code>ExecStartPre</code> guards before klippy loads, so the restart
 that follows any update puts everything straight back. This menu option
 is the manual equivalent, idempotent and safe anytime. &gt;
