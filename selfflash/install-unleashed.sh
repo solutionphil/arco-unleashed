@@ -123,7 +123,24 @@ fs_flashable_list(){
 # Empty/declined Wi-Fi -> confirm we fall through to the first-boot setup portal (set from a phone), or abort
 # BEFORE anything is armed. Never silently flash with no Wi-Fi: from Buster that would strand the printer
 # (MCUs unflashed -> Klipper error blocks the display; no Wi-Fi -> no SSH).
+# ---- keep the decision, not just say it -----------------------------------------------------------
+# Every branch below narrates itself with note(), and all of it scrolls past during a flash and is gone
+# at the reboot. Two testers in a row reported "no WiFi after flashing", and by then nothing on the
+# machine or on the stick said WHICH of the four routes ran (no_wifi / wifi-seed / live capture / NM
+# fallback) or why -- so the honest answer was that it could not be reconstructed. Saying it is not the
+# same as keeping it.
+#
+# Appended to the stick, which the owner still has, and copied into printer_data/logs by
+# apply-selfflash-seed.sh so ARCO_SUPPORT carries it. Never fatal: a stick that cannot be written must
+# not stop a flash, so every failure here is swallowed.
+WIFI_DECISION_LOG="${WIFI_DECISION_LOG:-/dev/null}"
+# The group + outer 2>/dev/null is not decoration: a bare `>>` to an unwritable path makes BASH ITSELF
+# print "No such file or directory", and a stray error on screen in the middle of writing an eMMC is
+# what makes an owner pull the plug. The inner redirect cannot suppress its own failure.
+wifi_log(){ { printf '%s  %s\n' "$(date -u '+%Y-%m-%d %H:%M:%SZ' 2>/dev/null)" "$*" >>"$WIFI_DECISION_LOG"; } 2>/dev/null || true; }
+
 use_portal_or_die(){
+  wifi_log "PORTAL: $1"
   note "wifi: $1"
   if [ "$ASSUME_YES" = 1 ] || ask_yn "No Wi-Fi captured — set it up on first boot from a phone instead?"; then
     note "wifi: empty -> the first-boot portal will handle it (join the"
@@ -511,6 +528,8 @@ is_factory_ssid(){ case "$1" in MAKERBASE3D|MENSON-WIFI|创客基地|[Mm][Aa][Kk
 resolve_wifi() {
   local usb; usb="$(dirname "$IMG")"
   local out="$usb/.arco-wifi.conf" flag="$usb/.arco-skip-portal"
+  WIFI_DECISION_LOG="$usb/.arco-wifi-decision.log"
+  wifi_log "==== resolve_wifi on $(uname -n), stick $usb"
   rm -f "$out" "$flag"                                        # start clean — only skip our portal if WiFi is ACTUALLY seeded
   # IMPORTANT: the .arco-skip-portal flag must ONLY be dropped when a WiFi config is written. If we skip
   # the portal WITHOUT seeding WiFi, first boot has no WiFi AND no portal — and from Buster the display is
@@ -539,10 +558,12 @@ resolve_wifi() {
     if [ -n "$s" ]; then
       if [ "$ASSUME_YES" = 1 ] || ask_yn "Wi-Fi from wifi-seed.txt: SSID \"$s\" — flash with this network?"; then
         if { wpa_header; wpa_net "$s" "$p"; } > "$out"; then chmod 600 "$out"; : > "$flag"; else rm -f "$out"; use_portal_or_die "the captured Wi-Fi is not usable as written (see the message above)"; return; fi
-        note "wifi: from wifi-seed.txt (SSID \"$s\") -> portal skipped"; return
+        wifi_log "SEED: wifi-seed.txt accepted, ssid=\"$s\" country=$ARCO_WIFI_CC -> wrote $out, portal skipped"
+    note "wifi: from wifi-seed.txt (SSID \"$s\") -> portal skipped"; return
       fi
       use_portal_or_die "wifi-seed.txt SSID \"$s\" declined"; return
     fi
+    wifi_log "SEED: wifi-seed.txt present but no SSID= parsed -> falling through to live capture"
     note "wifi: wifi-seed.txt unparseable -> trying live capture"
   fi
 
@@ -553,6 +574,7 @@ resolve_wifi() {
   for _cand in ${ARCO_WPA_SRC:+"$ARCO_WPA_SRC"} /etc/wpa_supplicant/wpa_supplicant-wlan0.conf /etc/wpa_supplicant/wpa_supplicant.conf; do
     if [ -f "$_cand" ] && grep -qi 'ssid=' "$_cand" 2>/dev/null; then live="$_cand"; break; fi
   done
+  wifi_log "LIVE: candidate=${live:-none} blocks=$(grep -c 'ssid="' "${live:-/dev/null}" 2>/dev/null || echo 0)"
   if [ -n "$live" ]; then
     local srcc; srcc=$(sed -n 's/^[[:space:]]*country=//p' "$live" | head -1 | tr -cd 'A-Za-z')
     # stock Buster's wpa config carries NO country=, so this alone would default to world/00. But the running
@@ -586,6 +608,7 @@ resolve_wifi() {
       # Wi-Fi, no portal and, from Buster, no display (MCUs unflashed). Fall back to the portal instead.
       if grep -q 'ssid="' "$out" 2>/dev/null; then
         : > "$flag"
+        wifi_log "LIVE: accepted from $live, associated=\"${ARCO_WIFI_LIVE_SSID:-unknown}\" file_lists=\"$caps\" country=$ARCO_WIFI_CC -> wrote $out, portal skipped"
         note "wifi: captured live (SSID \"${ARCO_WIFI_LIVE_SSID:-$caps}\") -> portal skipped"; return
       fi
       rm -f "$out"
@@ -623,6 +646,7 @@ resolve_wifi() {
       fi
       if [ "$ASSUME_YES" = 1 ] || ask_yn "Captured Wi-Fi (NetworkManager): SSID \"$s\" — flash with this network?"; then
         if { wpa_header; wpa_net "$s" "$p"; } > "$out"; then chmod 600 "$out"; : > "$flag"; else rm -f "$out"; use_portal_or_die "the captured Wi-Fi is not usable as written (see the message above)"; return; fi
+        wifi_log "NM: accepted $nm, ssid=\"$s\" country=$ARCO_WIFI_CC -> wrote $out, portal skipped"
         note "wifi: captured from NetworkManager (SSID \"$s\") -> portal skipped"; return
       fi
       use_portal_or_die "NetworkManager SSID \"$s\" declined"; return

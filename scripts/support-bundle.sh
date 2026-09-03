@@ -45,7 +45,9 @@ for pair in "klippy.log:$LOG_MB" "moonraker.log:5"; do
     say "  ${f%.log}-tail.log  $(du -h "$D/${f%.log}-tail.log" 2>/dev/null | cut -f1) (last ${mb} MB of $(du -h "$LOGS/$f" | cut -f1))"
   fi
 done
-for f in arco-reconcile.log arco-update-refresh.log; do
+# arco-wifi-seed.log is the flasher's own record of WHICH WiFi route it took. It is the answer to
+# "no WiFi after flashing", and that question arrives as a bug report -- so it belongs in the bundle.
+for f in arco-reconcile.log arco-update-refresh.log arco-wifi-seed.log; do
   [ -f "$LOGS/$f" ] && tail -c 262144 "$LOGS/$f" > "$D/$f" 2>/dev/null
 done
 
