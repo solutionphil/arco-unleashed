@@ -49,9 +49,31 @@ want="$(feats "$TPL")"
 # forever and start python on every single boot to be told no.
 known="$( { feats "$CFG"; sort -u "$STATE" 2>/dev/null; } | sort -u )"
 missing="$(comm -23 <(printf '%s\n' "$want") <(printf '%s\n' "$known") 2>/dev/null)"
-[ -n "$missing" ] || exit 0
 
-echo "  AddOn.cfg: $(printf '%s\n' "$missing" | grep -c .) new feature(s) in the template — merging"
+# A #@REVISE names a block the printer ALREADY has, so it adds no feature id and the comparison above
+# cannot see it -- without this the merge would never be started for one. Compare the block itself,
+# with the off-sentinel stripped so a feature the owner switched off is not mistaken for a stale one.
+# POSIX character classes are avoided inside awk on purpose: mawk 1.3.3 does not have them, and this
+# script is expected to keep working on a stock printer as well as an Unleashed one.
+blk(){ awk -v id="$2" 'BEGIN{ re = "^#@FEAT[ \t]+" id "[ \t]*[|]" }
+                       $0 ~ re { f=1 }
+                       f { sub(/^#:off:/, ""); gsub(/\r/, ""); sub(/[ \t]+$/, ""); print }
+                       f && /^#@ENDFEAT/ { exit }' "$1" 2>/dev/null; }
+stale=""
+for id in $(grep -oE '^#@REVISE[[:space:]]+[^[:space:]]+' "$TPL" 2>/dev/null | awk '{print $2}' | sort -u); do
+  here="$(blk "$CFG" "$id")"
+  [ -n "$here" ] || continue      # not in this file: the add path and the seeded record decide
+  [ "$here" = "$(blk "$TPL" "$id")" ] || { stale="$id"; break; }
+done
+
+
+[ -n "$missing" ] || [ -n "$stale" ] || exit 0
+
+if [ -n "$missing" ]; then
+  echo "  AddOn.cfg: $(printf '%s\n' "$missing" | grep -c .) new feature(s) in the template — merging"
+else
+  echo "  AddOn.cfg: the template carries a newer '$stale' — merging"
+fi
 python3 "$DIR/addon_merge.py" apply "$CFG" "$TPL" 2>&1 | sed 's/^/  /'
 
 # Never fail the unit. The '-' prefix on the ExecStartPre already covers this, but a guard that returns

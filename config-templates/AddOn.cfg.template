@@ -773,14 +773,20 @@ gcode:
 #@RETIRE ams | AMS on/off switch - the AMS is detected now, so there is nothing to declare
 #
 
-# PHROZEN_TOOLCHANGE lives inside this block, and a change *inside* a block reaches fresh flashes
-# and nowhere else -- the merge adds and removes whole blocks, it never rewrites one a printer
-# already has. So the corrected macro ships under a new id and the old block is retired in the same
-# run, under the same backup, exactly as the g30 -> g30_meshdone replacement did. The pairing is
-# enforced by addon_merge, not trusted: if this block cannot be added, the retirement does not run,
-# so the two print macros this block carries can never go missing.
-#@RETIRE auto_mode | replaced by auto_mode2, which fixes a retract that assumed relative E
-#@FEAT auto_mode2 | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
+# PHROZEN_TOOLCHANGE lives inside this block. Blocks are the unit the merge moves, so an edit made
+# inside one used to reach fresh flashes and nowhere else -- which is why this marker exists. It says:
+# this block is the kit's, bring an existing printer's copy up to the version below. The owner's
+# on/off toggle is carried over, a block that already matches is left alone and not even mentioned,
+# and a block the owner deleted by hand is NOT put back -- that stays the seeded record's decision.
+# One printer generation carried this block as `auto_mode2`, from the short-lived attempt to deliver
+# the retract fix by renaming the block instead of revising it. #@REVISE cannot reach those: they have
+# no `auto_mode` to revise. They get `auto_mode` through the normal add path, and this line takes the
+# old copy out in the same run -- without it such a printer would end up with both, which is two
+# [gcode_macro PHROZEN_TOOLCHANGE] sections and a config klippy refuses.
+#@RETIRE auto_mode2 | folded back into auto_mode, which is the name it should never have lost
+
+#@REVISE auto_mode | the toolchange retract assumed relative E; see the M83 note in the macro
+#@FEAT auto_mode | Orca auto AMS-mode: reads the 'ams' flag -> P0 M1/M2/M3 at print start
 # ───── Flag-driven AMS mode for OrcaSlicer (Arco Unleashed) ─────
 # The 'ams' flag follows the AMS device node, kept in step by [arco_tool_gate] -- nobody sets
 # it, and there is nothing to remember to set. This macro reads it at print start and applies
