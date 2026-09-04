@@ -180,9 +180,13 @@ def with_off(body):
 
 
 def body_key(body):
-    """A block reduced to what a revision actually cares about: the toggle is not content, and
-    trailing blank lines are not either. Two blocks with the same key need no revision, which is what
-    makes a #@REVISE that has already run a silent no-op rather than a rewrite on every boot."""
+    """A block reduced to what a revision actually cares about. The toggle is not content, and neither
+    is trailing whitespace -- an owner who opened AddOn.cfg in a Windows editor gets a CR on every
+    line, and without rstrip every one of those blocks would read as stale for good. The trailing
+    blank trim is for the one body that does not end at #@ENDFEAT: blocks() returns a final
+    unterminated block all the way to EOF. CI refuses to ship a template like that, but this function
+    is not the place to assume it. Equal keys mean no revision, which is what makes a #@REVISE that
+    has already run a silent no-op rather than a rewrite on every boot."""
     out = [l[len(OFF):] if l.startswith(OFF) else l for l in body]
     out = [l.rstrip() for l in out]
     while out and not out[-1]:
@@ -408,6 +412,11 @@ def main():
                              % (", ".join("[%s]" % c for c in clash), declared[clash[0]])))
             continue
         kept_rev.append((fid, why, span, body))
+        # The names this revision brings in are declared from now on. Without this the add loop that
+        # runs next would test its blocks against a map that predates the revision and could hand
+        # klippy the same section twice -- the one failure mode this whole check exists to stop.
+        for s in gained:
+            declared[s] = os.path.basename(cfg)
     rev = kept_rev
 
     add, skip = [], []
@@ -439,10 +448,14 @@ def main():
         gone = sections_in(cfg_lines[span[0]:span[1] + 1])
         return gone and any(gone & sections_in(b) for _, _, b in want)
 
+    # A revision hands sections back exactly like an addition does, so it counts here too: retiring a
+    # block whose sections a REVISED block takes over is a replacement, and looking only at `add`
+    # would hold the retirement back and leave both copies in the file.
+    handed_back = [b for _, _, b in add] + [b for _, _, _, b in rev]
     held = [f for f, _, s in drop
             if replaced_elsewhere(s)
             and not any(sections_in(cfg_lines[s[0]:s[1] + 1]) & sections_in(b)
-                        for _, _, b in add)]
+                        for b in handed_back)]
     for f in held:
         skip.append((f, "the block that carries its sections is not being added this run — "
                         "not retiring it"))

@@ -57,7 +57,7 @@ missing="$(comm -23 <(printf '%s\n' "$want") <(printf '%s\n' "$known") 2>/dev/nu
 # script is expected to keep working on a stock printer as well as an Unleashed one.
 blk(){ awk -v id="$2" 'BEGIN{ re = "^#@FEAT[ \t]+" id "[ \t]*[|]" }
                        $0 ~ re { f=1 }
-                       f { sub(/^#:off:/, ""); print }
+                       f { sub(/^#:off:/, ""); gsub(/\r/, ""); sub(/[ \t]+$/, ""); print }
                        f && /^#@ENDFEAT/ { exit }' "$1" 2>/dev/null; }
 stale=""
 for id in $(grep -oE '^#@REVISE[[:space:]]+[^[:space:]]+' "$TPL" 2>/dev/null | awk '{print $2}' | sort -u); do
