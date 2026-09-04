@@ -77,6 +77,28 @@ restore_stock_dev_py() {
 # printer.cfg, a Phrozen update replacing one file but not the other); the include line is
 # ground truth for which macro set is loading. This is what makes every half-state
 # self-heal on the next boot instead of persisting silently.
+# Our own bridge configs are copied into printer_data/config when KAOS is ACTIVATED, and never
+# again. A kit update refreshes $SELF_DIR/config (it is inside the kit clone) but not the copies,
+# so a printer that has had KAOS on since before an update keeps running the old ones -- the same
+# "the correction never reaches the printer" shape this project keeps meeting. Keyed on the include
+# line actually present in printer.cfg, like sync_spit_patch above: a file whose include is gone is
+# not put back, so KAOS_OFF stays off. KAOS's OWN files come from $CACHE and are not touched here.
+sync_bridge_configs() {
+    [ -d "$SELF_DIR/config" ] && [ -f "$PRINTER_CFG" ] || return 0
+    local src name
+    for src in "$SELF_DIR"/config/*.cfg; do
+        [ -f "$src" ] || continue
+        name="$(basename "$src")"
+        grep -qE "^[[:space:]]*\[include[[:space:]]+${name//./\.}\]" "$PRINTER_CFG" 2>/dev/null || continue
+        cmp -s "$src" "$CONFIG_DIR/$name" && continue
+        if cp -f "$src" "$CONFIG_DIR/$name"; then
+            log "refreshed $name from the kit — the installed copy was older than this kit"
+        else
+            log "WARNING - could not refresh $name"
+        fi
+    done
+}
+
 sync_spit_patch() {
     [ -f "$SPIT_PATCH" ] && [ -f "$PGM" ] && [ -f "$PRINTER_CFG" ] || return 0
     local want r
@@ -141,7 +163,11 @@ sync_home_hook() {
 # ---------------------------------------------------------------------------
 [ -d "$EXTRAS" ] || exit 0                       # not an Arco / nothing to guard
 
-# Both run on EVERY path, including the two early exits below.
+# All three run on EVERY path, including the two early exits below.
+# Refresh our own bridge configs BEFORE the spit patch reconciles: that patch renames a macro in
+# printer_gcode_macro.cfg to match what the bridge declares, so the bridge has to be the current
+# one first or the two describe different files.
+sync_bridge_configs
 sync_spit_patch
 sync_home_hook
 
