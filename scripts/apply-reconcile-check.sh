@@ -39,13 +39,30 @@ STAMP="$DATA/.arco-reconcile-done"
 # If neither can say, do nothing -- guessing here would arm the reconcile on every boot for ever.
 cur=""
 if [ -d "$KIT/.git" ] && command -v git >/dev/null 2>&1; then
-  cur="$(git -C "$KIT" rev-parse HEAD 2>/dev/null || true)"
+  # -c safe.directory: this also runs as ROOT (ensure-imageid.sh, drop-in 19) against a clone owned by
+  # the printer user, and a plain `git -C` refuses that as dubious ownership. Without it the fallback
+  # below answered with the flat .kit-commit baked into the image -- a value that never moves -- so
+  # the stamp could never match and the root-side setup ran on EVERY klipper start: 56 runs in the
+  # log on 2026-09-05, three of them for one and the same kit commit within twenty minutes, each a
+  # 60 s run competing with Moonraker, Spoolman and the display for the two service cores. The same
+  # trap, fixed the same way, sits in optimize-boot.sh where the stamp is written.
+  cur="$(git -c safe.directory='*' -C "$KIT" rev-parse HEAD 2>/dev/null || true)"
+  # A clone git cannot read is a fault to leave alone, not a reason to compare against a constant:
+  # with .git present the flat file is never the truth.
+  [ -n "$cur" ] || exit 0
 fi
 [ -n "$cur" ] || cur="$(tr -dc '0-9a-f' < "$KIT/.kit-commit" 2>/dev/null | head -c 40)"
 [ -n "$cur" ] || exit 0
 
 last="$(head -c 40 "$STAMP" 2>/dev/null || true)"
 [ "$cur" = "$last" ] && exit 0
+
+# Drop-in 19 runs this as root and starts the setup at once; drop-in 25 runs it again as the owner a
+# few seconds later, while that run is still going and the stamp is not yet written. Re-arming then
+# buys a second full run on the next start -- the log showed most kit commits recorded twice.
+if systemctl is-active --quiet arco-reconcile.service 2>/dev/null; then
+  exit 0
+fi
 
 # No stamp at all is the interesting case rather than an error: it means optimize-boot.sh has never
 # recorded a run here, which is true of a printer updated from the web interface since before this guard
