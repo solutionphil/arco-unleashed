@@ -145,7 +145,9 @@ if [ "$DETACH" = 1 ] && command -v systemd-run >/dev/null 2>&1; then
   # The caller here is a Type=oneshot unit that multi-user.target waits for. Running a 60-second
   # script inside it would hold up the boot -- this kit has already lost 8m36s to exactly that shape.
   log "handing the repair to systemd (this boot's guards are repaired for the NEXT start)"
-  systemd-run --collect --unit=arco-guard-repair-run \
+  # --nice=19 and idle I/O, as for arco-reconcile: the repair takes effect on the next start anyway,
+  # so it must not compete with the boot path for the two service cores.
+  systemd-run --collect --unit=arco-guard-repair-run --nice=19 -p IOSchedulingClass=idle \
     --description="Arco Unleashed - guard repair" /bin/bash "$OB" >/dev/null 2>&1 && exit 0
   log "systemd-run refused — running inline instead"
 fi

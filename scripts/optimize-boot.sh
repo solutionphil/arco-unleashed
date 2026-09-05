@@ -825,7 +825,13 @@ fi
 #     their settings in Moonraker's database rather than a file, so this cannot be dropped in at bake
 #     time -- it needs Moonraker answering. Same unit shape as the refresh watcher below and for the same
 #     reason: Type=simple, so waiting for Moonraker never holds up the boot.
-if [ -f "$SELFDIR/apply-console-filters.sh" ]; then
+#
+#     It WAS a oneshot with three ExecStart= lines (only oneshot allows more than one), and that shape
+#     cost every boot: multi-user.target is ordered after everything it wants, and a oneshot counts as
+#     started only once it has exited -- so the ~20 s this polls for Moonraker held "Startup finished"
+#     on a printer with nothing left to seed (measured 2026-09-05: 22.9 s of 82 s). The three seeds now
+#     run in order from apply-web-seeds.sh, the one ExecStart a simple unit allows.
+if [ -f "$SELFDIR/apply-console-filters.sh" ] && [ -f "$SELFDIR/apply-web-seeds.sh" ]; then
   install -Dm644 /dev/stdin "$SD/arco-console-filters.service" <<EOF
 [Unit]
 Description=Arco Unleashed - seed the Phrozen-noise console filter into Mainsail and Fluidd
@@ -833,18 +839,11 @@ After=moonraker.service network.target
 Wants=moonraker.service
 
 [Service]
-# oneshot rather than simple, so a SECOND ExecStart is allowed: the macro groups need exactly the same
-# preconditions as the filters -- Moonraker up, its database reachable over HTTP -- and waiting for that
-# twice, in two units, would be two chances to get the ordering wrong. RemainAfterExit stays off; both
-# jobs are one-shot seeds and the unit going inactive afterwards is the correct end state.
-Type=oneshot
-ExecStart=/bin/bash $SELFDIR/apply-console-filters.sh
-ExecStart=-/usr/bin/python3 $SELFDIR/apply-macro-groups.py
-# Third seed, same preconditions, same one-shot nature: Fluidd ships the card our AMS and
-# USB-stick indicators are drawn on DISABLED, so installing the indicators left them invisible on
-# the second interface. --seed refuses the moment a layout exists, so it fills an untouched
-# dashboard and never edits somebody's arrangement.
-ExecStart=-/usr/bin/python3 $SELFDIR/../fluidd-theme/show-runout-card.py --seed
+# simple, NOT oneshot: a oneshot under multi-user.target holds the boot until it exits, and this one
+# spends its life waiting for Moonraker. The three seeds (console filter, macro groups, Fluidd card)
+# run in order inside apply-web-seeds.sh; the unit going inactive afterwards is the correct end state.
+Type=simple
+ExecStart=/bin/bash $SELFDIR/apply-web-seeds.sh
 Nice=10
 IOSchedulingClass=idle
 
