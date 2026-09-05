@@ -72,7 +72,12 @@ if [ -n "$_kit" ] && [ -f "$_mark" ] && [ -x "$_kit/scripts/optimize-boot.sh" ];
     # and root-only, so a failed repair would otherwise be invisible to the one person who needs to
     # know. It is the same place klipper keeps its logs, so it travels with every log bundle.
     _log="$(cd "$_kit/.." 2>/dev/null && pwd)/printer_data/logs/arco-reconcile.log"
+    # --nice=19 and idle I/O: this is a 60 s run with 22 daemon-reloads, on the same two cores the boot
+    # path shares (Spoolman, Moonraker, nginx, voronFDM). At default priority it stretched a Spoolman
+    # cold start to 46 s and with it Moonraker and the display (measured 2026-09-05). Nothing waits on
+    # this run -- it takes effect on the next boot -- so it can yield to everything that does.
     systemd-run --unit=arco-reconcile --description="Arco Unleashed: apply what the last kit update needs" \
+                --nice=19 -p IOSchedulingClass=idle \
                 -p "StandardOutput=append:$_log" -p "StandardError=append:$_log" \
                 /bin/bash "$_kit/scripts/optimize-boot.sh" >/dev/null 2>&1 \
       && echo "ensure-imageid: kit update needed setup — running optimize-boot.sh (log: $_log)" \
