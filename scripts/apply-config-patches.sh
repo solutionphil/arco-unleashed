@@ -283,4 +283,51 @@ if grep -qE '^[[:space:]]*SET_KINEMATIC_POSITION Z=150[[:space:]]*$' "$GM"; then
   fi
 fi
 
+
+# --- Patch K: the colour-change traverse must clear the model --------------------------------
+# Reported 2026-10-08 after a two-colour print: the extruder collided during a filament change and
+# the print came out with a layer shift. klippy.log carries no error at all -- no "Move out of
+# range", no "Timer too close", no shutdown -- which is exactly what a purely mechanical crash looks
+# like: the coordinates are all legal, the belts skip, and Klipper keeps printing at the position it
+# believes in.
+#
+# The path, from that print's log: the slicer emits PHROZEN_TOOLCHANGE and `T1` with no Z move, our
+# macro hands over with `P10 S<n>`, phrozen_dev runs PG104 -> PG101, and PG101 calls
+# PRZ_CUT_WAITINGAREA. That macro travels X -> g_wait_pause_x, Y -> g_bottom_print_y at F4000 with no
+# Z component at all, i.e. at the current layer height -- out of the model and on to the cutter area
+# behind the bed. PRZ_PAUSE_WAITINGAREA does the same single move, and phrozen_dev calls it one step
+# earlier still, before PAUSE_PRINTING has even saved the state.
+#
+# The clearance Phrozen intends is already in the file: PG101 does `G91 / G1 Z1 / G90 / <travel> /
+# G91 / G1 Z-1 / G90`, and the comment above it says it is there so the head does not stop on the
+# model. It just sits AFTER the call above -- it protects a repeat trip to the same waiting position
+# and leaves the first traverse, the one that crosses the part, unprotected.
+#
+# So this does not invent a clearance, it gives the existing one to the move that needs it: the same
+# balanced 1 mm pair, around the first travel of both macros. Balanced on purpose -- Z ends where it
+# started, so nothing downstream (spit, wipe, cut) sees a different height, and the patch does not
+# depend on RESTORE_GCODE_STATE bringing Z back (it does, MOVE=1, but relying on that would make a
+# crash out of a later edit).
+#
+# Only these two: the same travel line appears 19 times in this file, but the others (PG102,
+# PG108, PG111..PG119) shuttle between the waiting and spitting positions behind the bed and never
+# cross the part. PAUSEMA, PRZ_MANUAL_WAITING and PRZ_WAITINGAREA do leave the print position and
+# carry the same shape -- they are the manual-pause path, not this incident, and are left alone
+# deliberately rather than by oversight.
+#
+# printer_gcode_macro.cfg is never regenerated on an existing printer, so this is a self-heal patch
+# like B and J rather than a template change.
+K_MARK='arco-unleashed: traverse lift'
+if ! grep -qF "$K_MARK" "$GM" && grep -qE '^\[gcode_macro PRZ_CUT_WAITINGAREA\]' "$GM"; then
+  k_before=$(grep -c 'G1 Z1 F4000' "$GM" || true)
+  for k_sec in PRZ_CUT_WAITINGAREA PRZ_PAUSE_WAITINGAREA; do
+    sed -i -E "/^\[gcode_macro ${k_sec}\]/,/^\[/ s@^([[:space:]]*)(G1 [^\r]*g_wait_pause_x[^\r]*g_bottom_print_y[^\r]*)(\r?)\$@\1# >>> ${K_MARK} >>>\3\n\1G91\3\n\1G1 Z1 F4000\3\n\1G90\3\n\1\2\3\n\1G91\3\n\1G1 Z-1 F4000\3\n\1G90\3\n\1# <<< ${K_MARK} <<<\3@" "$GM"
+  done
+  k_after=$(grep -c 'G1 Z1 F4000' "$GM" || true)
+  if [ "$k_after" -eq $((k_before + 2)) ]; then
+    echo "  config-patches: colour-change traverse now lifts 1 mm clear of the model."; changed=1
+  else
+    echo "  config-patches: PRZ_*_WAITINGAREA has an unexpected shape -- traverse lift NOT applied."
+  fi
+fi
 [ "$changed" = 0 ] && echo "  config-patches: already current." || true
