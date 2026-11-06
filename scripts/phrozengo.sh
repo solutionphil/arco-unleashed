@@ -157,9 +157,9 @@ enable_pgo(){
   echo "  -> PhrozenGo cloud RE-ENABLED (cloud + frpc + OTA)."
 }
 
-# Tell Klipper which way the cloud switch went. The P114 gate in AddOn.cfg uses this: with the
-# cloud off nothing is polling for AMS status, so the poll is swallowed rather than paid for. Best
-# effort on purpose -- if Klipper is down the file state above is still correct, and the next run of
+# Tell Klipper which way the cloud switch went (save-variable 'phrozengo'). Nothing gates on it any
+# more -- the P114 gate used to, until it turned out the display's cutter check waits for that
+# answer too (AddOn.cfg, p114_gate) -- but it keeps the choice visible to macros. Best effort on purpose -- if Klipper is down the file state above is still correct, and the next run of
 # this script (reapply included) sets the variable.
 sync_flag(){
   curl -s --max-time 5 -X POST \
